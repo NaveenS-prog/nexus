@@ -96,15 +96,15 @@ export async function fetchLiveGoogleCalendarEvents(overrideCreds?: Partial<Inte
   }
 
   const now = new Date();
-  const timeMin = new Date(now.getTime() - 86400000).toISOString();
-  const timeMax = addDays(now, 15).toISOString();
+  const timeMin = addDays(now, -30).toISOString();
+  const timeMax = addDays(now, 90).toISOString();
 
   const url = new URL("https://www.googleapis.com/calendar/v3/calendars/primary/events");
   url.searchParams.append("timeMin", timeMin);
   url.searchParams.append("timeMax", timeMax);
   url.searchParams.append("singleEvents", "true");
   url.searchParams.append("orderBy", "startTime");
-  url.searchParams.append("maxResults", "100");
+  url.searchParams.append("maxResults", "250");
 
   const res = await fetch(url.toString(), {
     headers: { Authorization: `Bearer ${token}` },
