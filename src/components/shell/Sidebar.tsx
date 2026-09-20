@@ -35,7 +35,6 @@ export function Sidebar() {
 
   const focusNav = [
     { label: "Focus", href: "/focus", icon: Target },
-    { label: "Cosmos 3D", href: "/cosmos", icon: Sparkles },
     { label: "Settings", href: "/settings", icon: Settings },
   ];
 
