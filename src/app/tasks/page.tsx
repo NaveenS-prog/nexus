@@ -1,0 +1,265 @@
+"use client";
+
+import { useState, useMemo } from "react";
+import { 
+  CheckSquare, 
+  Plus, 
+  Search, 
+  Filter, 
+  Circle, 
+  CheckCircle2, 
+  Clock, 
+  Calendar, 
+  Tag,
+  GraduationCap,
+  Layers,
+  Sparkles
+} from "lucide-react";
+import { useNexusStore } from "@/lib/data/store";
+import { UnifiedItem, Priority, Category, Source } from "@/lib/types";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { ItemDetailDrawer } from "@/components/dashboard/ItemDetailDrawer";
+
+export default function TasksPage() {
+  const { items, addItem, toggleItemCompletion, deleteItem } = useNexusStore();
+  const [selectedFilter, setSelectedFilter] = useState<string>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [newTitle, setNewTitle] = useState("");
+  const [newCategory, setNewCategory] = useState<Category>("personal");
+  const [newPriority, setNewPriority] = useState<Priority>("medium");
+  const [selectedItem, setSelectedItem] = useState<UnifiedItem | null>(null);
+  const [drawerOpen, setDrawerOpen] = useState(false);
+
+  // Filter items
+  const filteredItems = useMemo(() => {
+    return items.filter((item) => {
+      // Don't show pure calendar events in tasks view unless in all
+      if (item.category === "calendar" && selectedFilter !== "calendar") {
+        return false;
+      }
+
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchesTitle = item.title.toLowerCase().includes(q);
+        const matchesDesc = item.description?.toLowerCase().includes(q);
+        const matchesTag = item.tags?.some((t) => t.toLowerCase().includes(q));
+        if (!matchesTitle && !matchesDesc && !matchesTag) return false;
+      }
+
+      if (selectedFilter === "all") return true;
+      if (selectedFilter === "pending") return item.status !== "completed";
+      if (selectedFilter === "completed") return item.status === "completed";
+      if (selectedFilter === "academic") return item.category === "academic";
+      if (selectedFilter === "project") return item.category === "project";
+      if (selectedFilter === "personal") return item.category === "personal";
+      if (selectedFilter === "critical") return item.priority === "critical";
+      return true;
+    });
+  }, [items, selectedFilter, searchQuery]);
+
+  const handleCreateTask = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTitle.trim()) return;
+
+    addItem({
+      source: "nexus",
+      title: newTitle.trim(),
+      category: newCategory,
+      priority: newPriority,
+      status: "pending",
+      estimatedMinutes: 30,
+      dueAt: new Date(Date.now() + 86400000).toISOString(),
+      tags: ["Quick Add"],
+    });
+
+    setNewTitle("");
+  };
+
+  const handleOpenItem = (item: UnifiedItem) => {
+    setSelectedItem(item);
+    setDrawerOpen(true);
+  };
+
+  const getSourceIcon = (source: Source) => {
+    switch (source) {
+      case "google_classroom": return <GraduationCap className="w-3.5 h-3.5 text-amber-400" />;
+      case "notion": return <Layers className="w-3.5 h-3.5 text-indigo-400" />;
+      case "google_tasks": return <CheckSquare className="w-3.5 h-3.5 text-blue-400" />;
+      default: return <CheckSquare className="w-3.5 h-3.5 text-emerald-400" />;
+    }
+  };
+
+  return (
+    <div className="max-w-6xl mx-auto px-6 py-8 space-y-6 animate-fade-in">
+      {/* Top Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.06] pb-6">
+        <div>
+          <div className="flex items-center gap-2">
+            <CheckSquare className="w-5 h-5 text-indigo-400" />
+            <h1 className="text-2xl font-bold tracking-tight text-white">Unified Tasks</h1>
+          </div>
+          <p className="text-xs text-zinc-400 mt-1">
+            Aggregated queue from Google Tasks, Classroom, Notion, and NEXUS
+          </p>
+        </div>
+
+        {/* Search */}
+        <div className="relative w-full sm:w-72">
+          <Search className="w-3.5 h-3.5 text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="Filter tasks by name or tag..."
+            className="w-full bg-nexus-900 border border-white/[0.08] rounded-lg pl-9 pr-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-500 outline-none focus:border-indigo-500/50"
+          />
+        </div>
+      </div>
+
+      {/* Quick Add Bar */}
+      <form onSubmit={handleCreateTask} className="p-2.5 rounded-xl border border-white/[0.08] bg-nexus-900/60 flex flex-wrap items-center gap-2">
+        <input
+          type="text"
+          value={newTitle}
+          onChange={(e) => setNewTitle(e.target.value)}
+          placeholder="Add a new task (e.g. 'Review OS Semaphore code')..."
+          className="flex-1 min-w-[240px] bg-transparent px-3 py-1.5 text-xs text-zinc-100 placeholder-zinc-500 outline-none"
+        />
+
+        <select
+          value={newCategory}
+          onChange={(e) => setNewCategory(e.target.value as Category)}
+          className="bg-nexus-950 border border-white/[0.08] rounded-md px-2 py-1 text-xs text-zinc-300 outline-none"
+        >
+          <option value="personal">Personal</option>
+          <option value="academic">Academic</option>
+          <option value="project">Project</option>
+          <option value="idea">Idea</option>
+        </select>
+
+        <select
+          value={newPriority}
+          onChange={(e) => setNewPriority(e.target.value as Priority)}
+          className="bg-nexus-950 border border-white/[0.08] rounded-md px-2 py-1 text-xs text-zinc-300 outline-none"
+        >
+          <option value="low">Low Priority</option>
+          <option value="medium">Medium Priority</option>
+          <option value="high">High Priority</option>
+          <option value="critical">Critical</option>
+        </select>
+
+        <Button type="submit" size="sm" className="h-8 text-xs flex items-center gap-1.5">
+          <Plus className="w-3.5 h-3.5" />
+          <span>Add Task</span>
+        </Button>
+      </form>
+
+      {/* Filter Tabs */}
+      <div className="flex items-center gap-1.5 border-b border-white/[0.06] pb-2 overflow-x-auto text-xs">
+        {[
+          { id: "all", label: "All Items" },
+          { id: "pending", label: "Pending" },
+          { id: "academic", label: "Academics" },
+          { id: "project", label: "Projects" },
+          { id: "personal", label: "Personal" },
+          { id: "critical", label: "Critical" },
+          { id: "completed", label: "Completed" },
+        ].map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setSelectedFilter(tab.id)}
+            className={`px-3 py-1.5 rounded-md font-medium transition-all ${
+              selectedFilter === tab.id
+                ? "bg-white/[0.1] text-zinc-100 shadow-sm"
+                : "text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]"
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Task List */}
+      <div className="rounded-xl border border-white/[0.08] bg-nexus-900/50 backdrop-blur-sm divide-y divide-white/[0.04] overflow-hidden">
+        {filteredItems.length === 0 ? (
+          <div className="p-12 text-center text-xs text-zinc-500">
+            No tasks found in this view. Use the input above or press <kbd className="px-1 py-0.5 bg-white/10 rounded">Ctrl+K</kbd> to add.
+          </div>
+        ) : (
+          filteredItems.map((item) => {
+            const isCompleted = item.status === "completed";
+            return (
+              <div
+                key={item.id}
+                onClick={() => handleOpenItem(item)}
+                className={`p-3.5 flex items-center justify-between hover:bg-white/[0.03] transition-all cursor-pointer group ${
+                  isCompleted ? "opacity-60 bg-black/20" : ""
+                }`}
+              >
+                <div className="flex items-center gap-3 min-w-0 pr-4">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      toggleItemCompletion(item.id);
+                    }}
+                    className="flex-shrink-0 text-zinc-500 hover:text-indigo-400 transition-colors"
+                  >
+                    {isCompleted ? (
+                      <CheckCircle2 className="w-4 h-4 text-indigo-400" />
+                    ) : (
+                      <Circle className="w-4 h-4" />
+                    )}
+                  </button>
+
+                  <div className="min-w-0">
+                    <p className={`text-xs font-medium text-zinc-200 truncate ${isCompleted ? "line-through text-zinc-500" : "group-hover:text-white"}`}>
+                      {item.title}
+                    </p>
+                    <div className="flex items-center gap-2 mt-0.5 text-[10px] text-zinc-500">
+                      <span className="flex items-center gap-1 font-mono">
+                        {getSourceIcon(item.source)}
+                        <span>{item.source.replace("_", " ")}</span>
+                      </span>
+                      {item.courseName && (
+                        <>
+                          <span>•</span>
+                          <span className="text-zinc-400">{item.courseName}</span>
+                        </>
+                      )}
+                      {item.dueAt && (
+                        <>
+                          <span>•</span>
+                          <span className="text-amber-400/80">
+                            Due {new Date(item.dueAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                          </span>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  {item.priority === "critical" && <Badge variant="destructive">Critical</Badge>}
+                  {item.priority === "high" && <Badge variant="warning">High</Badge>}
+                  <Badge variant="outline" className="capitalize text-[10px]">
+                    {item.category}
+                  </Badge>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
+
+      <ItemDetailDrawer
+        item={selectedItem}
+        isOpen={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        onToggleStatus={toggleItemCompletion}
+        onDelete={deleteItem}
+      />
+    </div>
+  );
+}
