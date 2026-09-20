@@ -2,17 +2,18 @@ import { NextResponse } from "next/server";
 import { getStoredCredentials } from "@/lib/integrations/config";
 
 export async function GET(req: Request) {
+  const url = new URL(req.url);
+  const queryClientId = url.searchParams.get("client_id");
+  const queryClientSecret = url.searchParams.get("client_secret");
+
   const creds = getStoredCredentials();
-  const clientId = creds.googleClientId;
+  const clientId = queryClientId || creds.googleClientId;
+  const clientSecret = queryClientSecret || creds.googleClientSecret;
 
   if (!clientId) {
-    return NextResponse.json(
-      { error: "Google Client ID is not configured. Please add it in Settings." },
-      { status: 400 }
-    );
+    return NextResponse.redirect(`${url.origin}/settings?error=missing_client_id`);
   }
 
-  const url = new URL(req.url);
   const redirectUri = `${url.origin}/api/auth/google/callback`;
 
   const scopes = [
@@ -24,6 +25,13 @@ export async function GET(req: Request) {
     "profile",
   ].join(" ");
 
+  // Pack state so callback can restore client_id and client_secret seamlessly
+  const stateData = JSON.stringify({
+    cid: clientId,
+    sec: clientSecret || "",
+  });
+  const encodedState = Buffer.from(stateData).toString("base64url");
+
   const params = new URLSearchParams({
     client_id: clientId,
     redirect_uri: redirectUri,
@@ -31,6 +39,7 @@ export async function GET(req: Request) {
     scope: scopes,
     access_type: "offline",
     prompt: "consent",
+    state: encodedState,
   });
 
   return NextResponse.redirect(`https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`);

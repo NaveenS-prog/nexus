@@ -41,12 +41,43 @@ export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
 
-  // Check URL params for OAuth callback return
+  // Load saved credentials on mount and handle OAuth callback return
   useEffect(() => {
     if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("nexus_credentials_v1");
+      if (saved) {
+        try {
+          const creds = JSON.parse(saved);
+          if (creds.googleClientId) setGoogleClientId(creds.googleClientId);
+          if (creds.googleClientSecret) setGoogleClientSecret(creds.googleClientSecret);
+          if (creds.googleRefreshToken) setGoogleRefreshToken(creds.googleRefreshToken);
+          if (creds.googleAccessToken) setGoogleAccessToken(creds.googleAccessToken);
+          if (creds.notionApiKey) setNotionApiKey(creds.notionApiKey);
+          if (creds.notionDatabaseId) setNotionDatabaseId(creds.notionDatabaseId);
+        } catch {
+          // ignore
+        }
+      }
+
       const params = new URLSearchParams(window.location.search);
       if (params.get("connected") === "google") {
-        setStatusMsg("Google Account connected successfully via OAuth!");
+        const at = params.get("at");
+        const rt = params.get("rt");
+        const cid = params.get("cid");
+        const sec = params.get("sec");
+
+        const existingStr = localStorage.getItem("nexus_credentials_v1");
+        const existing = existingStr ? JSON.parse(existingStr) : {};
+        const updated = {
+          ...existing,
+          googleAccessToken: at || existing.googleAccessToken,
+          googleRefreshToken: rt || existing.googleRefreshToken,
+          googleClientId: cid || existing.googleClientId,
+          googleClientSecret: sec || existing.googleClientSecret,
+        };
+        localStorage.setItem("nexus_credentials_v1", JSON.stringify(updated));
+
+        setStatusMsg("Google Account connected successfully via OAuth! Syncing live data...");
         syncAll();
       } else if (params.get("error")) {
         setErrorMsg(`OAuth connection issue: ${params.get("error")}`);
@@ -70,16 +101,24 @@ export default function SettingsPage() {
     setStatusMsg("");
     setErrorMsg("");
 
+    const updatedCreds = {
+      googleClientId: googleClientId.trim() || undefined,
+      googleClientSecret: googleClientSecret.trim() || undefined,
+      googleRefreshToken: googleRefreshToken.trim() || undefined,
+      googleAccessToken: googleAccessToken.trim() || undefined,
+    };
+
+    if (typeof window !== "undefined") {
+      const existingStr = localStorage.getItem("nexus_credentials_v1");
+      const existing = existingStr ? JSON.parse(existingStr) : {};
+      localStorage.setItem("nexus_credentials_v1", JSON.stringify({ ...existing, ...updatedCreds }));
+    }
+
     try {
       const res = await fetch("/api/integrations/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          googleClientId: googleClientId.trim() || undefined,
-          googleClientSecret: googleClientSecret.trim() || undefined,
-          googleRefreshToken: googleRefreshToken.trim() || undefined,
-          googleAccessToken: googleAccessToken.trim() || undefined,
-        }),
+        body: JSON.stringify(updatedCreds),
       });
 
       const data = await res.json();
@@ -104,14 +143,22 @@ export default function SettingsPage() {
     setStatusMsg("");
     setErrorMsg("");
 
+    const updatedCreds = {
+      notionApiKey: notionApiKey.trim() || undefined,
+      notionDatabaseId: notionDatabaseId.trim() || undefined,
+    };
+
+    if (typeof window !== "undefined") {
+      const existingStr = localStorage.getItem("nexus_credentials_v1");
+      const existing = existingStr ? JSON.parse(existingStr) : {};
+      localStorage.setItem("nexus_credentials_v1", JSON.stringify({ ...existing, ...updatedCreds }));
+    }
+
     try {
       const res = await fetch("/api/integrations/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          notionApiKey: notionApiKey.trim() || undefined,
-          notionDatabaseId: notionDatabaseId.trim() || undefined,
-        }),
+        body: JSON.stringify(updatedCreds),
       });
 
       const data = await res.json();
@@ -416,10 +463,10 @@ export default function SettingsPage() {
             <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-white/[0.06]">
               {googleClientId && (
                 <a
-                  href="/api/auth/google"
-                  className="px-4 py-2 rounded-md bg-white/[0.08] hover:bg-white/[0.14] text-zinc-200 font-medium transition-colors flex items-center gap-2 text-xs border border-white/[0.1]"
+                  href={`/api/auth/google?client_id=${encodeURIComponent(googleClientId.trim())}&client_secret=${encodeURIComponent(googleClientSecret.trim())}`}
+                  className="px-4 py-2 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white font-medium transition-colors flex items-center gap-2 text-xs shadow-md"
                 >
-                  <ExternalLink className="w-3.5 h-3.5 text-indigo-400" />
+                  <ExternalLink className="w-3.5 h-3.5" />
                   <span>Connect with Google Account (OAuth)</span>
                 </a>
               )}

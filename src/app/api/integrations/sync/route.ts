@@ -1,11 +1,21 @@
 import { NextResponse } from "next/server";
 import { fetchLiveGoogleTasks, fetchLiveGoogleCalendarEvents } from "@/lib/integrations/googleApi";
 import { fetchLiveNotionItems } from "@/lib/integrations/notionApi";
-import { getStoredCredentials } from "@/lib/integrations/config";
+import { getStoredCredentials, IntegrationCredentials } from "@/lib/integrations/config";
 import { UnifiedItem } from "@/lib/types";
 
-export async function POST() {
-  const creds = getStoredCredentials();
+export async function POST(req: Request) {
+  let clientCreds: Partial<IntegrationCredentials> = {};
+  try {
+    const body = await req.json();
+    if (body.credentials) {
+      clientCreds = body.credentials;
+    }
+  } catch {
+    // Body is optional
+  }
+
+  const creds = getStoredCredentials(clientCreds);
   const allItems: UnifiedItem[] = [];
   const errors: string[] = [];
   const stats = {
@@ -17,7 +27,7 @@ export async function POST() {
   // 1. Sync Google Tasks
   if (creds.googleAccessToken || (creds.googleRefreshToken && creds.googleClientId)) {
     try {
-      const gtasks = await fetchLiveGoogleTasks();
+      const gtasks = await fetchLiveGoogleTasks(creds);
       allItems.push(...gtasks);
       stats.googleTasks = gtasks.length;
     } catch (err: any) {
@@ -29,7 +39,7 @@ export async function POST() {
   // 2. Sync Google Calendar
   if (creds.googleAccessToken || (creds.googleRefreshToken && creds.googleClientId)) {
     try {
-      const gcal = await fetchLiveGoogleCalendarEvents();
+      const gcal = await fetchLiveGoogleCalendarEvents(creds);
       allItems.push(...gcal);
       stats.googleCalendar = gcal.length;
     } catch (err: any) {
@@ -41,7 +51,7 @@ export async function POST() {
   // 3. Sync Notion
   if (creds.notionApiKey && creds.notionDatabaseId) {
     try {
-      const notionItems = await fetchLiveNotionItems();
+      const notionItems = await fetchLiveNotionItems(creds);
       allItems.push(...notionItems);
       stats.notion = notionItems.length;
     } catch (err: any) {

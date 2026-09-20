@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import os from "os";
 
 export interface IntegrationCredentials {
   googleClientId?: string;
@@ -12,9 +13,16 @@ export interface IntegrationCredentials {
   notionDatabaseId?: string;
 }
 
-const CREDENTIALS_FILE_PATH = path.join(process.cwd(), "nexus_credentials.json");
+// Support both local repo directory and serverless /tmp directory
+const getCredsFilePath = () => {
+  const tmpPath = path.join(os.tmpdir(), "nexus_credentials.json");
+  const localPath = path.join(process.cwd(), "nexus_credentials.json");
+  if (fs.existsSync(tmpPath)) return tmpPath;
+  if (fs.existsSync(localPath)) return localPath;
+  return tmpPath;
+};
 
-export function getStoredCredentials(): IntegrationCredentials {
+export function getStoredCredentials(overrideCreds?: Partial<IntegrationCredentials>): IntegrationCredentials {
   const envCreds: IntegrationCredentials = {
     googleClientId: process.env.GOOGLE_CLIENT_ID || undefined,
     googleClientSecret: process.env.GOOGLE_CLIENT_SECRET || undefined,
@@ -24,26 +32,39 @@ export function getStoredCredentials(): IntegrationCredentials {
     notionDatabaseId: process.env.NOTION_DATABASE_ID || undefined,
   };
 
+  let fileCreds: Partial<IntegrationCredentials> = {};
   try {
-    if (fs.existsSync(CREDENTIALS_FILE_PATH)) {
-      const fileData = fs.readFileSync(CREDENTIALS_FILE_PATH, "utf-8");
-      const parsed = JSON.parse(fileData);
-      return { ...envCreds, ...parsed };
+    const credsPath = getCredsFilePath();
+    if (fs.existsSync(credsPath)) {
+      const fileData = fs.readFileSync(credsPath, "utf-8");
+      fileCreds = JSON.parse(fileData);
     }
   } catch (err) {
-    console.warn("Could not read credentials file:", err);
+    // Ignore read errors
   }
 
-  return envCreds;
+  return { ...envCreds, ...fileCreds, ...(overrideCreds || {}) };
 }
 
 export function saveStoredCredentials(creds: Partial<IntegrationCredentials>): IntegrationCredentials {
   const existing = getStoredCredentials();
   const merged = { ...existing, ...creds };
+  
+  // Try saving to /tmp (works in serverless Vercel)
   try {
-    fs.writeFileSync(CREDENTIALS_FILE_PATH, JSON.stringify(merged, null, 2), "utf-8");
+    const tmpPath = path.join(os.tmpdir(), "nexus_credentials.json");
+    fs.writeFileSync(tmpPath, JSON.stringify(merged, null, 2), "utf-8");
   } catch (err) {
-    console.error("Could not write credentials file:", err);
+    // Ignore
   }
+
+  // Also try local directory if writable
+  try {
+    const localPath = path.join(process.cwd(), "nexus_credentials.json");
+    fs.writeFileSync(localPath, JSON.stringify(merged, null, 2), "utf-8");
+  } catch (err) {
+    // Ignore read-only errors on serverless
+  }
+
   return merged;
 }

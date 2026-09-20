@@ -5,6 +5,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const code = url.searchParams.get("code");
   const error = url.searchParams.get("error");
+  const state = url.searchParams.get("state");
 
   if (error) {
     return NextResponse.redirect(`${url.origin}/settings?error=${encodeURIComponent(error)}`);
@@ -14,9 +15,22 @@ export async function GET(req: Request) {
     return NextResponse.redirect(`${url.origin}/settings?error=no_code_provided`);
   }
 
+  let clientId = "";
+  let clientSecret = "";
+
+  if (state) {
+    try {
+      const decoded = JSON.parse(Buffer.from(state, "base64url").toString("utf-8"));
+      clientId = decoded.cid;
+      clientSecret = decoded.sec;
+    } catch {
+      // Ignore state parse errors
+    }
+  }
+
   const creds = getStoredCredentials();
-  const clientId = creds.googleClientId;
-  const clientSecret = creds.googleClientSecret;
+  clientId = clientId || creds.googleClientId || "";
+  clientSecret = clientSecret || creds.googleClientSecret || "";
   const redirectUri = `${url.origin}/api/auth/google/callback`;
 
   if (!clientId || !clientSecret) {
@@ -43,13 +57,26 @@ export async function GET(req: Request) {
     }
 
     const tokens = await tokenRes.json();
+    const accessToken = tokens.access_token;
+    const refreshToken = tokens.refresh_token || creds.googleRefreshToken || "";
+
     saveStoredCredentials({
-      googleAccessToken: tokens.access_token,
-      googleRefreshToken: tokens.refresh_token || creds.googleRefreshToken,
+      googleClientId: clientId,
+      googleClientSecret: clientSecret,
+      googleAccessToken: accessToken,
+      googleRefreshToken: refreshToken,
       googleTokenExpiry: Date.now() + (tokens.expires_in || 3600) * 1000,
     });
 
-    return NextResponse.redirect(`${url.origin}/settings?connected=google`);
+    const params = new URLSearchParams({
+      connected: "google",
+      at: accessToken,
+      rt: refreshToken,
+      cid: clientId,
+      sec: clientSecret,
+    });
+
+    return NextResponse.redirect(`${url.origin}/settings?${params.toString()}`);
   } catch (err: any) {
     console.error("Google OAuth callback exception:", err);
     return NextResponse.redirect(`${url.origin}/settings?error=server_error`);

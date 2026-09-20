@@ -1,9 +1,9 @@
 import { UnifiedItem } from "../types";
-import { getStoredCredentials, saveStoredCredentials } from "./config";
+import { getStoredCredentials, saveStoredCredentials, IntegrationCredentials } from "./config";
 import { addDays, differenceInMinutes, parseISO } from "date-fns";
 
-export async function getValidGoogleAccessToken(): Promise<string | null> {
-  const creds = getStoredCredentials();
+export async function getValidGoogleAccessToken(overrideCreds?: Partial<IntegrationCredentials>): Promise<string | null> {
+  const creds = getStoredCredentials(overrideCreds);
 
   // If accessToken is present and not expired (or within 5 min margin), use it
   if (creds.googleAccessToken && creds.googleTokenExpiry && creds.googleTokenExpiry > Date.now() + 300000) {
@@ -48,10 +48,10 @@ export async function getValidGoogleAccessToken(): Promise<string | null> {
   return creds.googleAccessToken || null;
 }
 
-export async function fetchLiveGoogleTasks(): Promise<UnifiedItem[]> {
-  const token = await getValidGoogleAccessToken();
+export async function fetchLiveGoogleTasks(overrideCreds?: Partial<IntegrationCredentials>): Promise<UnifiedItem[]> {
+  const token = await getValidGoogleAccessToken(overrideCreds);
   if (!token) {
-    throw new Error("No valid Google Access Token or Refresh Token configured.");
+    throw new Error("No valid Google Access Token or Refresh Token found.");
   }
 
   const res = await fetch(
@@ -89,15 +89,15 @@ export async function fetchLiveGoogleTasks(): Promise<UnifiedItem[]> {
   });
 }
 
-export async function fetchLiveGoogleCalendarEvents(): Promise<UnifiedItem[]> {
-  const token = await getValidGoogleAccessToken();
+export async function fetchLiveGoogleCalendarEvents(overrideCreds?: Partial<IntegrationCredentials>): Promise<UnifiedItem[]> {
+  const token = await getValidGoogleAccessToken(overrideCreds);
   if (!token) {
-    throw new Error("No valid Google Access Token configured.");
+    throw new Error("No valid Google Access Token found.");
   }
 
   const now = new Date();
-  const timeMin = new Date(now.getTime() - 86400000).toISOString(); // Include yesterday
-  const timeMax = addDays(now, 15).toISOString(); // 14-day window
+  const timeMin = new Date(now.getTime() - 86400000).toISOString();
+  const timeMax = addDays(now, 15).toISOString();
 
   const url = new URL("https://www.googleapis.com/calendar/v3/calendars/primary/events");
   url.searchParams.append("timeMin", timeMin);
@@ -151,52 +151,4 @@ export async function fetchLiveGoogleCalendarEvents(): Promise<UnifiedItem[]> {
       updatedAt: event.updated || new Date().toISOString(),
     };
   });
-}
-
-export async function createLiveGoogleTask(title: string, due?: string, notes?: string) {
-  const token = await getValidGoogleAccessToken();
-  if (!token) throw new Error("No valid Google Access Token");
-
-  const res = await fetch("https://tasks.googleapis.com/tasks/v1/lists/@default/tasks", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      title,
-      due,
-      notes,
-    }),
-  });
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Failed to create Google task: ${err}`);
-  }
-
-  return await res.json();
-}
-
-export async function updateLiveGoogleTaskStatus(taskId: string, completed: boolean) {
-  const token = await getValidGoogleAccessToken();
-  if (!token) throw new Error("No valid Google Access Token");
-
-  const res = await fetch(`https://tasks.googleapis.com/tasks/v1/lists/@default/tasks/${taskId}`, {
-    method: "PATCH",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      status: completed ? "completed" : "needsAction",
-    }),
-  });
-
-  if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`Failed to update Google task: ${err}`);
-  }
-
-  return await res.json();
 }

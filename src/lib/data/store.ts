@@ -170,8 +170,24 @@ export function useNexusStore() {
     notifyListeners();
 
     try {
+      let credsPayload = {};
+      if (typeof window !== "undefined") {
+        const savedCreds = localStorage.getItem("nexus_credentials_v1");
+        if (savedCreds) {
+          try {
+            credsPayload = { credentials: JSON.parse(savedCreds) };
+          } catch {
+            // ignore
+          }
+        }
+      }
+
       // Call real live integrations sync endpoint
-      const res = await fetch("/api/integrations/sync", { method: "POST" });
+      const res = await fetch("/api/integrations/sync", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(credsPayload),
+      });
       if (res.ok) {
         const data = await res.json();
         if (data.items && data.items.length > 0) {
