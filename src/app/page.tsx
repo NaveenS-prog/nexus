@@ -13,7 +13,7 @@ import { ExamModeBanner } from "@/components/dashboard/ExamModeBanner";
 import { BuildModeBanner } from "@/components/dashboard/BuildModeBanner";
 import { ItemDetailDrawer } from "@/components/dashboard/ItemDetailDrawer";
 import { UnifiedItem } from "@/lib/types";
-import { format } from "date-fns";
+import { format, isSameDay, parseISO } from "date-fns";
 
 export default function CommandCenterDashboard() {
   const {
@@ -50,9 +50,31 @@ export default function CommandCenterDashboard() {
     return recommendNextTask(items, mode, new Date());
   }, [items, mode, recommendTick]);
 
-  // Today items for timeline
+  // Today items for timeline: accurately filter items scheduled or due today
   const todayItems = useMemo(() => {
-    return items.slice(0, 6);
+    const today = new Date();
+    const todayFiltered = items.filter((item) => {
+      if (item.startAt) {
+        try {
+          if (isSameDay(parseISO(item.startAt), today)) return true;
+        } catch {}
+      }
+      if (item.dueAt) {
+        try {
+          if (isSameDay(parseISO(item.dueAt), today)) return true;
+        } catch {}
+      }
+      return false;
+    });
+
+    if (todayFiltered.length >= 4) {
+      return todayFiltered;
+    }
+
+    // Include top pending tasks if today has few scheduled events
+    const pending = items.filter((i) => i.status !== "completed");
+    const merged = Array.from(new Set([...todayFiltered, ...pending]));
+    return merged.slice(0, 8);
   }, [items]);
 
   const handleOpenItem = (item: UnifiedItem) => {

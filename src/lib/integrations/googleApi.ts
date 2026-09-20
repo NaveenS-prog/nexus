@@ -133,6 +133,8 @@ export async function fetchLiveGoogleCalendarEvents(overrideCreds?: Partial<Inte
       }
     }
 
+    const isAllDay = Boolean(event.start?.date && !event.start?.dateTime);
+
     return {
       id: `gcal-${event.id}`,
       externalId: event.id,
@@ -142,11 +144,12 @@ export async function fetchLiveGoogleCalendarEvents(overrideCreds?: Partial<Inte
       category: "calendar",
       priority: "medium",
       status: "pending",
-      startAt: startStr ? new Date(startStr).toISOString() : undefined,
-      dueAt: endStr ? new Date(endStr).toISOString() : undefined,
-      estimatedMinutes,
+      startAt: startStr ? (isAllDay ? `${event.start.date}T00:00:00` : new Date(startStr).toISOString()) : undefined,
+      dueAt: endStr ? (isAllDay ? `${event.end.date}T23:59:59` : new Date(endStr).toISOString()) : undefined,
+      estimatedMinutes: isAllDay ? 480 : estimatedMinutes,
       url: event.htmlLink,
-      tags: ["Calendar"],
+      tags: isAllDay ? ["Calendar", "All Day"] : ["Calendar"],
+      metadata: { isAllDay, location: event.location, hangoutLink: event.hangoutLink },
       createdAt: event.created || new Date().toISOString(),
       updatedAt: event.updated || new Date().toISOString(),
     };
