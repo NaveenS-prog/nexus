@@ -20,40 +20,8 @@ export default function AcademicsPage() {
 
   const academicItems = items.filter((i) => i.category === "academic");
 
-  const courses = [
-    {
-      code: "CS-301",
-      name: "Operating Systems",
-      instructor: "Prof. K. Verma",
-      attendance: "88%",
-      color: "border-indigo-500/40 bg-indigo-950/20",
-      activeTasks: 2,
-    },
-    {
-      code: "CS-302",
-      name: "Computer Organization & Architecture",
-      instructor: "Dr. R. Sharma",
-      attendance: "92%",
-      color: "border-amber-500/40 bg-amber-950/20",
-      activeTasks: 2,
-    },
-    {
-      code: "MA-204",
-      name: "Discrete Mathematics",
-      instructor: "Dr. A. Iyer",
-      attendance: "85%",
-      color: "border-emerald-500/40 bg-emerald-950/20",
-      activeTasks: 2,
-    },
-    {
-      code: "CS-205",
-      name: "Data Structures & Algorithms in Java",
-      instructor: "Prof. S. Rao",
-      attendance: "95%",
-      color: "border-cyan-500/40 bg-cyan-950/20",
-      activeTasks: 1,
-    },
-  ];
+  // Dynamically extract courses from connected items, avoiding any made-up courses
+  const courses = Array.from(new Set(academicItems.map((i) => i.courseName).filter(Boolean))) as string[];
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-8 space-y-8 animate-fade-in">
@@ -65,12 +33,12 @@ export default function AcademicsPage() {
             <h1 className="text-2xl font-bold tracking-tight text-white">Academics & Coursework</h1>
           </div>
           <p className="text-xs text-zinc-400 mt-1">
-            Google Classroom assignments, semester exams, and lecture schedule synchronization
+            Coursework and academic submissions synchronization
           </p>
         </div>
 
         <Badge variant="warning" className="w-fit">
-          Fall Semester 2026
+          Academic Workspace
         </Badge>
       </div>
 
@@ -79,24 +47,29 @@ export default function AcademicsPage() {
         <h2 className="text-xs font-mono uppercase tracking-wider text-zinc-400 font-semibold">
           Enrolled Courses
         </h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {courses.map((course) => (
-            <div
-              key={course.code}
-              className={`p-4 rounded-xl border ${course.color} space-y-2 backdrop-blur-sm`}
-            >
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-mono font-bold text-zinc-400">{course.code}</span>
-                <span className="text-[10px] font-mono text-emerald-400">{course.attendance} Attendance</span>
+        {courses.length === 0 ? (
+          <div className="p-6 rounded-xl border border-white/[0.08] bg-nexus-900/30 text-center text-xs text-zinc-500">
+            No enrolled courses synced. (Google Classroom integration is deferred).
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {courses.map((courseName) => (
+              <div
+                key={courseName}
+                className="p-4 rounded-xl border border-amber-500/30 bg-amber-950/20 space-y-2 backdrop-blur-sm"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono font-bold text-amber-400">COURSE</span>
+                  <span className="text-[10px] font-mono text-zinc-400">Classroom</span>
+                </div>
+                <h3 className="text-sm font-bold text-zinc-100">{courseName}</h3>
+                <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-[11px] text-zinc-500">
+                  <span>{academicItems.filter(i => i.courseName === courseName && i.status !== "completed").length} active tasks</span>
+                </div>
               </div>
-              <h3 className="text-sm font-bold text-zinc-100">{course.name}</h3>
-              <p className="text-[11px] text-zinc-400">{course.instructor}</p>
-              <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-[11px] text-zinc-500">
-                <span>{course.activeTasks} pending tasks</span>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Course Assignments List */}
@@ -111,9 +84,14 @@ export default function AcademicsPage() {
         </div>
 
         <div className="rounded-xl border border-white/[0.08] bg-nexus-900/50 backdrop-blur-sm divide-y divide-white/[0.04] overflow-hidden">
-          {academicItems.map((item) => {
-            const isCompleted = item.status === "completed";
-            return (
+          {academicItems.length === 0 ? (
+            <div className="p-8 text-center text-xs text-zinc-500">
+              No academic assignments synced.
+            </div>
+          ) : (
+            academicItems.map((item) => {
+              const isCompleted = item.status === "completed";
+              return (
               <div
                 key={item.id}
                 className={`p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-white/[0.03] transition-colors ${
@@ -163,7 +141,8 @@ export default function AcademicsPage() {
                 </div>
               </div>
             );
-          })}
+          })
+        )}
         </div>
       </div>
     </div>

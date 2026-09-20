@@ -50,10 +50,10 @@ export default function CommandCenterDashboard() {
     return recommendNextTask(items, mode, new Date());
   }, [items, mode, recommendTick]);
 
-  // Today items for timeline: accurately filter items scheduled or due today
+  // Today items for timeline: strictly filter items scheduled or due today
   const todayItems = useMemo(() => {
     const today = new Date();
-    const todayFiltered = items.filter((item) => {
+    return items.filter((item) => {
       if (item.startAt) {
         try {
           if (isSameDay(parseISO(item.startAt), today)) return true;
@@ -66,15 +66,6 @@ export default function CommandCenterDashboard() {
       }
       return false;
     });
-
-    if (todayFiltered.length >= 4) {
-      return todayFiltered;
-    }
-
-    // Include top pending tasks if today has few scheduled events
-    const pending = items.filter((i) => i.status !== "completed");
-    const merged = Array.from(new Set([...todayFiltered, ...pending]));
-    return merged.slice(0, 8);
   }, [items]);
 
   const handleOpenItem = (item: UnifiedItem) => {

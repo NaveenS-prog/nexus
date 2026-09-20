@@ -37,15 +37,15 @@ let memoryState: {
   lastSyncedText: string;
   isLiveSynced: boolean;
 } = {
-  items: MOCK_UNIFIED_ITEMS,
-  projects: MOCK_PROJECTS,
+  items: [],
+  projects: [],
   mode: "default",
-  notifications: MOCK_NOTIFICATIONS,
-  focusSessions: MOCK_FOCUS_SESSIONS,
+  notifications: [],
+  focusSessions: [],
   integrations: MOCK_INTEGRATIONS,
   isSyncing: false,
-  lastSyncedText: "2 min ago",
-  isLiveSynced: false,
+  lastSyncedText: "Never",
+  isLiveSynced: true,
 };
 
 const listeners = new Set<() => void>();
@@ -58,26 +58,47 @@ export function useNexusStore() {
   const [, setTick] = useState(0);
 
   useEffect(() => {
-    // Hydrate from localStorage if available
+    // Hydrate from localStorage if available, thoroughly stripping any mock items
     if (typeof window !== "undefined") {
       try {
         const savedItems = localStorage.getItem(STORAGE_KEY_ITEMS);
-        if (savedItems) memoryState.items = JSON.parse(savedItems);
+        if (savedItems) {
+          const parsed = JSON.parse(savedItems);
+          if (Array.isArray(parsed)) {
+            // Strip out ANY item that is a mock/demo item
+            const realOnly = parsed.filter(
+              (i: any) =>
+                !i.id?.startsWith("item-") &&
+                !i.externalId?.startsWith("gcal-os-class") &&
+                !i.externalId?.startsWith("gc-") &&
+                !i.externalId?.startsWith("gcal-lunch")
+            );
+            memoryState.items = realOnly;
+            localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(realOnly));
+          }
+        }
 
         const savedProjects = localStorage.getItem(STORAGE_KEY_PROJECTS);
-        if (savedProjects) memoryState.projects = JSON.parse(savedProjects);
+        if (savedProjects) {
+          const parsed = JSON.parse(savedProjects);
+          if (Array.isArray(parsed)) {
+            const realProjects = parsed.filter((p: any) => !p.id?.startsWith("proj-"));
+            memoryState.projects = realProjects;
+            localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(realProjects));
+          }
+        }
 
         const savedMode = localStorage.getItem(STORAGE_KEY_MODE);
         if (savedMode) memoryState.mode = savedMode as DashboardMode;
 
-        const savedNotifs = localStorage.getItem(STORAGE_KEY_NOTIFS);
-        if (savedNotifs) memoryState.notifications = JSON.parse(savedNotifs);
+        // Ensure mock notifications & mock focus sessions are purged
+        memoryState.notifications = [];
+        memoryState.focusSessions = [];
+        localStorage.removeItem(STORAGE_KEY_NOTIFS);
+        localStorage.removeItem(STORAGE_KEY_FOCUS);
 
-        const savedFocus = localStorage.getItem(STORAGE_KEY_FOCUS);
-        if (savedFocus) memoryState.focusSessions = JSON.parse(savedFocus);
-
-        const savedIsLive = localStorage.getItem(STORAGE_KEY_IS_LIVE);
-        if (savedIsLive) memoryState.isLiveSynced = JSON.parse(savedIsLive);
+        memoryState.isLiveSynced = true;
+        localStorage.setItem(STORAGE_KEY_IS_LIVE, "true");
       } catch (err) {
         console.warn("NEXUS: Failed to load cached state", err);
       }
@@ -233,29 +254,41 @@ export function useNexusStore() {
   }, []);
 
   const purgeDemoData = useCallback(() => {
-    const realOnly = memoryState.items.filter((item) => !item.id.startsWith("item-"));
+    const realOnly = memoryState.items.filter(
+      (item) =>
+        !item.id.startsWith("item-") &&
+        !item.externalId?.startsWith("gcal-os-class") &&
+        !item.externalId?.startsWith("gc-")
+    );
     memoryState.items = realOnly;
+    memoryState.projects = memoryState.projects.filter((p) => !p.id.startsWith("proj-"));
+    memoryState.notifications = [];
+    memoryState.focusSessions = [];
     memoryState.isLiveSynced = true;
     if (typeof window !== "undefined") {
       localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(realOnly));
+      localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(memoryState.projects));
+      localStorage.removeItem(STORAGE_KEY_NOTIFS);
+      localStorage.removeItem(STORAGE_KEY_FOCUS);
       localStorage.setItem(STORAGE_KEY_IS_LIVE, "true");
     }
     notifyListeners();
   }, []);
 
   const resetToDemo = useCallback(() => {
-    memoryState.items = MOCK_UNIFIED_ITEMS;
-    memoryState.projects = MOCK_PROJECTS;
-    memoryState.notifications = MOCK_NOTIFICATIONS;
+    memoryState.items = [];
+    memoryState.projects = [];
+    memoryState.notifications = [];
+    memoryState.focusSessions = [];
     memoryState.mode = "default";
-    memoryState.isLiveSynced = false;
+    memoryState.isLiveSynced = true;
     if (typeof window !== "undefined") {
       localStorage.removeItem(STORAGE_KEY_ITEMS);
       localStorage.removeItem(STORAGE_KEY_PROJECTS);
       localStorage.removeItem(STORAGE_KEY_MODE);
       localStorage.removeItem(STORAGE_KEY_FOCUS);
       localStorage.removeItem(STORAGE_KEY_NOTIFS);
-      localStorage.removeItem(STORAGE_KEY_IS_LIVE);
+      localStorage.setItem(STORAGE_KEY_IS_LIVE, "true");
     }
     notifyListeners();
   }, []);

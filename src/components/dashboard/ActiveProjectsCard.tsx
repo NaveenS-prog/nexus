@@ -27,29 +27,35 @@ export function ActiveProjectsCard({ projects }: ActiveProjectsCardProps) {
         </div>
 
         <div className="space-y-3">
-          {projects.map((proj) => (
-            <div key={proj.id} className="space-y-1.5 group cursor-pointer">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold text-zinc-200 group-hover:text-indigo-300 transition-colors">
-                  {proj.name}
-                </span>
-                <span className="font-mono text-zinc-400 font-bold">{proj.progress}%</span>
-              </div>
-
-              {/* Progress Bar */}
-              <div className="w-full bg-white/[0.06] h-1.5 rounded-full overflow-hidden">
-                <div
-                  className="bg-indigo-500 h-full rounded-full transition-all duration-300 group-hover:bg-indigo-400"
-                  style={{ width: `${proj.progress}%` }}
-                />
-              </div>
-
-              <div className="flex items-center justify-between text-[10px] text-zinc-500 font-mono">
-                <span>{proj.completedTasksCount}/{proj.tasksCount} tasks completed</span>
-                <span>repo: {proj.githubRepo?.split("/")[1] || "repo"}</span>
-              </div>
+          {projects.length === 0 ? (
+            <div className="py-6 text-center text-xs text-zinc-500">
+              No active projects. Connect Notion in Settings or create a project!
             </div>
-          ))}
+          ) : (
+            projects.map((proj) => (
+              <div key={proj.id} className="space-y-1.5 group cursor-pointer">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-zinc-200 group-hover:text-indigo-300 transition-colors">
+                    {proj.name}
+                  </span>
+                  <span className="font-mono text-zinc-400 font-bold">{proj.progress}%</span>
+                </div>
+
+                {/* Progress Bar */}
+                <div className="w-full bg-white/[0.06] h-1.5 rounded-full overflow-hidden">
+                  <div
+                    className="bg-indigo-500 h-full rounded-full transition-all duration-300 group-hover:bg-indigo-400"
+                    style={{ width: `${proj.progress}%` }}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between text-[10px] text-zinc-500 font-mono">
+                  <span>{proj.completedTasksCount}/{proj.tasksCount} tasks completed</span>
+                  <span>repo: {proj.githubRepo?.split("/")[1] || "repo"}</span>
+                </div>
+              </div>
+            ))
+          )}
         </div>
       </div>
 

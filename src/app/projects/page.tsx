@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
+import Link from "next/link";
 import { 
   Rocket, 
   GitBranch, 
@@ -13,53 +14,86 @@ import {
   ChevronDown
 } from "lucide-react";
 import { useNexusStore } from "@/lib/data/store";
-import { Project, ProjectTask, Priority } from "@/lib/types";
+import { Project, Priority } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 
 export default function ProjectsPage() {
-  const { projects } = useNexusStore();
-  const [selectedProjectId, setSelectedProjectId] = useState<string>(projects[0]?.id || "proj-ai-placement");
+  const { projects, items } = useNexusStore();
+  const [selectedProjectId, setSelectedProjectId] = useState<string>(projects[0]?.id || "");
   const [activeTab, setActiveTab] = useState<"kanban" | "dependency">("kanban");
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
 
   const currentProject = projects.find((p) => p.id === selectedProjectId) || projects[0];
 
-  // Sample Kanban tasks for the active project
-  const kanbanColumns = [
+  // Derive Kanban tasks strictly from real items matching the active project or Notion items
+  const projectTasks = useMemo(() => {
+    if (!currentProject) return [];
+    return items.filter(
+      (item) => item.projectId === currentProject.id || item.source === "notion"
+    );
+  }, [items, currentProject]);
+
+  const kanbanColumns = useMemo(() => [
     {
       id: "backlog",
       title: "BACKLOG",
-      tasks: [
-        { id: "k1", title: "Automated Interview Recommendation Engine", priority: "medium" as Priority, points: 5 },
-        { id: "k2", title: "Supabase Vector Store integration for resumes", priority: "high" as Priority, points: 8 },
-        { id: "k3", title: "Export evaluation reports to PDF format", priority: "low" as Priority, points: 3 },
-      ],
+      tasks: projectTasks.filter((t) => t.status === "pending" && (t.priority === "low" || !t.priority)),
     },
     {
       id: "in_progress",
       title: "IN PROGRESS",
-      tasks: [
-        { id: "k4", title: "PDF Skill Extraction with Gemini 1.5 Flash", priority: "high" as Priority, points: 8 },
-        { id: "k5", title: "Authentication API & Refresh Token rotation", priority: "critical" as Priority, points: 5 },
-      ],
+      tasks: projectTasks.filter((t) => t.status === "in_progress" || (t.status === "pending" && (t.priority === "high" || t.priority === "critical"))),
     },
     {
       id: "review",
       title: "REVIEW",
-      tasks: [
-        { id: "k6", title: "User Profile & Skills Portfolio Schema", priority: "medium" as Priority, points: 3 },
-      ],
+      tasks: projectTasks.filter((t) => t.status === "pending" && t.priority === "medium"),
     },
     {
       id: "done",
       title: "DONE",
-      tasks: [
-        { id: "k7", title: "Next.js App Router project scaffolding", priority: "high" as Priority, points: 3 },
-        { id: "k8", title: "FastAPI REST backend endpoints setup", priority: "medium" as Priority, points: 5 },
-      ],
+      tasks: projectTasks.filter((t) => t.status === "completed"),
     },
-  ];
+  ], [projectTasks]);
+
+  if (projects.length === 0) {
+    return (
+      <div className="max-w-6xl mx-auto px-6 py-8 space-y-6 animate-fade-in">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.06] pb-6">
+          <div>
+            <div className="flex items-center gap-2">
+              <Rocket className="w-5 h-5 text-indigo-400" />
+              <h1 className="text-2xl font-bold tracking-tight text-white">Projects & Sprints</h1>
+            </div>
+            <p className="text-xs text-zinc-400 mt-1">
+              Software initiatives, Kanban boards, and module dependency graphs
+            </p>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-white/[0.08] bg-nexus-900/40 p-12 text-center space-y-4 max-w-md mx-auto mt-12">
+          <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mx-auto">
+            <Rocket className="w-6 h-6" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-base font-semibold text-zinc-100">No Projects Connected</h3>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              Connect your Notion database in Settings to import live projects, Kanban boards, and sprint trackers.
+            </p>
+          </div>
+          <div className="pt-2">
+            <Link
+              href="/settings"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors shadow-md"
+            >
+              <span>Go to Settings & Connect Notion</span>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-8 space-y-6 animate-fade-in">
@@ -170,22 +204,28 @@ export default function ProjectsPage() {
               </div>
 
               <div className="space-y-2 flex-1">
-                {col.tasks.map((task) => (
-                  <div
-                    key={task.id}
-                    className="p-3 rounded-lg bg-nexus-950/80 border border-white/[0.06] hover:border-indigo-500/40 transition-all cursor-pointer space-y-2 group shadow-sm"
-                  >
-                    <p className="text-xs font-medium text-zinc-200 group-hover:text-white leading-snug">
-                      {task.title}
-                    </p>
-                    <div className="flex items-center justify-between text-[10px] font-mono">
-                      <Badge variant={task.priority === "critical" ? "destructive" : task.priority === "high" ? "warning" : "secondary"}>
-                        {task.priority}
-                      </Badge>
-                      <span className="text-zinc-500">{task.points} pts</span>
-                    </div>
+                {col.tasks.length === 0 ? (
+                  <div className="py-6 text-center text-[11px] text-zinc-600 italic">
+                    No tasks
                   </div>
-                ))}
+                ) : (
+                  col.tasks.map((task) => (
+                    <div
+                      key={task.id}
+                      className="p-3 rounded-lg bg-nexus-950/80 border border-white/[0.06] hover:border-indigo-500/40 transition-all cursor-pointer space-y-2 group shadow-sm"
+                    >
+                      <p className="text-xs font-medium text-zinc-200 group-hover:text-white leading-snug">
+                        {task.title}
+                      </p>
+                      <div className="flex items-center justify-between text-[10px] font-mono">
+                        <Badge variant={task.priority === "critical" ? "destructive" : task.priority === "high" ? "warning" : "secondary"}>
+                          {task.priority}
+                        </Badge>
+                        <span className="text-zinc-500">{task.estimatedMinutes ? `${task.estimatedMinutes}m` : "Task"}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           ))}
