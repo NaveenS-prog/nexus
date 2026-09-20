@@ -1,8 +1,10 @@
+@import url('https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
+  --font-instrument-serif: 'Instrument Serif', serif;
   --background: 228 15% 4%;
   --foreground: 220 20% 97%;
   --card: 228 14% 7%;

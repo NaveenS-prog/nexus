@@ -67,6 +67,7 @@ const config: Config = {
       fontFamily: {
         sans: ["var(--font-sans)", "system-ui", "-apple-system", "sans-serif"],
         mono: ["var(--font-mono)", "monospace"],
+        "instrument-serif": ["var(--font-instrument-serif)", "serif"],
       },
       keyframes: {
         "fade-in": {
