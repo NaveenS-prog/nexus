@@ -83,20 +83,20 @@ export default function TasksPage() {
 
   const getSourceIcon = (source: Source) => {
     switch (source) {
-      case "google_classroom": return <GraduationCap className="w-3.5 h-3.5 text-amber-400" />;
-      case "notion": return <Layers className="w-3.5 h-3.5 text-indigo-400" />;
-      case "google_tasks": return <CheckSquare className="w-3.5 h-3.5 text-blue-400" />;
-      default: return <CheckSquare className="w-3.5 h-3.5 text-emerald-400" />;
+      case "google_classroom": return <GraduationCap className="w-3.5 h-3.5 text-zinc-300" />;
+      case "notion": return <Layers className="w-3.5 h-3.5 text-zinc-300" />;
+      case "google_tasks": return <CheckSquare className="w-3.5 h-3.5 text-zinc-300" />;
+      default: return <CheckSquare className="w-3.5 h-3.5 text-zinc-300" />;
     }
   };
 
   return (
     <div className="max-w-6xl mx-auto px-6 py-8 space-y-6 animate-fade-in">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.06] pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-6">
         <div>
           <div className="flex items-center gap-2">
-            <CheckSquare className="w-5 h-5 text-indigo-400" />
+            <CheckSquare className="w-5 h-5 text-white" />
             <h1 className="text-2xl font-bold tracking-tight text-white">Unified Tasks</h1>
           </div>
           <p className="text-xs text-zinc-400 mt-1">
@@ -112,13 +112,13 @@ export default function TasksPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Filter tasks by name or tag..."
-            className="w-full bg-nexus-900 border border-white/[0.08] rounded-lg pl-9 pr-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-500 outline-none focus:border-indigo-500/50"
+            className="w-full bg-zinc-950 border border-zinc-800 rounded-lg pl-9 pr-3 py-1.5 text-xs text-zinc-200 placeholder-zinc-500 outline-none focus:border-white"
           />
         </div>
       </div>
 
       {/* Quick Add Bar */}
-      <form onSubmit={handleCreateTask} className="p-2.5 rounded-xl border border-white/[0.08] bg-nexus-900/60 flex flex-wrap items-center gap-2">
+      <form onSubmit={handleCreateTask} className="p-2.5 rounded-xl border border-zinc-800 bg-zinc-950 flex flex-wrap items-center gap-2">
         <input
           type="text"
           value={newTitle}
@@ -130,7 +130,7 @@ export default function TasksPage() {
         <select
           value={newCategory}
           onChange={(e) => setNewCategory(e.target.value as Category)}
-          className="bg-nexus-950 border border-white/[0.08] rounded-md px-2 py-1 text-xs text-zinc-300 outline-none"
+          className="bg-zinc-900 border border-zinc-800 rounded-md px-2 py-1 text-xs text-zinc-300 outline-none"
         >
           <option value="personal">Personal</option>
           <option value="academic">Academic</option>
@@ -141,7 +141,7 @@ export default function TasksPage() {
         <select
           value={newPriority}
           onChange={(e) => setNewPriority(e.target.value as Priority)}
-          className="bg-nexus-950 border border-white/[0.08] rounded-md px-2 py-1 text-xs text-zinc-300 outline-none"
+          className="bg-zinc-900 border border-zinc-800 rounded-md px-2 py-1 text-xs text-zinc-300 outline-none"
         >
           <option value="low">Low Priority</option>
           <option value="medium">Medium Priority</option>
@@ -149,14 +149,14 @@ export default function TasksPage() {
           <option value="critical">Critical</option>
         </select>
 
-        <Button type="submit" size="sm" className="h-8 text-xs flex items-center gap-1.5">
+        <Button type="submit" size="sm" className="h-8 text-xs flex items-center gap-1.5 bg-white text-black font-semibold hover:bg-zinc-200">
           <Plus className="w-3.5 h-3.5" />
           <span>Add Task</span>
         </Button>
       </form>
 
       {/* Filter Tabs */}
-      <div className="flex items-center gap-1.5 border-b border-white/[0.06] pb-2 overflow-x-auto text-xs">
+      <div className="flex items-center gap-1.5 border-b border-zinc-800 pb-2 overflow-x-auto text-xs">
         {[
           { id: "all", label: "All Items" },
           { id: "pending", label: "Pending" },
@@ -171,8 +171,8 @@ export default function TasksPage() {
             onClick={() => setSelectedFilter(tab.id)}
             className={`px-3 py-1.5 rounded-md font-medium transition-all ${
               selectedFilter === tab.id
-                ? "bg-white/[0.1] text-zinc-100 shadow-sm"
-                : "text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]"
+                ? "bg-white text-black font-semibold shadow-sm"
+                : "text-zinc-400 hover:text-white hover:bg-zinc-900"
             }`}
           >
             {tab.label}
@@ -181,10 +181,10 @@ export default function TasksPage() {
       </div>
 
       {/* Task List */}
-      <div className="rounded-xl border border-white/[0.08] bg-nexus-900/50 backdrop-blur-sm divide-y divide-white/[0.04] overflow-hidden">
+      <div className="rounded-xl border border-zinc-800 bg-zinc-950 divide-y divide-zinc-800/80 overflow-hidden">
         {filteredItems.length === 0 ? (
           <div className="p-12 text-center text-xs text-zinc-500">
-            No tasks found in this view. Use the input above or press <kbd className="px-1 py-0.5 bg-white/10 rounded">Ctrl+K</kbd> to add.
+            No tasks found in this view. Use the input above or press <kbd className="px-1 py-0.5 bg-zinc-800 rounded">Ctrl+K</kbd> to add.
           </div>
         ) : (
           filteredItems.map((item) => {
@@ -193,8 +193,8 @@ export default function TasksPage() {
               <div
                 key={item.id}
                 onClick={() => handleOpenItem(item)}
-                className={`p-3.5 flex items-center justify-between hover:bg-white/[0.03] transition-all cursor-pointer group ${
-                  isCompleted ? "opacity-60 bg-black/20" : ""
+                className={`p-3.5 flex items-center justify-between hover:bg-zinc-900 transition-all cursor-pointer group ${
+                  isCompleted ? "opacity-60 bg-black/40" : ""
                 }`}
               >
                 <div className="flex items-center gap-3 min-w-0 pr-4">
@@ -204,10 +204,10 @@ export default function TasksPage() {
                       e.stopPropagation();
                       toggleItemCompletion(item.id);
                     }}
-                    className="flex-shrink-0 text-zinc-500 hover:text-indigo-400 transition-colors"
+                    className="flex-shrink-0 text-zinc-500 hover:text-white transition-colors"
                   >
                     {isCompleted ? (
-                      <CheckCircle2 className="w-4 h-4 text-indigo-400" />
+                      <CheckCircle2 className="w-4 h-4 text-white" />
                     ) : (
                       <Circle className="w-4 h-4" />
                     )}
@@ -231,7 +231,7 @@ export default function TasksPage() {
                       {item.dueAt && (
                         <>
                           <span>•</span>
-                          <span className="text-amber-400/80">
+                          <span className="text-zinc-400">
                             Due {new Date(item.dueAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                           </span>
                         </>

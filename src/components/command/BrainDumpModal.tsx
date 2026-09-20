@@ -103,11 +103,11 @@ export function BrainDumpModal({ isOpen, onClose }: BrainDumpModalProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
-      <div className="relative w-full max-w-xl bg-nexus-900 border border-white/[0.12] rounded-xl shadow-2xl overflow-hidden flex flex-col">
+      <div className="relative w-full max-w-xl bg-black border border-zinc-800 rounded-xl shadow-2xl overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="px-5 py-4 border-b border-white/[0.08] flex items-center justify-between">
+        <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-indigo-500/20 text-indigo-400">
+            <div className="p-1.5 rounded-lg bg-white text-black">
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
@@ -117,7 +117,7 @@ export function BrainDumpModal({ isOpen, onClose }: BrainDumpModalProps) {
           </div>
           <button 
             onClick={onClose}
-            className="p-1 text-zinc-400 hover:text-zinc-200 rounded-md hover:bg-white/[0.06]"
+            className="p-1 text-zinc-400 hover:text-white rounded-md hover:bg-zinc-900"
           >
             <X className="w-4 h-4" />
           </button>
@@ -132,7 +132,7 @@ export function BrainDumpModal({ isOpen, onClose }: BrainDumpModalProps) {
                 onChange={(e) => setInputText(e.target.value)}
                 placeholder="Type everything on your mind... e.g. 'Finish OS assignment tonight, buy coffee, and an idea for an AI resume analyzer'"
                 rows={4}
-                className="w-full bg-nexus-950 border border-white/[0.08] rounded-lg p-3 text-xs text-zinc-100 placeholder-zinc-500 outline-none focus:border-indigo-500/50 resize-none font-sans leading-relaxed"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-xs text-zinc-100 placeholder-zinc-500 outline-none focus:border-white resize-none font-sans leading-relaxed"
                 autoFocus
               />
 
@@ -140,7 +140,7 @@ export function BrainDumpModal({ isOpen, onClose }: BrainDumpModalProps) {
                 <button
                   type="button"
                   onClick={() => setInputText(samplePrompt)}
-                  className="text-[11px] text-indigo-400 hover:text-indigo-300 underline"
+                  className="text-[11px] text-zinc-400 hover:text-white underline"
                 >
                   Load sample dump
                 </button>
@@ -148,7 +148,7 @@ export function BrainDumpModal({ isOpen, onClose }: BrainDumpModalProps) {
                 <Button
                   onClick={handleParse}
                   disabled={!inputText.trim() || isAnalyzing}
-                  className="flex items-center gap-1.5 text-xs h-8"
+                  className="flex items-center gap-1.5 text-xs h-8 bg-white text-black font-semibold hover:bg-zinc-200"
                 >
                   {isAnalyzing ? (
                     <span>Parsing thoughts...</span>
@@ -179,15 +179,15 @@ export function BrainDumpModal({ isOpen, onClose }: BrainDumpModalProps) {
                 {parsedItems.map((item) => (
                   <div
                     key={item.id}
-                    className="p-2.5 rounded-lg bg-nexus-950/80 border border-white/[0.08] flex items-center justify-between gap-3 text-xs"
+                    className="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-between gap-3 text-xs"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       {item.type === "idea" ? (
-                        <div className="p-1 rounded bg-amber-500/15 text-amber-400">
+                        <div className="p-1 rounded bg-zinc-800 text-white">
                           <Lightbulb className="w-3.5 h-3.5" />
                         </div>
                       ) : (
-                        <div className="p-1 rounded bg-indigo-500/15 text-indigo-400">
+                        <div className="p-1 rounded bg-zinc-800 text-white">
                           <CheckSquare className="w-3.5 h-3.5" />
                         </div>
                       )}
@@ -204,12 +204,12 @@ export function BrainDumpModal({ isOpen, onClose }: BrainDumpModalProps) {
                     </div>
 
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <Badge variant={item.targetDestination === "notion" ? "warning" : "secondary"}>
+                      <Badge variant="outline">
                         → {item.targetDestination === "google_tasks" ? "Google Tasks" : item.targetDestination === "notion" ? "Notion" : "NEXUS"}
                       </Badge>
                       <button
                         onClick={() => handleRemoveParsedItem(item.id)}
-                        className="p-1 text-zinc-500 hover:text-rose-400 transition-colors"
+                        className="p-1 text-zinc-500 hover:text-white transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -219,11 +219,11 @@ export function BrainDumpModal({ isOpen, onClose }: BrainDumpModalProps) {
               </div>
 
               {/* Action Buttons */}
-              <div className="pt-3 border-t border-white/[0.06] flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-zinc-800 flex items-center justify-end gap-2">
                 <Button variant="outline" size="sm" onClick={() => setParsedItems(null)}>
                   Cancel
                 </Button>
-                <Button size="sm" onClick={handleSaveAll} className="flex items-center gap-1.5">
+                <Button size="sm" onClick={handleSaveAll} className="flex items-center gap-1.5 bg-white text-black font-semibold hover:bg-zinc-200">
                   <Check className="w-3.5 h-3.5" />
                   <span>Add Everything ({parsedItems.length})</span>
                 </Button>

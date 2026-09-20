@@ -33,15 +33,15 @@ export function TodayFocusTimeline({ items, onToggleStatus, onSelectItem }: Toda
   const getSourceIcon = (source: string) => {
     switch (source) {
       case "google_classroom":
-        return <GraduationCap className="w-3.5 h-3.5 text-amber-400" />;
+        return <GraduationCap className="w-3.5 h-3.5 text-zinc-300" />;
       case "google_calendar":
-        return <CalendarIcon className="w-3.5 h-3.5 text-cyan-400" />;
+        return <CalendarIcon className="w-3.5 h-3.5 text-zinc-300" />;
       case "notion":
-        return <Layers className="w-3.5 h-3.5 text-indigo-400" />;
+        return <Layers className="w-3.5 h-3.5 text-zinc-300" />;
       case "google_tasks":
-        return <CheckSquare className="w-3.5 h-3.5 text-blue-400" />;
+        return <CheckSquare className="w-3.5 h-3.5 text-zinc-300" />;
       default:
-        return <CheckSquare className="w-3.5 h-3.5 text-emerald-400" />;
+        return <CheckSquare className="w-3.5 h-3.5 text-zinc-300" />;
     }
   };
 
@@ -77,7 +77,7 @@ export function TodayFocusTimeline({ items, onToggleStatus, onSelectItem }: Toda
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Clock className="w-4 h-4 text-indigo-400" />
+          <Clock className="w-4 h-4 text-white" />
           <h2 className="text-sm font-semibold tracking-tight text-zinc-100 uppercase font-mono">
             Today's Focus
           </h2>
@@ -87,7 +87,7 @@ export function TodayFocusTimeline({ items, onToggleStatus, onSelectItem }: Toda
         </span>
       </div>
 
-      <div className="rounded-xl border border-white/[0.08] bg-nexus-900/50 backdrop-blur-sm divide-y divide-white/[0.04] overflow-hidden">
+      <div className="rounded-xl border border-zinc-800 bg-zinc-950 divide-y divide-zinc-800/80 overflow-hidden">
         {sortedItems.length === 0 ? (
           <div className="p-8 text-center text-xs text-zinc-500">
             No focus items scheduled for today. Take a breather or dump new tasks!
@@ -101,8 +101,8 @@ export function TodayFocusTimeline({ items, onToggleStatus, onSelectItem }: Toda
             return (
               <div
                 key={item.id}
-                className={`flex items-center justify-between p-3.5 hover:bg-white/[0.03] transition-all group cursor-pointer ${
-                  isCompleted ? "opacity-60 bg-black/20" : ""
+                className={`flex items-center justify-between p-3.5 hover:bg-zinc-900 transition-all group cursor-pointer ${
+                  isCompleted ? "opacity-60 bg-black/40" : ""
                 }`}
                 onClick={() => onSelectItem(item)}
               >
@@ -129,9 +129,9 @@ export function TodayFocusTimeline({ items, onToggleStatus, onSelectItem }: Toda
                     }`}
                   >
                     {isCompleted ? (
-                      <CheckCircle2 className="w-4 h-4 text-indigo-400" />
+                      <CheckCircle2 className="w-4 h-4 text-white" />
                     ) : (
-                      <Circle className={`w-4 h-4 ${isCalendarEvent ? "text-zinc-600" : "text-zinc-500 hover:text-indigo-400"}`} />
+                      <Circle className={`w-4 h-4 ${isCalendarEvent ? "text-zinc-600" : "text-zinc-500 hover:text-white"}`} />
                     )}
                   </button>
 

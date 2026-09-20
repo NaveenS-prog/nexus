@@ -25,15 +25,15 @@ export function AiBriefingCard({ items, heaviestDayName = "Thursday", onSelectIt
     .slice(0, 4);
 
   return (
-    <div className="rounded-xl border border-white/[0.08] bg-nexus-900/50 backdrop-blur-sm p-4 space-y-4">
+    <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-md bg-indigo-500/20 text-indigo-400">
+          <div className="p-1.5 rounded-md bg-white text-black">
             <Sparkles className="w-4 h-4" />
           </div>
           <div>
-            <span className="text-[10px] uppercase font-mono tracking-wider text-indigo-400 font-bold">
+            <span className="text-[10px] uppercase font-mono tracking-wider text-zinc-400 font-bold">
               AI DAILY BRIEF
             </span>
             <h3 className="text-xs font-semibold text-zinc-200 mt-0.5">
@@ -42,7 +42,7 @@ export function AiBriefingCard({ items, heaviestDayName = "Thursday", onSelectIt
           </div>
         </div>
 
-        <Badge variant="cyan" className="font-mono text-[10px]">
+        <Badge variant="outline" className="font-mono text-[10px]">
           {Math.floor(totalMinutes / 60)}h {totalMinutes % 60}m focus
         </Badge>
       </div>
@@ -50,21 +50,21 @@ export function AiBriefingCard({ items, heaviestDayName = "Thursday", onSelectIt
       {/* Synthesis Bullets */}
       <div className="space-y-1.5 text-xs text-zinc-300">
         <p className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+          <span className="w-1.5 h-1.5 rounded-full bg-white" />
           <span>You have <strong className="text-white font-mono">{pendingTasks.length} tasks</strong> scheduled today.</span>
         </p>
         <p className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-          <span><strong className="text-amber-300 font-mono">{deadlines.length} deadlines</strong> require your immediate attention.</span>
+          <span className="w-1.5 h-1.5 rounded-full bg-zinc-400" />
+          <span><strong className="text-white font-mono">{deadlines.length} deadlines</strong> require your immediate attention.</span>
         </p>
         <p className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-rose-400" />
+          <span className="w-1.5 h-1.5 rounded-full bg-zinc-600" />
           <span>Your heaviest upcoming workload collides on <strong className="text-white font-mono">{heaviestDayName}</strong>.</span>
         </p>
       </div>
 
       {/* Recommended Attack Order */}
-      <div className="pt-2 border-t border-white/[0.06] space-y-2">
+      <div className="pt-2 border-t border-zinc-800 space-y-2">
         <span className="text-[10px] uppercase font-mono text-zinc-500 font-semibold tracking-wider">
           Recommended Order of Attack:
         </span>
@@ -74,10 +74,10 @@ export function AiBriefingCard({ items, heaviestDayName = "Thursday", onSelectIt
             <div
               key={task.id}
               onClick={() => onSelectItem && onSelectItem(task)}
-              className="p-2 rounded-lg bg-nexus-950/70 border border-white/[0.04] flex items-center justify-between text-xs hover:border-indigo-500/30 cursor-pointer transition-colors group"
+              className="p-2 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-between text-xs hover:border-white cursor-pointer transition-colors group"
             >
               <div className="flex items-center gap-2.5 min-w-0 pr-2">
-                <span className="w-5 h-5 rounded-full bg-white/[0.06] flex items-center justify-center font-mono text-[10px] font-bold text-indigo-400 flex-shrink-0">
+                <span className="w-5 h-5 rounded-full bg-white text-black flex items-center justify-center font-mono text-[10px] font-bold flex-shrink-0">
                   {idx + 1}
                 </span>
                 <span className="text-zinc-200 truncate group-hover:text-white font-medium">

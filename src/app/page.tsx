@@ -81,9 +81,9 @@ export default function CommandCenterDashboard() {
   return (
     <div className="max-w-7xl mx-auto px-6 py-8 space-y-8 animate-fade-in">
       {/* 1. Header Greeting */}
-      <div className="border-b border-white/[0.06] pb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
+      <div className="border-b border-zinc-800 pb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <span className="text-xs font-mono font-medium text-indigo-400 tracking-wider uppercase">
+          <span className="text-xs font-mono font-medium text-zinc-400 tracking-wider uppercase">
             COMMAND CENTER
           </span>
           <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-white mt-1">
@@ -91,7 +91,7 @@ export default function CommandCenterDashboard() {
           </h1>
           <p className="text-xs sm:text-sm text-zinc-400 mt-1">
             You have <strong className="text-zinc-200">{pendingCount} active tasks</strong>.{" "}
-            <strong className="text-amber-400">{deadlineCount} deadlines</strong> require attention today.
+            <strong className="text-white font-semibold">{deadlineCount} deadlines</strong> require attention today.
           </p>
         </div>
 

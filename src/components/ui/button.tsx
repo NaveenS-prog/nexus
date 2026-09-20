@@ -12,12 +12,12 @@ export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
       "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]";
 
     const variantStyles = {
-      default: "bg-indigo-600 text-white shadow hover:bg-indigo-500 hover:shadow-indigo-500/20",
-      secondary: "bg-white/[0.07] text-zinc-100 hover:bg-white/[0.12] border border-white/[0.08]",
-      outline: "border border-white/[0.12] bg-transparent hover:bg-white/[0.05] text-zinc-200",
-      ghost: "hover:bg-white/[0.06] text-zinc-400 hover:text-zinc-100",
-      danger: "bg-rose-600/20 text-rose-300 border border-rose-500/30 hover:bg-rose-600/30",
-      subtle: "bg-indigo-950/40 text-indigo-300 border border-indigo-500/20 hover:bg-indigo-950/70",
+      default: "bg-white text-black font-semibold shadow hover:bg-zinc-200 transition-colors",
+      secondary: "bg-zinc-900 text-zinc-100 hover:bg-zinc-800 border border-zinc-800",
+      outline: "border border-zinc-700 bg-black text-zinc-200 hover:border-white hover:text-white",
+      ghost: "hover:bg-zinc-800/60 text-zinc-400 hover:text-white",
+      danger: "bg-zinc-900 text-white border border-zinc-700 hover:bg-zinc-800 hover:border-white",
+      subtle: "bg-zinc-900/80 text-zinc-200 border border-zinc-800 hover:bg-zinc-800",
     };
 
     const sizeStyles = {

@@ -63,7 +63,7 @@ export function ItemDetailDrawer({
         {item.description && (
           <div className="space-y-1.5">
             <span className="text-[11px] font-mono uppercase text-zinc-500 font-semibold">Description</span>
-            <div className="p-3 rounded-lg bg-nexus-950 border border-white/[0.06] text-xs text-zinc-300 leading-relaxed">
+            <div className="p-3 rounded-lg bg-zinc-900 border border-zinc-800 text-xs text-zinc-300 leading-relaxed">
               {item.description}
             </div>
           </div>
@@ -74,9 +74,9 @@ export function ItemDetailDrawer({
           <span className="text-[11px] font-mono uppercase text-zinc-500 font-semibold">Details</span>
           <div className="grid grid-cols-2 gap-3 text-xs">
             {item.dueAt && (
-              <div className="p-2.5 rounded-lg bg-nexus-950 border border-white/[0.04]">
+              <div className="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
                 <div className="flex items-center gap-1.5 text-zinc-500 text-[10px] font-mono uppercase">
-                  <Calendar className="w-3 h-3 text-amber-400" />
+                  <Calendar className="w-3 h-3 text-white" />
                   <span>Due Date</span>
                 </div>
                 <span className="font-mono text-zinc-200 mt-1 block">
@@ -91,9 +91,9 @@ export function ItemDetailDrawer({
             )}
 
             {item.estimatedMinutes && (
-              <div className="p-2.5 rounded-lg bg-nexus-950 border border-white/[0.04]">
+              <div className="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
                 <div className="flex items-center gap-1.5 text-zinc-500 text-[10px] font-mono uppercase">
-                  <Clock className="w-3 h-3 text-indigo-400" />
+                  <Clock className="w-3 h-3 text-white" />
                   <span>Estimated Effort</span>
                 </div>
                 <span className="font-mono text-zinc-200 mt-1 block">
@@ -103,9 +103,9 @@ export function ItemDetailDrawer({
             )}
 
             {item.courseName && (
-              <div className="col-span-2 p-2.5 rounded-lg bg-nexus-950 border border-white/[0.04]">
+              <div className="col-span-2 p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
                 <div className="flex items-center gap-1.5 text-zinc-500 text-[10px] font-mono uppercase">
-                  <Folder className="w-3 h-3 text-cyan-400" />
+                  <Folder className="w-3 h-3 text-white" />
                   <span>Course</span>
                 </div>
                 <span className="text-zinc-200 mt-1 block font-medium">
@@ -124,7 +124,7 @@ export function ItemDetailDrawer({
               {item.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="px-2 py-0.5 rounded bg-white/[0.06] text-[11px] font-mono text-zinc-300 border border-white/[0.08]"
+                  className="px-2 py-0.5 rounded bg-zinc-900 text-[11px] font-mono text-zinc-300 border border-zinc-800"
                 >
                   #{tag}
                 </span>
@@ -140,7 +140,7 @@ export function ItemDetailDrawer({
               href={item.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-xs text-indigo-400 hover:text-indigo-300 underline font-medium"
+              className="inline-flex items-center gap-2 text-xs text-zinc-300 hover:text-white underline font-medium"
             >
               <ExternalLink className="w-3.5 h-3.5" />
               <span>Open in upstream {item.source.replace("_", " ")}</span>
@@ -149,7 +149,7 @@ export function ItemDetailDrawer({
         )}
 
         {/* Action Controls */}
-        <div className="pt-6 border-t border-white/[0.08] space-y-2">
+        <div className="pt-6 border-t border-zinc-800 space-y-2">
           {!isCalendar && (
             <Button
               onClick={() => {
@@ -166,7 +166,7 @@ export function ItemDetailDrawer({
                 </>
               ) : (
                 <>
-                  <CheckCircle2 className="w-4 h-4 text-indigo-400" />
+                  <CheckCircle2 className="w-4 h-4 text-white" />
                   <span>Mark Completed</span>
                 </>
               )}
@@ -178,19 +178,19 @@ export function ItemDetailDrawer({
               onClose();
               router.push("/focus");
             }}
-            className="w-full flex items-center justify-center gap-2 text-xs bg-indigo-600 hover:bg-indigo-500"
+            className="w-full flex items-center justify-center gap-2 text-xs bg-white text-black font-semibold hover:bg-zinc-200"
           >
             <Play className="w-3.5 h-3.5 fill-current" />
             <span>Launch Focus Session for this Item</span>
           </Button>
 
           <Button
-            variant="ghost"
+            variant="outline"
             onClick={() => {
               onDelete(item.id);
               onClose();
             }}
-            className="w-full flex items-center justify-center gap-2 text-xs text-rose-400 hover:text-rose-300 hover:bg-rose-500/10"
+            className="w-full flex items-center justify-center gap-2 text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 border-zinc-800"
           >
             <Trash2 className="w-3.5 h-3.5" />
             <span>Delete Item</span>

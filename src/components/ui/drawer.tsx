@@ -37,9 +37,9 @@ export function SlideOver({ isOpen, onClose, title, subtitle, children }: Drawer
       />
 
       <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
-        <div className="w-screen max-w-md bg-nexus-900 border-l border-white/[0.1] shadow-2xl flex flex-col animate-fade-in">
+        <div className="w-screen max-w-md bg-zinc-950 border-l border-zinc-800 shadow-2xl flex flex-col animate-fade-in">
           {/* Header */}
-          <div className="px-5 py-4 border-b border-white/[0.08] flex items-center justify-between">
+          <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between">
             <div>
               <h2 className="text-base font-semibold text-zinc-100">{title}</h2>
               {subtitle && <p className="text-xs text-zinc-400 mt-0.5">{subtitle}</p>}

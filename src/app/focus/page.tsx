@@ -140,7 +140,7 @@ export default function FocusPage() {
     <div className="max-w-4xl mx-auto px-6 py-12 flex flex-col items-center justify-center space-y-10 animate-fade-in">
       {/* Session Title Header */}
       <div className="text-center space-y-2">
-        <span className="text-xs font-mono font-bold tracking-widest text-indigo-400 uppercase">
+        <span className="text-xs font-mono font-bold tracking-widest text-zinc-400 uppercase">
           DEEP FOCUS CHAMBER
         </span>
         <h1 className="text-xl sm:text-2xl font-bold text-white">
@@ -151,7 +151,7 @@ export default function FocusPage() {
           <select
             value={selectedTaskId}
             onChange={(e) => setSelectedTaskId(e.target.value)}
-            className="bg-nexus-900 border border-white/[0.1] rounded px-2 py-0.5 text-xs text-zinc-200 outline-none"
+            className="bg-zinc-950 border border-zinc-800 rounded px-2 py-0.5 text-xs text-zinc-200 outline-none"
           >
             {items
               .filter((i) => i.status !== "completed")
@@ -171,7 +171,7 @@ export default function FocusPage() {
         </div>
 
         {/* Duration Preset Selector */}
-        <div className="flex items-center gap-2 bg-nexus-900 border border-white/[0.08] p-1 rounded-lg text-xs">
+        <div className="flex items-center gap-2 bg-zinc-950 border border-zinc-800 p-1 rounded-lg text-xs">
           {[
             { label: "25m Pomodoro", value: 25 },
             { label: "45m Deep Work", value: 45 },
@@ -182,8 +182,8 @@ export default function FocusPage() {
               onClick={() => handleSelectDuration(preset.value)}
               className={`px-3 py-1.5 rounded-md font-medium transition-all ${
                 selectedDuration === preset.value
-                  ? "bg-indigo-600 text-white shadow-sm"
-                  : "text-zinc-400 hover:text-zinc-200"
+                  ? "bg-white text-black font-semibold shadow-sm"
+                  : "text-zinc-400 hover:text-white"
               }`}
             >
               {preset.label}
@@ -198,7 +198,7 @@ export default function FocusPage() {
           variant="outline"
           size="lg"
           onClick={handleResetTimer}
-          className="text-xs h-11 px-5"
+          className="text-xs h-11 px-5 border-zinc-700 hover:border-white"
         >
           <RotateCcw className="w-4 h-4 mr-2" />
           Reset
@@ -208,7 +208,7 @@ export default function FocusPage() {
           <Button
             size="lg"
             onClick={handlePauseTimer}
-            className="text-sm h-11 px-8 bg-amber-600 hover:bg-amber-500 font-semibold"
+            className="text-sm h-11 px-8 bg-zinc-900 border border-zinc-700 text-white hover:bg-zinc-800 font-semibold"
           >
             <Pause className="w-4 h-4 mr-2" />
             Pause
@@ -217,7 +217,7 @@ export default function FocusPage() {
           <Button
             size="lg"
             onClick={handleStartTimer}
-            className="text-sm h-11 px-8 bg-indigo-600 hover:bg-indigo-500 font-semibold shadow-lg shadow-indigo-600/30"
+            className="text-sm h-11 px-8 bg-white text-black font-semibold hover:bg-zinc-200 shadow-md"
           >
             <Play className="w-4 h-4 mr-2 fill-current" />
             Start Focus
@@ -230,16 +230,16 @@ export default function FocusPage() {
           onClick={handleFinishSession}
           className="text-xs h-11 px-5"
         >
-          <CheckCircle className="w-4 h-4 mr-2 text-emerald-400" />
+          <CheckCircle className="w-4 h-4 mr-2 text-white" />
           Finish Early
         </Button>
       </div>
 
       {/* Ambient Audio Mixer */}
-      <div className="w-full max-w-lg p-5 rounded-xl border border-white/[0.08] bg-nexus-900/60 backdrop-blur-sm space-y-4">
-        <div className="flex items-center justify-between pb-2 border-b border-white/[0.06]">
+      <div className="w-full max-w-lg p-5 rounded-xl border border-zinc-800 bg-zinc-950 space-y-4">
+        <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
           <div className="flex items-center gap-2 text-xs font-semibold text-zinc-200">
-            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+            <Sparkles className="w-3.5 h-3.5 text-white" />
             <span>Native Web Audio Ambient Soundscapes</span>
           </div>
 
@@ -247,8 +247,8 @@ export default function FocusPage() {
             onClick={toggleSound}
             className={`p-1.5 rounded-md border text-xs flex items-center gap-1.5 ${
               isPlayingAudio
-                ? "bg-indigo-500/20 border-indigo-500/40 text-indigo-300"
-                : "bg-nexus-950 border-white/[0.08] text-zinc-400"
+                ? "bg-white text-black font-semibold border-white"
+                : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white"
             }`}
           >
             {isPlayingAudio ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
@@ -266,8 +266,8 @@ export default function FocusPage() {
                 onClick={() => handleSelectSound(sound.id)}
                 className={`p-2.5 rounded-lg border text-left text-xs transition-all flex items-center gap-2 ${
                   isSelected
-                    ? "bg-indigo-600/15 border-indigo-500/40 text-indigo-300 font-medium"
-                    : "bg-nexus-950/60 border-white/[0.06] text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.04]"
+                    ? "bg-white text-black border-white font-semibold shadow-sm"
+                    : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-white"
                 }`}
               >
                 {getSoundIcon(sound.id)}
@@ -290,7 +290,7 @@ export default function FocusPage() {
             step="0.05"
             value={volume}
             onChange={handleVolumeChange}
-            className="w-full accent-indigo-500 bg-white/[0.1] h-1.5 rounded-lg cursor-pointer"
+            className="w-full accent-white bg-zinc-800 h-1.5 rounded-lg cursor-pointer"
           />
         </div>
       </div>

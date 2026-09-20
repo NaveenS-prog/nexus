@@ -12,13 +12,13 @@ export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {
 
 export function Badge({ className, variant = "default", ...props }: BadgeProps) {
   const variantStyles = {
-    default: "border-transparent bg-indigo-500/15 text-indigo-400 border border-indigo-500/30",
-    secondary: "border-transparent bg-white/[0.06] text-zinc-300 border border-white/[0.08]",
-    destructive: "border-transparent bg-rose-500/15 text-rose-400 border border-rose-500/30",
-    outline: "text-zinc-400 border border-white/[0.12]",
-    success: "border-transparent bg-emerald-500/15 text-emerald-400 border border-emerald-500/30",
-    warning: "border-transparent bg-amber-500/15 text-amber-400 border border-amber-500/30",
-    cyan: "border-transparent bg-cyan-500/15 text-cyan-400 border border-cyan-500/30",
+    default: "bg-white text-black font-semibold border border-white",
+    secondary: "bg-zinc-900 text-zinc-200 border border-zinc-700",
+    destructive: "bg-black text-white border border-white font-semibold",
+    outline: "text-zinc-300 border border-zinc-700 bg-zinc-950",
+    success: "bg-zinc-100 text-black border border-white font-medium",
+    warning: "bg-zinc-800 text-zinc-100 border border-zinc-600 font-medium",
+    cyan: "bg-zinc-900 text-zinc-200 border border-zinc-700",
   };
 
   return (

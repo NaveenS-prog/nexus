@@ -26,18 +26,18 @@ export function ExamModeBanner({ items, onSelectItem }: ExamModeBannerProps) {
   ];
 
   return (
-    <div className="rounded-xl border border-amber-500/30 bg-gradient-to-r from-amber-950/20 via-nexus-900 to-amber-950/10 p-5 space-y-4 shadow-lg">
+    <div className="rounded-xl border border-zinc-700 bg-zinc-950 p-5 space-y-4 shadow-xl">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2.5">
-          <div className="p-2 rounded-lg bg-amber-500/20 text-amber-400 border border-amber-500/30">
+          <div className="p-2 rounded-lg bg-white text-black border border-white">
             <BookOpen className="w-5 h-5" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-sm font-bold tracking-wider text-amber-300 uppercase font-mono">
+              <h2 className="text-sm font-bold tracking-wider text-white uppercase font-mono">
                 EXAM MODE ACTIVE
               </h2>
-              <Badge variant="warning">Prioritizing Coursework & Exams</Badge>
+              <Badge variant="default">Prioritizing Coursework & Exams</Badge>
             </div>
             <p className="text-xs text-zinc-400 mt-0.5">
               Course syllabus countdowns and academic assignment queues elevated to top priority
@@ -52,7 +52,7 @@ export function ExamModeBanner({ items, onSelectItem }: ExamModeBannerProps) {
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs font-semibold text-zinc-300">
             <span className="flex items-center gap-1.5">
-              <Calendar className="w-3.5 h-3.5 text-amber-400" />
+              <Calendar className="w-3.5 h-3.5 text-white" />
               Upcoming Exams
             </span>
             <span className="text-[10px] text-zinc-500 font-mono">Semester Fall 2026</span>
@@ -62,12 +62,12 @@ export function ExamModeBanner({ items, onSelectItem }: ExamModeBannerProps) {
             {upcomingExams.map((exam) => (
               <div
                 key={exam.name}
-                className="p-2.5 rounded-lg bg-nexus-950/80 border border-amber-500/20 flex items-center justify-between text-xs"
+                className="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-between text-xs"
               >
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-zinc-200">{exam.name}</span>
-                    <span className="text-[10px] font-mono text-amber-400/80">{exam.code}</span>
+                    <span className="text-[10px] font-mono text-zinc-400">{exam.code}</span>
                   </div>
                   <span className="text-[11px] text-zinc-500">{exam.date}</span>
                 </div>
@@ -83,7 +83,7 @@ export function ExamModeBanner({ items, onSelectItem }: ExamModeBannerProps) {
         <div className="space-y-2">
           <div className="flex items-center justify-between text-xs font-semibold text-zinc-300">
             <span className="flex items-center gap-1.5">
-              <GraduationCap className="w-3.5 h-3.5 text-amber-400" />
+              <GraduationCap className="w-3.5 h-3.5 text-white" />
               Academic Priorities Queue
             </span>
             <span className="text-[10px] text-zinc-500">{academicItems.length} pending</span>
@@ -94,10 +94,10 @@ export function ExamModeBanner({ items, onSelectItem }: ExamModeBannerProps) {
               <div
                 key={item.id}
                 onClick={() => onSelectItem(item)}
-                className="p-2.5 rounded-lg bg-nexus-950/80 border border-white/[0.08] hover:border-amber-500/40 cursor-pointer transition-all flex items-center justify-between text-xs group"
+                className="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-white cursor-pointer transition-all flex items-center justify-between text-xs group"
               >
                 <div className="min-w-0 pr-2">
-                  <p className="text-zinc-200 font-medium truncate group-hover:text-amber-300 transition-colors">
+                  <p className="text-zinc-200 font-medium truncate group-hover:text-white transition-colors">
                     {item.title}
                   </p>
                   <p className="text-[10px] text-zinc-500 mt-0.5">{item.courseName || "Academic"}</p>

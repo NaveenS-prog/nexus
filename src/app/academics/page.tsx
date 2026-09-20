@@ -26,10 +26,10 @@ export default function AcademicsPage() {
   return (
     <div className="max-w-6xl mx-auto px-6 py-8 space-y-8 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.06] pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-6">
         <div>
           <div className="flex items-center gap-2">
-            <GraduationCap className="w-5 h-5 text-amber-400" />
+            <GraduationCap className="w-5 h-5 text-white" />
             <h1 className="text-2xl font-bold tracking-tight text-white">Academics & Coursework</h1>
           </div>
           <p className="text-xs text-zinc-400 mt-1">
@@ -37,7 +37,7 @@ export default function AcademicsPage() {
           </p>
         </div>
 
-        <Badge variant="warning" className="w-fit">
+        <Badge variant="outline" className="w-fit">
           Academic Workspace
         </Badge>
       </div>
@@ -48,7 +48,7 @@ export default function AcademicsPage() {
           Enrolled Courses
         </h2>
         {courses.length === 0 ? (
-          <div className="p-6 rounded-xl border border-white/[0.08] bg-nexus-900/30 text-center text-xs text-zinc-500">
+          <div className="p-6 rounded-xl border border-zinc-800 bg-zinc-950 text-center text-xs text-zinc-500">
             No enrolled courses synced. (Google Classroom integration is deferred).
           </div>
         ) : (
@@ -56,14 +56,14 @@ export default function AcademicsPage() {
             {courses.map((courseName) => (
               <div
                 key={courseName}
-                className="p-4 rounded-xl border border-amber-500/30 bg-amber-950/20 space-y-2 backdrop-blur-sm"
+                className="p-4 rounded-xl border border-zinc-800 bg-zinc-950 space-y-2"
               >
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-mono font-bold text-amber-400">COURSE</span>
-                  <span className="text-[10px] font-mono text-zinc-400">Classroom</span>
+                  <span className="text-[10px] font-mono font-bold text-white">COURSE</span>
+                  <span className="text-[10px] font-mono text-zinc-500">Classroom</span>
                 </div>
                 <h3 className="text-sm font-bold text-zinc-100">{courseName}</h3>
-                <div className="pt-2 border-t border-white/[0.06] flex items-center justify-between text-[11px] text-zinc-500">
+                <div className="pt-2 border-t border-zinc-800/80 flex items-center justify-between text-[11px] text-zinc-500">
                   <span>{academicItems.filter(i => i.courseName === courseName && i.status !== "completed").length} active tasks</span>
                 </div>
               </div>
@@ -83,7 +83,7 @@ export default function AcademicsPage() {
           </span>
         </div>
 
-        <div className="rounded-xl border border-white/[0.08] bg-nexus-900/50 backdrop-blur-sm divide-y divide-white/[0.04] overflow-hidden">
+        <div className="rounded-xl border border-zinc-800 bg-zinc-950 divide-y divide-zinc-800/80 overflow-hidden">
           {academicItems.length === 0 ? (
             <div className="p-8 text-center text-xs text-zinc-500">
               No academic assignments synced.
@@ -94,17 +94,17 @@ export default function AcademicsPage() {
               return (
               <div
                 key={item.id}
-                className={`p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-white/[0.03] transition-colors ${
-                  isCompleted ? "opacity-60 bg-black/20" : ""
+                className={`p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-zinc-900 transition-colors ${
+                  isCompleted ? "opacity-60 bg-black/40" : ""
                 }`}
               >
                 <div className="flex items-start gap-3 min-w-0">
                   <button
                     onClick={() => toggleItemCompletion(item.id)}
-                    className="mt-0.5 text-zinc-500 hover:text-indigo-400 transition-colors"
+                    className="mt-0.5 text-zinc-500 hover:text-white transition-colors"
                   >
                     {isCompleted ? (
-                      <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                      <CheckCircle2 className="w-4 h-4 text-white" />
                     ) : (
                       <div className="w-4 h-4 rounded-full border border-zinc-500" />
                     )}
@@ -119,7 +119,7 @@ export default function AcademicsPage() {
                     </div>
                     <p className="text-[11px] text-zinc-400 mt-1 max-w-xl">{item.description}</p>
                     <div className="flex items-center gap-3 mt-2 text-[10px] text-zinc-500 font-mono">
-                      <span className="text-amber-400">{item.courseName}</span>
+                      <span className="text-zinc-300 font-semibold">{item.courseName}</span>
                       <span>•</span>
                       <span>Due: {item.dueAt ? new Date(item.dueAt).toLocaleString() : "No deadline"}</span>
                     </div>
@@ -132,7 +132,7 @@ export default function AcademicsPage() {
                       href={item.url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="px-3 py-1 rounded bg-white/[0.06] hover:bg-white/[0.1] text-[11px] text-indigo-300 font-medium flex items-center gap-1.5 transition-colors border border-white/[0.08]"
+                      className="px-3 py-1 rounded bg-zinc-900 hover:bg-zinc-800 text-[11px] text-zinc-200 hover:text-white font-medium flex items-center gap-1.5 transition-colors border border-zinc-800"
                     >
                       <ExternalLink className="w-3 h-3" />
                       <span>Open Classroom</span>
