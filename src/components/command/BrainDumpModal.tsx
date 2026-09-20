@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Sparkles, Check, Lightbulb, CheckSquare, Trash2, X } from "lucide-react";
+import { Sparkles, Check, ArrowRight, Lightbulb, CheckSquare, Plus, Trash2, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useNexusStore } from "@/lib/data/store";
@@ -20,10 +20,12 @@ export function BrainDumpModal({ isOpen, onClose }: BrainDumpModalProps) {
 
   if (!isOpen) return null;
 
+  // Intelligent heuristic parser with structured pattern recognition
   const handleParse = async () => {
     if (!inputText.trim()) return;
     setIsAnalyzing(true);
 
+    // Call server AI route or heuristic fallback
     try {
       const res = await fetch("/api/ai/brain-dump", {
         method: "POST",
@@ -37,9 +39,10 @@ export function BrainDumpModal({ isOpen, onClose }: BrainDumpModalProps) {
         return;
       }
     } catch {
-      // fallback
+      // fallback to heuristic parser
     }
 
+    // Heuristic client-side parser fallback
     const rawChunks = inputText
       .split(/(?:,|\band\b|\n|\.)/gi)
       .map((s) => s.trim())
@@ -99,22 +102,22 @@ export function BrainDumpModal({ isOpen, onClose }: BrainDumpModalProps) {
   const samplePrompt = "Need to finish java assignment tomorrow, buy a mouse, ask professor about attendance, and I have an idea for an AI resume analyzer.";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/25 backdrop-blur-xs animate-fade-in">
-      <div className="relative w-full max-w-xl bg-white border border-zinc-200 rounded-xl shadow-2xl overflow-hidden flex flex-col text-zinc-900">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm animate-fade-in">
+      <div className="relative w-full max-w-xl bg-black border border-zinc-800 rounded-xl shadow-2xl overflow-hidden flex flex-col">
         {/* Header */}
-        <div className="px-5 py-4 border-b border-zinc-100 flex items-center justify-between">
+        <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-zinc-950 text-white shadow-xs">
+            <div className="p-1.5 rounded-lg bg-white text-black">
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-zinc-950">Brain Dump & Quick Capture</h2>
-              <p className="text-xs text-zinc-500">Stream your unstructured thoughts — NEXUS parses tasks & ideas</p>
+              <h2 className="text-sm font-semibold text-zinc-100">Brain Dump & Quick Capture</h2>
+              <p className="text-xs text-zinc-400">Stream your unstructured thoughts — NEXUS parses tasks & ideas</p>
             </div>
           </div>
           <button 
             onClick={onClose}
-            className="p-1 text-zinc-500 hover:text-zinc-950 rounded-md hover:bg-zinc-100 transition-colors"
+            className="p-1 text-zinc-400 hover:text-white rounded-md hover:bg-zinc-900"
           >
             <X className="w-4 h-4" />
           </button>
@@ -129,7 +132,7 @@ export function BrainDumpModal({ isOpen, onClose }: BrainDumpModalProps) {
                 onChange={(e) => setInputText(e.target.value)}
                 placeholder="Type everything on your mind... e.g. 'Finish OS assignment tonight, buy coffee, and an idea for an AI resume analyzer'"
                 rows={4}
-                className="w-full bg-zinc-50 border border-zinc-200 rounded-lg p-3 text-xs text-zinc-950 placeholder-zinc-400 outline-none focus:border-zinc-950 focus:bg-white resize-none font-sans leading-relaxed"
+                className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-3 text-xs text-zinc-100 placeholder-zinc-500 outline-none focus:border-white resize-none font-sans leading-relaxed"
                 autoFocus
               />
 
@@ -137,7 +140,7 @@ export function BrainDumpModal({ isOpen, onClose }: BrainDumpModalProps) {
                 <button
                   type="button"
                   onClick={() => setInputText(samplePrompt)}
-                  className="text-[11px] text-zinc-500 hover:text-zinc-950 underline font-medium"
+                  className="text-[11px] text-zinc-400 hover:text-white underline"
                 >
                   Load sample dump
                 </button>
@@ -145,7 +148,7 @@ export function BrainDumpModal({ isOpen, onClose }: BrainDumpModalProps) {
                 <Button
                   onClick={handleParse}
                   disabled={!inputText.trim() || isAnalyzing}
-                  className="flex items-center gap-1.5 text-xs h-8 bg-zinc-950 text-white font-semibold hover:bg-zinc-800 shadow-sm"
+                  className="flex items-center gap-1.5 text-xs h-8 bg-white text-black font-semibold hover:bg-zinc-200"
                 >
                   {isAnalyzing ? (
                     <span>Parsing thoughts...</span>
@@ -161,12 +164,12 @@ export function BrainDumpModal({ isOpen, onClose }: BrainDumpModalProps) {
           ) : (
             <div className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-zinc-900">
+                <span className="text-xs font-semibold text-zinc-300">
                   Detected {parsedItems.length} structured items:
                 </span>
                 <button
                   onClick={() => setParsedItems(null)}
-                  className="text-[11px] text-zinc-500 hover:text-zinc-950 underline"
+                  className="text-[11px] text-zinc-400 hover:text-zinc-200 underline"
                 >
                   Edit original text
                 </button>
@@ -176,21 +179,21 @@ export function BrainDumpModal({ isOpen, onClose }: BrainDumpModalProps) {
                 {parsedItems.map((item) => (
                   <div
                     key={item.id}
-                    className="p-2.5 rounded-lg bg-zinc-50 border border-zinc-200 flex items-center justify-between gap-3 text-xs"
+                    className="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800 flex items-center justify-between gap-3 text-xs"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       {item.type === "idea" ? (
-                        <div className="p-1.5 rounded bg-zinc-200 text-zinc-900">
+                        <div className="p-1 rounded bg-zinc-800 text-white">
                           <Lightbulb className="w-3.5 h-3.5" />
                         </div>
                       ) : (
-                        <div className="p-1.5 rounded bg-zinc-200 text-zinc-900">
+                        <div className="p-1 rounded bg-zinc-800 text-white">
                           <CheckSquare className="w-3.5 h-3.5" />
                         </div>
                       )}
                       <div className="truncate">
-                        <p className="text-zinc-900 font-medium truncate">{item.title}</p>
-                        <div className="flex items-center gap-2 text-[10px] text-zinc-500 mt-0.5 font-mono">
+                        <p className="text-zinc-200 font-medium truncate">{item.title}</p>
+                        <div className="flex items-center gap-2 text-[10px] text-zinc-500 mt-0.5">
                           <span className="uppercase">{item.type}</span>
                           <span>•</span>
                           <span className="capitalize">{item.category}</span>
@@ -206,7 +209,7 @@ export function BrainDumpModal({ isOpen, onClose }: BrainDumpModalProps) {
                       </Badge>
                       <button
                         onClick={() => handleRemoveParsedItem(item.id)}
-                        className="p-1 text-zinc-400 hover:text-red-600 transition-colors"
+                        className="p-1 text-zinc-500 hover:text-white transition-colors"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
@@ -216,11 +219,11 @@ export function BrainDumpModal({ isOpen, onClose }: BrainDumpModalProps) {
               </div>
 
               {/* Action Buttons */}
-              <div className="pt-3 border-t border-zinc-100 flex items-center justify-end gap-2">
+              <div className="pt-3 border-t border-zinc-800 flex items-center justify-end gap-2">
                 <Button variant="outline" size="sm" onClick={() => setParsedItems(null)}>
                   Cancel
                 </Button>
-                <Button size="sm" onClick={handleSaveAll} className="flex items-center gap-1.5 bg-zinc-950 text-white font-semibold hover:bg-zinc-800 shadow-sm">
+                <Button size="sm" onClick={handleSaveAll} className="flex items-center gap-1.5 bg-white text-black font-semibold hover:bg-zinc-200">
                   <Check className="w-3.5 h-3.5" />
                   <span>Add Everything ({parsedItems.length})</span>
                 </Button>

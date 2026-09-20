@@ -3,15 +3,19 @@
 import { useState, useMemo } from "react";
 import { 
   Calendar as CalendarIcon, 
+  Clock, 
   ChevronLeft, 
   ChevronRight, 
   MapPin, 
   Video, 
   ExternalLink,
+  Layers,
+  CheckCircle2,
   CalendarDays,
   AlertCircle,
   Trash2,
-  RefreshCw
+  RefreshCw,
+  Filter
 } from "lucide-react";
 import { useNexusStore } from "@/lib/data/store";
 import { Badge } from "@/components/ui/badge";
@@ -48,12 +52,14 @@ export default function CalendarPage() {
     return items.some((i) => i.id.startsWith("item-"));
   }, [items]);
 
-  // Filter items for calendar display
+  // Filter items for calendar display: hides mock demo items when live data exists, and filters by event vs all
   const calendarItems = useMemo(() => {
     return items.filter((item) => {
+      // If live items exist, strip out mock demo items
       if (hasLiveItems && item.id.startsWith("item-")) {
         return false;
       }
+      // If "Events Only" mode is active (default), only show calendar events
       if (filterType === "events") {
         return item.category === "calendar" || item.source === "google_calendar";
       }
@@ -86,7 +92,7 @@ export default function CalendarPage() {
 
   // Week days for week view
   const weekDays = useMemo(() => {
-    const start = startOfWeek(selectedDate, { weekStartsOn: 1 });
+    const start = startOfWeek(selectedDate, { weekStartsOn: 1 }); // Monday start
     return Array.from({ length: 7 }, (_, i) => addDays(start, i));
   }, [selectedDate]);
 
@@ -127,27 +133,27 @@ export default function CalendarPage() {
   return (
     <div className="max-w-6xl mx-auto px-6 py-8 space-y-6 animate-fade-in">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200/90 pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-6">
         <div>
           <div className="flex items-center gap-2">
-            <CalendarIcon className="w-5 h-5 text-zinc-950" />
-            <h1 className="text-2xl font-bold tracking-tight text-zinc-950">Calendar & Schedule</h1>
+            <CalendarIcon className="w-5 h-5 text-white" />
+            <h1 className="text-2xl font-bold tracking-tight text-white">Calendar & Schedule</h1>
           </div>
-          <p className="text-xs text-zinc-500 mt-1">
+          <p className="text-xs text-zinc-400 mt-1">
             Google Calendar time blocks and daily scheduled commitments
           </p>
         </div>
 
         {/* Date Navigation & View Toggle */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Filter Toggle */}
-          <div className="flex items-center bg-zinc-100 border border-zinc-200 rounded-lg p-0.5 text-xs">
+          {/* Filter Toggle: Events Only vs All */}
+          <div className="flex items-center bg-zinc-950 border border-zinc-800 rounded-lg p-0.5 text-xs">
             <button
               onClick={() => setFilterType("events")}
               className={`px-3 py-1 rounded text-xs font-medium transition-all ${
                 filterType === "events" 
-                  ? "bg-white text-zinc-950 font-semibold shadow-xs border border-zinc-200/60" 
-                  : "text-zinc-600 hover:text-zinc-950"
+                  ? "bg-white text-black font-semibold shadow-sm" 
+                  : "text-zinc-400 hover:text-white"
               }`}
               title="Show only Google Calendar events"
             >
@@ -157,8 +163,8 @@ export default function CalendarPage() {
               onClick={() => setFilterType("all")}
               className={`px-3 py-1 rounded text-xs font-medium transition-all ${
                 filterType === "all" 
-                  ? "bg-white text-zinc-950 font-semibold shadow-xs border border-zinc-200/60" 
-                  : "text-zinc-600 hover:text-zinc-950"
+                  ? "bg-white text-black font-semibold shadow-sm" 
+                  : "text-zinc-400 hover:text-white"
               }`}
               title="Show events and tasks with due dates"
             >
@@ -167,11 +173,11 @@ export default function CalendarPage() {
           </div>
 
           {/* Day / Week switch */}
-          <div className="flex items-center bg-zinc-100 border border-zinc-200 rounded-lg p-0.5 text-xs">
+          <div className="flex items-center bg-zinc-950 border border-zinc-800 rounded-lg p-0.5 text-xs">
             <button
               onClick={() => setViewMode("day")}
               className={`px-3 py-1 rounded text-xs font-medium transition-all ${
-                viewMode === "day" ? "bg-white text-zinc-950 font-semibold shadow-xs border border-zinc-200/60" : "text-zinc-600 hover:text-zinc-950"
+                viewMode === "day" ? "bg-white text-black font-semibold shadow-sm" : "text-zinc-400 hover:text-white"
               }`}
             >
               Day
@@ -179,7 +185,7 @@ export default function CalendarPage() {
             <button
               onClick={() => setViewMode("week")}
               className={`px-3 py-1 rounded text-xs font-medium transition-all ${
-                viewMode === "week" ? "bg-white text-zinc-950 font-semibold shadow-xs border border-zinc-200/60" : "text-zinc-600 hover:text-zinc-950"
+                viewMode === "week" ? "bg-white text-black font-semibold shadow-sm" : "text-zinc-400 hover:text-white"
               }`}
             >
               Week
@@ -192,7 +198,7 @@ export default function CalendarPage() {
             variant="outline"
             onClick={syncAll}
             disabled={isSyncing}
-            className="h-7 text-xs border-zinc-200 bg-white text-zinc-900 hover:bg-zinc-50 flex items-center gap-1.5 shadow-xs"
+            className="h-7 text-xs border-zinc-700 text-zinc-200 hover:bg-zinc-900 hover:border-white flex items-center gap-1.5"
             title="Refresh schedule from Google Calendar"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} />
@@ -200,30 +206,30 @@ export default function CalendarPage() {
           </Button>
 
           {/* Prev / Today / Next Controls */}
-          <div className="flex items-center gap-1 bg-white border border-zinc-200 rounded-lg p-0.5 shadow-xs">
+          <div className="flex items-center gap-1 bg-zinc-950 border border-zinc-800 rounded-lg p-0.5">
             <button
               onClick={handlePrev}
-              className="p-1.5 rounded hover:bg-zinc-100 text-zinc-600 hover:text-zinc-950 transition-colors"
+              className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
               title="Previous"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
             <button
               onClick={handleToday}
-              className="px-2.5 py-1 text-xs font-medium text-zinc-700 hover:text-zinc-950 rounded hover:bg-zinc-100 transition-colors"
+              className="px-2.5 py-1 text-xs font-medium text-zinc-300 hover:text-white rounded hover:bg-zinc-800 transition-colors"
             >
               Today
             </button>
             <button
               onClick={handleNext}
-              className="p-1.5 rounded hover:bg-zinc-100 text-zinc-600 hover:text-zinc-950 transition-colors"
+              className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
               title="Next"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="px-3 py-1.5 rounded-lg bg-white border border-zinc-200 font-mono text-xs text-zinc-900 shadow-xs">
+          <div className="px-3 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 font-mono text-xs text-zinc-200">
             {format(selectedDate, "EEE, MMM d, yyyy")}
           </div>
         </div>
@@ -231,9 +237,9 @@ export default function CalendarPage() {
 
       {/* Demo Data Notice Banner */}
       {hasDemoItems && (
-        <div className="p-3.5 rounded-xl border border-amber-200 bg-amber-50/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-xs">
-          <div className="flex items-center gap-2 text-amber-900">
-            <AlertCircle className="w-4 h-4 text-amber-700 flex-shrink-0" />
+        <div className="p-3.5 rounded-xl border border-zinc-800 bg-zinc-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 text-zinc-300">
+            <AlertCircle className="w-4 h-4 text-white flex-shrink-0" />
             <span>
               Sample mock items (tasks & events) are active in local memory. Clear them to display only your real connected Google schedule.
             </span>
@@ -243,7 +249,7 @@ export default function CalendarPage() {
               size="sm"
               variant="outline"
               onClick={purgeDemoData}
-              className="h-7 text-xs border-amber-300 text-amber-900 bg-white hover:bg-amber-100 flex items-center gap-1.5"
+              className="h-7 text-xs border-zinc-700 text-zinc-200 hover:bg-zinc-900 flex items-center gap-1.5"
             >
               <Trash2 className="w-3.5 h-3.5" />
               <span>Purge Demo Items</span>
@@ -257,9 +263,9 @@ export default function CalendarPage() {
         <div className="space-y-4">
           {/* All-Day Events Banner */}
           {allDayEvents.length > 0 && (
-            <div className="p-3.5 rounded-xl border border-zinc-200/90 bg-white/90 backdrop-blur-md space-y-2 shadow-xs">
+            <div className="p-3 rounded-xl border border-zinc-800 bg-zinc-950 space-y-2">
               <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold flex items-center gap-1.5">
-                <CalendarDays className="w-3.5 h-3.5 text-zinc-950" />
+                <CalendarDays className="w-3.5 h-3.5 text-white" />
                 All-Day Events
               </span>
               <div className="flex flex-wrap gap-2">
@@ -267,9 +273,9 @@ export default function CalendarPage() {
                   <div
                     key={event.id}
                     onClick={() => handleOpenItem(event)}
-                    className="px-3 py-1.5 rounded-lg bg-zinc-50 border border-zinc-200 text-xs text-zinc-800 hover:border-zinc-400 cursor-pointer transition-colors flex items-center gap-2 shadow-2xs"
+                    className="px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 hover:border-white cursor-pointer transition-colors flex items-center gap-2"
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-zinc-950" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-white" />
                     <span className="font-medium">{event.title}</span>
                   </div>
                 ))}
@@ -278,23 +284,24 @@ export default function CalendarPage() {
           )}
 
           {/* Timed Grid */}
-          <div className="rounded-xl border border-zinc-200/90 bg-white/90 backdrop-blur-md p-4 space-y-3 shadow-[0_1px_3px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.02)]">
-            <div className="flex items-center justify-between pb-2 border-b border-zinc-100">
+          <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4 space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-zinc-950">
+                <span className="text-xs font-semibold text-zinc-200">
                   {format(selectedDate, "EEEE, MMMM d")}
                 </span>
                 {isToday(selectedDate) && <Badge variant="secondary">Today</Badge>}
               </div>
-              <span className="text-[11px] font-mono text-zinc-500">
+              <span className="text-[11px] font-mono text-zinc-400">
                 {dayItems.length} event{dayItems.length !== 1 ? "s" : ""}
               </span>
             </div>
 
-            <div className="divide-y divide-zinc-100 max-h-[700px] overflow-y-auto">
+            <div className="divide-y divide-zinc-800/80 max-h-[700px] overflow-y-auto">
               {hours.map((hour) => {
                 const hourLabel = `${hour.toString().padStart(2, "0")}:00`;
                 
+                // Match events whose start hour is this hour
                 const matching = timedEvents.filter((item) => {
                   if (item.startAt) {
                     try {
@@ -315,7 +322,7 @@ export default function CalendarPage() {
 
                 return (
                   <div key={hour} className="py-2.5 flex items-start gap-4 min-h-[52px] group">
-                    <span className="w-12 font-mono text-xs text-zinc-400 flex-shrink-0 pt-1">
+                    <span className="w-12 font-mono text-xs text-zinc-500 flex-shrink-0 pt-1">
                       {hourLabel}
                     </span>
 
@@ -328,11 +335,11 @@ export default function CalendarPage() {
                             <div
                               key={item.id}
                               onClick={() => handleOpenItem(item)}
-                              className="p-3 rounded-lg border border-zinc-200/90 bg-zinc-50/80 hover:border-zinc-400 hover:bg-white text-zinc-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs transition-all cursor-pointer group shadow-xs"
+                              className="p-3 rounded-lg border border-zinc-800 bg-zinc-900 hover:border-white text-zinc-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs transition-all cursor-pointer group shadow-sm"
                             >
                               <div className="space-y-1 min-w-0 pr-2">
                                 <div className="flex items-center gap-2">
-                                  <span className="font-semibold text-zinc-950 truncate">
+                                  <span className="font-semibold text-zinc-100 group-hover:text-white truncate">
                                     {item.title}
                                   </span>
                                   <Badge variant={isCalendar ? "default" : "secondary"}>
@@ -341,21 +348,21 @@ export default function CalendarPage() {
                                 </div>
 
                                 {item.description && (
-                                  <p className="text-[11px] text-zinc-600 line-clamp-1">
+                                  <p className="text-[11px] text-zinc-400 line-clamp-1">
                                     {item.description}
                                   </p>
                                 )}
 
-                                <div className="flex items-center gap-3 text-[10px] text-zinc-500 font-mono">
+                                <div className="flex items-center gap-3 text-[10px] text-zinc-400 font-mono">
                                   {timeStr && <span>⏱ {timeStr}</span>}
                                   {item.metadata?.location && (
                                     <span className="flex items-center gap-1">
-                                      <MapPin className="w-3 h-3 text-zinc-700" />
+                                      <MapPin className="w-3 h-3 text-white" />
                                       <span className="truncate max-w-[200px]">{item.metadata.location}</span>
                                     </span>
                                   )}
                                   {item.metadata?.hangoutLink && (
-                                    <span className="flex items-center gap-1 text-zinc-800 font-medium">
+                                    <span className="flex items-center gap-1 text-white">
                                       <Video className="w-3 h-3" />
                                       <span>Google Meet</span>
                                     </span>
@@ -370,7 +377,7 @@ export default function CalendarPage() {
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     onClick={(e) => e.stopPropagation()}
-                                    className="p-1.5 rounded hover:bg-zinc-200 text-zinc-500 hover:text-zinc-950 transition-colors"
+                                    className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
                                     title="Open in Google Calendar"
                                   >
                                     <ExternalLink className="w-3.5 h-3.5" />
@@ -381,7 +388,7 @@ export default function CalendarPage() {
                           );
                         })
                       ) : (
-                        <div className="h-4 w-full group-hover:bg-zinc-100/50 transition-colors rounded" />
+                        <div className="h-4 w-full group-hover:bg-zinc-900/50 transition-colors rounded" />
                       )}
                     </div>
                   </div>
@@ -399,6 +406,7 @@ export default function CalendarPage() {
             const isSelected = isSameDay(day, selectedDate);
             const isDayToday = isToday(day);
 
+            // Filter items for this specific weekday
             const itemsForDay = calendarItems.filter((item) => {
               const target = item.startAt || item.dueAt;
               if (!target) return false;
@@ -416,23 +424,23 @@ export default function CalendarPage() {
                   setSelectedDate(day);
                   setViewMode("day");
                 }}
-                className={`p-3.5 rounded-xl border flex flex-col space-y-3 cursor-pointer transition-all shadow-xs ${
+                className={`p-3.5 rounded-xl border flex flex-col space-y-3 cursor-pointer transition-all ${
                   isSelected
-                    ? "bg-zinc-950 text-white border-zinc-950 ring-2 ring-zinc-950/20"
-                    : "bg-white/90 border-zinc-200/90 hover:border-zinc-300"
+                    ? "bg-zinc-900 border-white ring-1 ring-white/20"
+                    : "bg-zinc-950 border-zinc-800 hover:border-zinc-700"
                 }`}
               >
                 {/* Day Header */}
-                <div className={`flex items-center justify-between border-b pb-2 ${isSelected ? "border-zinc-800" : "border-zinc-100"}`}>
+                <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
                   <div>
-                    <span className={`text-xs font-mono font-bold ${isSelected ? "text-zinc-300" : "text-zinc-500"}`}>
+                    <span className="text-xs font-mono font-bold text-zinc-200">
                       {format(day, "EEE")}
                     </span>
-                    <p className={`text-base font-bold font-mono ${isSelected ? "text-white" : isDayToday ? "text-zinc-950 font-extrabold" : "text-zinc-700"}`}>
+                    <p className={`text-base font-bold font-mono ${isDayToday ? "text-white font-extrabold" : "text-zinc-400"}`}>
                       {format(day, "d")}
                     </p>
                   </div>
-                  {isDayToday && <Badge variant={isSelected ? "default" : "secondary"}>Today</Badge>}
+                  {isDayToday && <Badge variant="secondary">Today</Badge>}
                 </div>
 
                 {/* Day Events Count & Mini List */}
@@ -440,27 +448,23 @@ export default function CalendarPage() {
                   {itemsForDay.slice(0, 4).map((item) => (
                     <div
                       key={item.id}
-                      className={`p-1.5 rounded text-[11px] truncate ${
-                        isSelected 
-                          ? "bg-zinc-900 border border-zinc-800 text-zinc-100" 
-                          : "bg-zinc-50 border border-zinc-200 text-zinc-800 hover:text-zinc-950"
-                      }`}
+                      className="p-1.5 rounded bg-zinc-900 border border-zinc-800 text-[11px] truncate text-zinc-300 hover:text-white"
                     >
                       <span className="truncate block font-medium">{item.title}</span>
-                      <span className={`text-[10px] font-mono ${isSelected ? "text-zinc-400" : "text-zinc-500"}`}>
+                      <span className="text-[10px] text-zinc-500 font-mono">
                         {item.startAt ? format(parseISO(item.startAt), "hh:mm a") : "All Day"}
                       </span>
                     </div>
                   ))}
 
                   {itemsForDay.length > 4 && (
-                    <span className={`text-[10px] font-mono block pt-1 ${isSelected ? "text-zinc-400" : "text-zinc-500"}`}>
+                    <span className="text-[10px] text-zinc-500 font-mono block pt-1">
                       +{itemsForDay.length - 4} more
                     </span>
                   )}
 
                   {itemsForDay.length === 0 && (
-                    <span className={`text-[11px] italic block pt-4 text-center ${isSelected ? "text-zinc-500" : "text-zinc-400"}`}>
+                    <span className="text-[11px] text-zinc-600 italic block pt-4 text-center">
                       No events
                     </span>
                   )}
@@ -471,6 +475,7 @@ export default function CalendarPage() {
         </div>
       )}
 
+      {/* Item Detail Drawer */}
       <ItemDetailDrawer
         item={selectedItem}
         isOpen={drawerOpen}

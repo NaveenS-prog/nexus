@@ -9,6 +9,7 @@ import {
   Play, 
   Calendar, 
   Clock, 
+  Tag, 
   Folder 
 } from "lucide-react";
 import { SlideOver } from "@/components/ui/drawer";
@@ -61,8 +62,8 @@ export function ItemDetailDrawer({
         {/* Description */}
         {item.description && (
           <div className="space-y-1.5">
-            <span className="text-[11px] font-mono uppercase text-zinc-400 font-semibold">Description</span>
-            <div className="p-3 rounded-lg bg-zinc-50 border border-zinc-200/80 text-xs text-zinc-700 leading-relaxed">
+            <span className="text-[11px] font-mono uppercase text-zinc-500 font-semibold">Description</span>
+            <div className="p-3 rounded-lg bg-zinc-900 border border-zinc-800 text-xs text-zinc-300 leading-relaxed">
               {item.description}
             </div>
           </div>
@@ -70,15 +71,15 @@ export function ItemDetailDrawer({
 
         {/* Metadata Details Grid */}
         <div className="space-y-3">
-          <span className="text-[11px] font-mono uppercase text-zinc-400 font-semibold">Details</span>
+          <span className="text-[11px] font-mono uppercase text-zinc-500 font-semibold">Details</span>
           <div className="grid grid-cols-2 gap-3 text-xs">
             {item.dueAt && (
-              <div className="p-2.5 rounded-lg bg-zinc-50 border border-zinc-200/80">
+              <div className="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
                 <div className="flex items-center gap-1.5 text-zinc-500 text-[10px] font-mono uppercase">
-                  <Calendar className="w-3 h-3 text-zinc-950" />
+                  <Calendar className="w-3 h-3 text-white" />
                   <span>Due Date</span>
                 </div>
-                <span className="font-mono text-zinc-900 mt-1 block font-medium">
+                <span className="font-mono text-zinc-200 mt-1 block">
                   {new Date(item.dueAt).toLocaleDateString(undefined, {
                     month: "short",
                     day: "numeric",
@@ -90,24 +91,24 @@ export function ItemDetailDrawer({
             )}
 
             {item.estimatedMinutes && (
-              <div className="p-2.5 rounded-lg bg-zinc-50 border border-zinc-200/80">
+              <div className="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
                 <div className="flex items-center gap-1.5 text-zinc-500 text-[10px] font-mono uppercase">
-                  <Clock className="w-3 h-3 text-zinc-950" />
+                  <Clock className="w-3 h-3 text-white" />
                   <span>Estimated Effort</span>
                 </div>
-                <span className="font-mono text-zinc-900 mt-1 block font-medium">
+                <span className="font-mono text-zinc-200 mt-1 block">
                   {item.estimatedMinutes} minutes
                 </span>
               </div>
             )}
 
             {item.courseName && (
-              <div className="col-span-2 p-2.5 rounded-lg bg-zinc-50 border border-zinc-200/80">
+              <div className="col-span-2 p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
                 <div className="flex items-center gap-1.5 text-zinc-500 text-[10px] font-mono uppercase">
-                  <Folder className="w-3 h-3 text-zinc-950" />
+                  <Folder className="w-3 h-3 text-white" />
                   <span>Course</span>
                 </div>
-                <span className="text-zinc-900 mt-1 block font-medium">
+                <span className="text-zinc-200 mt-1 block font-medium">
                   {item.courseName}
                 </span>
               </div>
@@ -118,12 +119,12 @@ export function ItemDetailDrawer({
         {/* Tags */}
         {item.tags && item.tags.length > 0 && (
           <div className="space-y-2">
-            <span className="text-[11px] font-mono uppercase text-zinc-400 font-semibold">Tags</span>
+            <span className="text-[11px] font-mono uppercase text-zinc-500 font-semibold">Tags</span>
             <div className="flex flex-wrap gap-1.5">
               {item.tags.map((tag) => (
                 <span
                   key={tag}
-                  className="px-2 py-0.5 rounded-md bg-zinc-100 text-[11px] font-mono text-zinc-700 border border-zinc-200"
+                  className="px-2 py-0.5 rounded bg-zinc-900 text-[11px] font-mono text-zinc-300 border border-zinc-800"
                 >
                   #{tag}
                 </span>
@@ -139,7 +140,7 @@ export function ItemDetailDrawer({
               href={item.url}
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-xs text-zinc-700 hover:text-zinc-950 underline font-medium"
+              className="inline-flex items-center gap-2 text-xs text-zinc-300 hover:text-white underline font-medium"
             >
               <ExternalLink className="w-3.5 h-3.5" />
               <span>Open in upstream {item.source.replace("_", " ")}</span>
@@ -148,7 +149,7 @@ export function ItemDetailDrawer({
         )}
 
         {/* Action Controls */}
-        <div className="pt-6 border-t border-zinc-200 space-y-2">
+        <div className="pt-6 border-t border-zinc-800 space-y-2">
           {!isCalendar && (
             <Button
               onClick={() => {
@@ -160,12 +161,12 @@ export function ItemDetailDrawer({
             >
               {isCompleted ? (
                 <>
-                  <Circle className="w-4 h-4 text-zinc-500" />
+                  <Circle className="w-4 h-4 text-zinc-400" />
                   <span>Mark Incomplete</span>
                 </>
               ) : (
                 <>
-                  <CheckCircle2 className="w-4 h-4 text-zinc-950" />
+                  <CheckCircle2 className="w-4 h-4 text-white" />
                   <span>Mark Completed</span>
                 </>
               )}
@@ -177,19 +178,19 @@ export function ItemDetailDrawer({
               onClose();
               router.push("/focus");
             }}
-            className="w-full flex items-center justify-center gap-2 text-xs bg-zinc-950 text-white font-semibold hover:bg-zinc-800 shadow-sm"
+            className="w-full flex items-center justify-center gap-2 text-xs bg-white text-black font-semibold hover:bg-zinc-200"
           >
             <Play className="w-3.5 h-3.5 fill-current" />
             <span>Launch Focus Session for this Item</span>
           </Button>
 
           <Button
-            variant="danger"
+            variant="outline"
             onClick={() => {
               onDelete(item.id);
               onClose();
             }}
-            className="w-full flex items-center justify-center gap-2 text-xs"
+            className="w-full flex items-center justify-center gap-2 text-xs text-zinc-400 hover:text-white hover:bg-zinc-900 border-zinc-800"
           >
             <Trash2 className="w-3.5 h-3.5" />
             <span>Delete Item</span>

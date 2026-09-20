@@ -44,19 +44,19 @@ const config: Config = {
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
         nexus: {
-          950: "#09090b",
-          900: "#18181b",
-          850: "#27272a",
-          800: "#3f3f46",
-          750: "#52525b",
-          700: "#71717a",
-          600: "#a1a1aa",
-          accent: "#09090b",
+          950: "#000000",
+          900: "#09090b",
+          850: "#121215",
+          800: "#18181b",
+          750: "#27272a",
+          700: "#3f3f46",
+          600: "#52525b",
+          accent: "#ffffff",
           highlight: "#f4f4f5",
-          gold: "#d97706",
-          emerald: "#059669",
-          rose: "#e11d48",
-          cyan: "#0891b2"
+          gold: "#e4e4e7",
+          emerald: "#ffffff",
+          rose: "#a1a1aa",
+          cyan: "#d4d4d8"
         }
       },
       borderRadius: {
