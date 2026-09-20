@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 export default function SettingsPage() {
-  const { integrations, syncAll, isSyncing, resetToDemo, mode, setMode, isLiveSynced } = useNexusStore();
+  const { integrations, syncAll, isSyncing, purgeDemoData, resetToDemo, mode, setMode, isLiveSynced } = useNexusStore();
   
   // Credentials state
   const [googleClientId, setGoogleClientId] = useState("");
@@ -180,7 +180,18 @@ export default function SettingsPage() {
   const handleTriggerLiveSync = async () => {
     setSyncFeedback("Syncing with Google Calendar, Google Tasks & Notion...");
     try {
-      const res = await fetch("/api/integrations/sync", { method: "POST" });
+      let credsPayload = {};
+      const saved = localStorage.getItem("nexus_credentials_v1");
+      if (saved) {
+        try {
+          credsPayload = { credentials: JSON.parse(saved) };
+        } catch {}
+      }
+      const res = await fetch("/api/integrations/sync", { 
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(credsPayload),
+      });
       const data = await res.json();
       if (data.items && data.items.length > 0) {
         await syncAll();
@@ -190,12 +201,20 @@ export default function SettingsPage() {
       } else if (data.errors && data.errors.length > 0) {
         setSyncFeedback(`Notice: ${data.errors.join(", ")}`);
       } else {
-        setSyncFeedback("Sync complete. No new items found in upstream accounts.");
+        setSyncFeedback("Sync complete. Up-to-date with upstream accounts.");
       }
     } catch (err: any) {
       setSyncFeedback(`Sync failed: ${err.message}`);
     }
     setTimeout(() => setSyncFeedback(null), 7000);
+  };
+
+  const handlePurgeDemoData = () => {
+    if (confirm("Remove all sample demo items and display only your connected Google and Notion items?")) {
+      purgeDemoData();
+      setStatusMsg("Sample demo items purged! Displaying live data only.");
+      setTimeout(() => setStatusMsg(""), 4000);
+    }
   };
 
   const handleExportData = () => {
@@ -570,10 +589,20 @@ export default function SettingsPage() {
           NEXUS operates with instant local persistence. You can toggle back to clean demo data at any time or export all your synced data as JSON.
         </p>
 
-        <div className="flex items-center gap-3 pt-2">
+        <div className="flex flex-wrap items-center gap-3 pt-2">
           <Button variant="outline" size="sm" onClick={handleExportData} className="text-xs h-8">
             <Download className="w-3.5 h-3.5 mr-1.5" />
             Export Local Data (JSON)
+          </Button>
+
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handlePurgeDemoData} 
+            className="text-xs h-8 border-amber-500/40 text-amber-300 hover:bg-amber-500/20"
+          >
+            <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+            Purge Demo Items (Live Data Only)
           </Button>
 
           <Button variant="danger" size="sm" onClick={handleResetDemo} className="text-xs h-8">

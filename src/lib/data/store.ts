@@ -191,8 +191,9 @@ export function useNexusStore() {
       if (res.ok) {
         const data = await res.json();
         if (data.items && data.items.length > 0) {
-          // Keep non-synced items (e.g. internal nexus tasks, academic items)
+          // Purge all mock demo items once live items are received
           const nonLiveItems = memoryState.items.filter((item) => {
+            if (item.id.startsWith("item-")) return false; // Strip out mock demo items!
             if (data.stats.googleTasks > 0 && item.source === "google_tasks") return false;
             if (data.stats.googleCalendar > 0 && item.source === "google_calendar") return false;
             if (data.stats.notion > 0 && item.source === "notion") return false;
@@ -231,6 +232,17 @@ export function useNexusStore() {
     }
   }, []);
 
+  const purgeDemoData = useCallback(() => {
+    const realOnly = memoryState.items.filter((item) => !item.id.startsWith("item-"));
+    memoryState.items = realOnly;
+    memoryState.isLiveSynced = true;
+    if (typeof window !== "undefined") {
+      localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(realOnly));
+      localStorage.setItem(STORAGE_KEY_IS_LIVE, "true");
+    }
+    notifyListeners();
+  }, []);
+
   const resetToDemo = useCallback(() => {
     memoryState.items = MOCK_UNIFIED_ITEMS;
     memoryState.projects = MOCK_PROJECTS;
@@ -267,6 +279,7 @@ export function useNexusStore() {
     addFocusSession,
     saveProjects,
     syncAll,
+    purgeDemoData,
     resetToDemo,
   };
 }

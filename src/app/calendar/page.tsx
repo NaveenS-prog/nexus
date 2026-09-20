@@ -11,7 +11,11 @@ import {
   ExternalLink,
   Layers,
   CheckCircle2,
-  CalendarDays
+  CalendarDays,
+  AlertCircle,
+  Trash2,
+  RefreshCw,
+  Filter
 } from "lucide-react";
 import { useNexusStore } from "@/lib/data/store";
 import { Badge } from "@/components/ui/badge";
@@ -29,18 +33,43 @@ import {
 } from "date-fns";
 
 export default function CalendarPage() {
-  const { items, toggleItemCompletion, deleteItem } = useNexusStore();
+  const { items, toggleItemCompletion, deleteItem, syncAll, isSyncing, purgeDemoData } = useNexusStore();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [viewMode, setViewMode] = useState<"day" | "week">("day");
+  const [filterType, setFilterType] = useState<"events" | "all">("events");
   const [selectedItem, setSelectedItem] = useState<UnifiedItem | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   // Hours to show in day view: 07:00 to 23:00
   const hours = Array.from({ length: 17 }, (_, i) => i + 7);
 
+  // Detect live synced items vs mock demo items
+  const hasLiveItems = useMemo(() => {
+    return items.some((i) => i.id.startsWith("gcal-") || i.id.startsWith("gtask-") || i.id.startsWith("notion-"));
+  }, [items]);
+
+  const hasDemoItems = useMemo(() => {
+    return items.some((i) => i.id.startsWith("item-"));
+  }, [items]);
+
+  // Filter items for calendar display: hides mock demo items when live data exists, and filters by event vs all
+  const calendarItems = useMemo(() => {
+    return items.filter((item) => {
+      // If live items exist, strip out mock demo items
+      if (hasLiveItems && item.id.startsWith("item-")) {
+        return false;
+      }
+      // If "Events Only" mode is active (default), only show calendar events
+      if (filterType === "events") {
+        return item.category === "calendar" || item.source === "google_calendar";
+      }
+      return true;
+    });
+  }, [items, hasLiveItems, filterType]);
+
   // Filter items for the selected day
   const dayItems = useMemo(() => {
-    return items.filter((item) => {
+    return calendarItems.filter((item) => {
       const targetDate = item.startAt || item.dueAt;
       if (!targetDate) return false;
       try {
@@ -50,7 +79,7 @@ export default function CalendarPage() {
         return false;
       }
     });
-  }, [items, selectedDate]);
+  }, [calendarItems, selectedDate]);
 
   // Separate all-day events vs timed events
   const allDayEvents = useMemo(() => {
@@ -117,6 +146,32 @@ export default function CalendarPage() {
 
         {/* Date Navigation & View Toggle */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Filter Toggle: Events Only vs All */}
+          <div className="flex items-center bg-nexus-900 border border-white/[0.08] rounded-lg p-0.5 text-xs">
+            <button
+              onClick={() => setFilterType("events")}
+              className={`px-3 py-1 rounded text-xs font-medium transition-all ${
+                filterType === "events" 
+                  ? "bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 shadow-sm" 
+                  : "text-zinc-400 hover:text-zinc-200"
+              }`}
+              title="Show only Google Calendar events"
+            >
+              Events Only
+            </button>
+            <button
+              onClick={() => setFilterType("all")}
+              className={`px-3 py-1 rounded text-xs font-medium transition-all ${
+                filterType === "all" 
+                  ? "bg-white/[0.1] text-zinc-100 shadow-sm" 
+                  : "text-zinc-400 hover:text-zinc-200"
+              }`}
+              title="Show events and tasks with due dates"
+            >
+              All (Events + Tasks)
+            </button>
+          </div>
+
           {/* Day / Week switch */}
           <div className="flex items-center bg-nexus-900 border border-white/[0.08] rounded-lg p-0.5 text-xs">
             <button
@@ -136,6 +191,19 @@ export default function CalendarPage() {
               Week
             </button>
           </div>
+
+          {/* Sync Calendar Button */}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={syncAll}
+            disabled={isSyncing}
+            className="h-7 text-xs border-cyan-500/30 text-cyan-300 hover:bg-cyan-500/10 flex items-center gap-1.5"
+            title="Refresh schedule from Google Calendar"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} />
+            <span className="hidden sm:inline">{isSyncing ? "Syncing..." : "Sync"}</span>
+          </Button>
 
           {/* Prev / Today / Next Controls */}
           <div className="flex items-center gap-1 bg-nexus-900 border border-white/[0.08] rounded-lg p-0.5">
@@ -166,6 +234,29 @@ export default function CalendarPage() {
           </div>
         </div>
       </div>
+
+      {/* Demo Data Notice Banner */}
+      {hasDemoItems && (
+        <div className="p-3.5 rounded-xl border border-amber-500/20 bg-amber-950/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 text-amber-200">
+            <AlertCircle className="w-4 h-4 text-amber-400 flex-shrink-0" />
+            <span>
+              Sample mock items (tasks & events) are active in local memory. Clear them to display only your real connected Google schedule.
+            </span>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={purgeDemoData}
+              className="h-7 text-xs border-amber-500/40 text-amber-300 hover:bg-amber-500/20 flex items-center gap-1.5"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>Purge Demo Items</span>
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* VIEW 1: DAY VIEW */}
       {viewMode === "day" && (
@@ -320,7 +411,7 @@ export default function CalendarPage() {
             const isDayToday = isToday(day);
 
             // Filter items for this specific weekday
-            const itemsForDay = items.filter((item) => {
+            const itemsForDay = calendarItems.filter((item) => {
               const target = item.startAt || item.dueAt;
               if (!target) return false;
               try {
