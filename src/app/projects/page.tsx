@@ -4,19 +4,10 @@ import { useState, useMemo } from "react";
 import Link from "next/link";
 import { 
   Rocket, 
-  GitBranch, 
-  Layers, 
-  CheckCircle2, 
-  Clock, 
-  Plus, 
-  ExternalLink, 
-  ArrowRight,
-  ChevronDown
+  ExternalLink
 } from "lucide-react";
 import { useNexusStore } from "@/lib/data/store";
-import { Project, Priority } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 
 export default function ProjectsPage() {
   const { projects, items } = useNexusStore();
@@ -26,7 +17,6 @@ export default function ProjectsPage() {
 
   const currentProject = projects.find((p) => p.id === selectedProjectId) || projects[0];
 
-  // Derive Kanban tasks strictly from real items matching the active project or Notion items
   const projectTasks = useMemo(() => {
     if (!currentProject) return [];
     return items.filter(
@@ -60,32 +50,32 @@ export default function ProjectsPage() {
   if (projects.length === 0) {
     return (
       <div className="max-w-6xl mx-auto px-6 py-8 space-y-6 animate-fade-in">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-white/[0.06] pb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200/90 pb-6">
           <div>
             <div className="flex items-center gap-2">
-              <Rocket className="w-5 h-5 text-indigo-400" />
-              <h1 className="text-2xl font-bold tracking-tight text-white">Projects & Sprints</h1>
+              <Rocket className="w-5 h-5 text-zinc-950" />
+              <h1 className="text-2xl font-bold tracking-tight text-zinc-950">Projects & Sprints</h1>
             </div>
-            <p className="text-xs text-zinc-400 mt-1">
+            <p className="text-xs text-zinc-500 mt-1">
               Software initiatives, Kanban boards, and module dependency graphs
             </p>
           </div>
         </div>
 
-        <div className="rounded-xl border border-white/[0.08] bg-nexus-900/40 p-12 text-center space-y-4 max-w-md mx-auto mt-12">
-          <div className="w-12 h-12 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400 flex items-center justify-center mx-auto">
+        <div className="rounded-xl border border-zinc-200 bg-white/90 p-12 text-center space-y-4 max-w-md mx-auto mt-12 shadow-sm">
+          <div className="w-12 h-12 rounded-xl bg-zinc-100 border border-zinc-200 text-zinc-950 flex items-center justify-center mx-auto">
             <Rocket className="w-6 h-6" />
           </div>
           <div className="space-y-1">
-            <h3 className="text-base font-semibold text-zinc-100">No Projects Connected</h3>
-            <p className="text-xs text-zinc-400 leading-relaxed">
+            <h3 className="text-base font-semibold text-zinc-950">No Projects Connected</h3>
+            <p className="text-xs text-zinc-500 leading-relaxed">
               Connect your Notion database in Settings to import live projects, Kanban boards, and sprint trackers.
             </p>
           </div>
           <div className="pt-2">
             <Link
               href="/settings"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium transition-colors shadow-md"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-zinc-950 hover:bg-zinc-800 text-white text-xs font-medium transition-colors shadow-sm"
             >
               <span>Go to Settings & Connect Notion</span>
             </Link>
@@ -98,13 +88,13 @@ export default function ProjectsPage() {
   return (
     <div className="max-w-6xl mx-auto px-6 py-8 space-y-6 animate-fade-in">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-200/90 pb-6">
         <div>
           <div className="flex items-center gap-2">
-            <Rocket className="w-5 h-5 text-white" />
-            <h1 className="text-2xl font-bold tracking-tight text-white">Projects & Sprints</h1>
+            <Rocket className="w-5 h-5 text-zinc-950" />
+            <h1 className="text-2xl font-bold tracking-tight text-zinc-950">Projects & Sprints</h1>
           </div>
-          <p className="text-xs text-zinc-400 mt-1">
+          <p className="text-xs text-zinc-500 mt-1">
             Software initiatives, Kanban boards, and module dependency graphs
           </p>
         </div>
@@ -114,7 +104,7 @@ export default function ProjectsPage() {
           <select
             value={selectedProjectId}
             onChange={(e) => setSelectedProjectId(e.target.value)}
-            className="bg-zinc-950 border border-zinc-800 rounded-lg px-3 py-1.5 text-xs text-zinc-200 outline-none font-medium focus:border-white"
+            className="bg-white border border-zinc-200 rounded-lg px-3 py-1.5 text-xs text-zinc-900 outline-none font-medium focus:border-zinc-950 shadow-xs"
           >
             {projects.map((p) => (
               <option key={p.id} value={p.id}>
@@ -123,11 +113,11 @@ export default function ProjectsPage() {
             ))}
           </select>
 
-          <div className="flex items-center bg-zinc-950 border border-zinc-800 rounded-lg p-0.5 text-xs">
+          <div className="flex items-center bg-zinc-100 border border-zinc-200 rounded-lg p-0.5 text-xs">
             <button
               onClick={() => setActiveTab("kanban")}
               className={`px-3 py-1 rounded text-xs font-medium transition-all ${
-                activeTab === "kanban" ? "bg-white text-black font-semibold shadow-sm" : "text-zinc-400 hover:text-white"
+                activeTab === "kanban" ? "bg-white text-zinc-950 font-semibold shadow-xs border border-zinc-200/60" : "text-zinc-600 hover:text-zinc-950"
               }`}
             >
               Kanban
@@ -135,7 +125,7 @@ export default function ProjectsPage() {
             <button
               onClick={() => setActiveTab("dependency")}
               className={`px-3 py-1 rounded text-xs font-medium transition-all ${
-                activeTab === "dependency" ? "bg-white text-black font-semibold shadow-sm" : "text-zinc-400 hover:text-white"
+                activeTab === "dependency" ? "bg-white text-zinc-950 font-semibold shadow-xs border border-zinc-200/60" : "text-zinc-600 hover:text-zinc-950"
               }`}
             >
               Dependency Graph
@@ -146,25 +136,25 @@ export default function ProjectsPage() {
 
       {/* Project Overview Card */}
       {currentProject && (
-        <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-950 space-y-4">
+        <div className="p-5 rounded-xl border border-zinc-200/90 bg-white/90 backdrop-blur-md space-y-4 shadow-[0_1px_3px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.02)]">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
               <div className="flex items-center gap-2.5">
-                <h2 className="text-lg font-bold text-white">{currentProject.name}</h2>
+                <h2 className="text-lg font-bold text-zinc-950">{currentProject.name}</h2>
                 <Badge variant={currentProject.status === "in_progress" ? "default" : "secondary"}>
                   {currentProject.status.replace("_", " ").toUpperCase()}
                 </Badge>
               </div>
-              <p className="text-xs text-zinc-400 mt-1 max-w-2xl">{currentProject.description}</p>
+              <p className="text-xs text-zinc-600 mt-1 max-w-2xl">{currentProject.description}</p>
             </div>
 
-            <div className="flex items-center gap-4 text-xs font-mono text-zinc-400">
+            <div className="flex items-center gap-4 text-xs font-mono text-zinc-500">
               {currentProject.githubRepo && (
                 <a
                   href={`https://github.com/${currentProject.githubRepo}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-zinc-300 hover:text-white"
+                  className="flex items-center gap-1.5 text-zinc-700 hover:text-zinc-950"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
                   <span>{currentProject.githubRepo}</span>
@@ -175,13 +165,13 @@ export default function ProjectsPage() {
 
           {/* Progress bar */}
           <div className="space-y-1">
-            <div className="flex items-center justify-between text-xs font-mono text-zinc-400">
+            <div className="flex items-center justify-between text-xs font-mono text-zinc-500">
               <span>Sprint Completion Progress</span>
-              <span className="font-bold text-white">{currentProject.progress}%</span>
+              <span className="font-bold text-zinc-950">{currentProject.progress}%</span>
             </div>
-            <div className="w-full bg-zinc-800 h-2 rounded-full overflow-hidden">
+            <div className="w-full bg-zinc-100 h-2 rounded-full overflow-hidden border border-zinc-200/60">
               <div
-                className="bg-white h-full rounded-full transition-all duration-500"
+                className="bg-zinc-950 h-full rounded-full transition-all duration-500"
                 style={{ width: `${currentProject.progress}%` }}
               />
             </div>
@@ -193,28 +183,28 @@ export default function ProjectsPage() {
       {activeTab === "kanban" && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           {kanbanColumns.map((col) => (
-            <div key={col.id} className="p-3.5 rounded-xl border border-zinc-800 bg-zinc-950 space-y-3 flex flex-col">
-              <div className="flex items-center justify-between pb-1 border-b border-zinc-800">
-                <span className="text-[11px] font-mono uppercase tracking-wider font-bold text-zinc-400">
+            <div key={col.id} className="p-3.5 rounded-xl border border-zinc-200/90 bg-white/90 backdrop-blur-md space-y-3 flex flex-col shadow-xs">
+              <div className="flex items-center justify-between pb-1 border-b border-zinc-100">
+                <span className="text-[11px] font-mono uppercase tracking-wider font-bold text-zinc-500">
                   {col.title}
                 </span>
-                <span className="text-[10px] font-mono text-zinc-300 bg-zinc-900 px-1.5 py-0.5 rounded border border-zinc-800">
+                <span className="text-[10px] font-mono text-zinc-700 bg-zinc-100 px-1.5 py-0.5 rounded border border-zinc-200">
                   {col.tasks.length}
                 </span>
               </div>
 
               <div className="space-y-2 flex-1">
                 {col.tasks.length === 0 ? (
-                  <div className="py-6 text-center text-[11px] text-zinc-600 italic">
+                  <div className="py-6 text-center text-[11px] text-zinc-400 italic">
                     No tasks
                   </div>
                 ) : (
                   col.tasks.map((task) => (
                     <div
                       key={task.id}
-                      className="p-3 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-white transition-all cursor-pointer space-y-2 group shadow-sm"
+                      className="p-3 rounded-lg bg-zinc-50 border border-zinc-200/80 hover:border-zinc-400 hover:bg-white transition-all cursor-pointer space-y-2 group shadow-2xs"
                     >
-                      <p className="text-xs font-medium text-zinc-200 group-hover:text-white leading-snug">
+                      <p className="text-xs font-medium text-zinc-800 group-hover:text-zinc-950 leading-snug">
                         {task.title}
                       </p>
                       <div className="flex items-center justify-between text-[10px] font-mono">
@@ -234,98 +224,98 @@ export default function ProjectsPage() {
 
       {/* View 2: Project Dependency Graph */}
       {activeTab === "dependency" && (
-        <div className="p-6 rounded-xl border border-zinc-800 bg-zinc-950 space-y-6">
+        <div className="p-6 rounded-xl border border-zinc-200/90 bg-white/90 backdrop-blur-md space-y-6 shadow-xs">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-sm font-semibold text-zinc-200">Module Dependency Visualizer</h3>
-              <p className="text-xs text-zinc-400 mt-0.5">
+              <h3 className="text-sm font-semibold text-zinc-950">Module Dependency Visualizer</h3>
+              <p className="text-xs text-zinc-500 mt-0.5">
                 Click any architectural node to see specifications and downstream dependencies
               </p>
             </div>
-            <div className="flex items-center gap-3 text-xs text-zinc-400">
-              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-zinc-200" /> Completed</span>
-              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-white" /> In Progress</span>
-              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-zinc-600" /> Pending</span>
+            <div className="flex items-center gap-3 text-xs text-zinc-500">
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-zinc-300" /> Completed</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-zinc-950" /> In Progress</span>
+              <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-zinc-200" /> Pending</span>
             </div>
           </div>
 
           {/* Interactive Visual Graph Nodes */}
-          <div className="p-8 rounded-lg bg-black border border-zinc-800 flex flex-col items-center space-y-6 overflow-x-auto">
+          <div className="p-8 rounded-xl bg-zinc-50/70 border border-zinc-200 flex flex-col items-center space-y-6 overflow-x-auto">
             {/* Level 1: Auth */}
             <div
               onClick={() => setSelectedNode("node-1")}
               className={`px-5 py-3 rounded-lg border cursor-pointer transition-all text-xs font-mono font-medium ${
-                selectedNode === "node-1" ? "border-white ring-2 ring-white/20" : "border-zinc-700"
-              } bg-zinc-900 text-zinc-200 shadow-md`}
+                selectedNode === "node-1" ? "border-zinc-950 ring-2 ring-zinc-950/20" : "border-zinc-300"
+              } bg-white text-zinc-900 shadow-xs`}
             >
               Authentication (OAuth / JWT Session) ✓
             </div>
 
-            <div className="w-px h-6 bg-zinc-800" />
+            <div className="w-px h-6 bg-zinc-300" />
 
             {/* Level 2: User Profile */}
             <div
               onClick={() => setSelectedNode("node-2")}
               className={`px-5 py-3 rounded-lg border cursor-pointer transition-all text-xs font-mono font-medium ${
-                selectedNode === "node-2" ? "border-white ring-2 ring-white/20" : "border-zinc-700"
-              } bg-zinc-900 text-zinc-200 shadow-md`}
+                selectedNode === "node-2" ? "border-zinc-950 ring-2 ring-zinc-950/20" : "border-zinc-300"
+              } bg-white text-zinc-900 shadow-xs`}
             >
               User Profile & Portfolio Store ✓
             </div>
 
-            <div className="w-px h-6 bg-zinc-800" />
+            <div className="w-px h-6 bg-zinc-300" />
 
             {/* Level 3: REST API */}
             <div
               onClick={() => setSelectedNode("node-3")}
               className={`px-5 py-3 rounded-lg border cursor-pointer transition-all text-xs font-mono font-medium ${
-                selectedNode === "node-3" ? "border-white ring-2 ring-white/20" : "border-zinc-700"
-              } bg-zinc-900 text-zinc-200 shadow-md`}
+                selectedNode === "node-3" ? "border-zinc-950 ring-2 ring-zinc-950/20" : "border-zinc-300"
+              } bg-white text-zinc-900 shadow-xs`}
             >
               FastAPI REST API Service ✓
             </div>
 
-            <div className="w-px h-6 bg-zinc-800" />
+            <div className="w-px h-6 bg-zinc-300" />
 
             {/* Level 4: Branches */}
             <div className="grid grid-cols-2 gap-8 w-full max-w-lg">
               <div
                 onClick={() => setSelectedNode("node-4")}
                 className={`p-3 rounded-lg border cursor-pointer transition-all text-xs font-mono font-medium text-center ${
-                  selectedNode === "node-4" ? "border-white ring-2 ring-white/20" : "border-white"
-                } bg-white text-black font-bold shadow-md`}
+                  selectedNode === "node-4" ? "border-zinc-950 ring-2 ring-zinc-950/20" : "border-zinc-950"
+                } bg-zinc-950 text-white font-bold shadow-sm`}
               >
                 PDF Resume Parser (Gemini) ⏳
               </div>
 
               <div
                 onClick={() => setSelectedNode("node-db")}
-                className={`p-3 rounded-lg border cursor-pointer transition-all text-xs font-mono font-medium text-center border-zinc-700 bg-zinc-900 text-zinc-200 shadow-md`}
+                className={`p-3 rounded-lg border cursor-pointer transition-all text-xs font-mono font-medium text-center border-zinc-300 bg-white text-zinc-900 shadow-xs`}
               >
                 PostgreSQL & pgvector ✓
               </div>
             </div>
 
-            <div className="w-px h-6 bg-zinc-800" />
+            <div className="w-px h-6 bg-zinc-300" />
 
             {/* Level 5: Skill Extraction */}
             <div
               onClick={() => setSelectedNode("node-5")}
-              className={`px-5 py-3 rounded-lg border cursor-pointer transition-all text-xs font-mono font-medium ${
-                selectedNode === "node-5" ? "border-white ring-2 ring-white/20" : "border-white"
-              } bg-white text-black font-bold shadow-md`}
+              className={`p-3 rounded-lg border cursor-pointer transition-all text-xs font-mono font-medium ${
+                selectedNode === "node-5" ? "border-zinc-950 ring-2 ring-zinc-950/20" : "border-zinc-950"
+              } bg-zinc-950 text-white font-bold shadow-sm`}
             >
               Skill Gap Extraction Pipeline ⏳
             </div>
 
-            <div className="w-px h-6 bg-zinc-800" />
+            <div className="w-px h-6 bg-zinc-300" />
 
             {/* Level 6: Recommendation */}
             <div
               onClick={() => setSelectedNode("node-6")}
               className={`px-5 py-3 rounded-lg border cursor-pointer transition-all text-xs font-mono font-medium ${
-                selectedNode === "node-6" ? "border-white ring-2 ring-white/20" : "border-zinc-800"
-              } bg-zinc-950 text-zinc-500 shadow-md`}
+                selectedNode === "node-6" ? "border-zinc-950 ring-2 ring-zinc-950/20" : "border-zinc-200"
+              } bg-zinc-100 text-zinc-500 shadow-2xs`}
             >
               Automated Interview Recommendation Engine (Pending)
             </div>

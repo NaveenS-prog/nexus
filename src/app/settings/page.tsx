@@ -7,17 +7,12 @@ import {
   RefreshCw, 
   Trash2, 
   Download, 
-  Sparkles, 
-  ShieldCheck, 
   ExternalLink,
   Layers,
   GraduationCap,
   Calendar,
-  CheckSquare,
-  GitBranch,
   Key,
-  AlertCircle,
-  HelpCircle
+  AlertCircle
 } from "lucide-react";
 import { useNexusStore } from "@/lib/data/store";
 import { Button } from "@/components/ui/button";
@@ -85,16 +80,6 @@ export default function SettingsPage() {
     }
   }, [syncAll]);
 
-  // Load status
-  useEffect(() => {
-    fetch("/api/integrations/status")
-      .then((res) => res.json())
-      .then((data) => {
-        // Can be used to set status flags
-      })
-      .catch((err) => console.error("Error fetching status:", err));
-  }, []);
-
   const handleSaveGoogle = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSaving(true);
@@ -123,7 +108,7 @@ export default function SettingsPage() {
 
       const data = await res.json();
       if (data.success) {
-        setStatusMsg("Google credentials saved! Testing live sync...");
+        setStatusMsg("Google credentials saved! Initiating live calendar sync...");
         await syncAll();
         setStatusMsg("Google Calendar & Tasks connected and synced!");
         setActiveConfigTab("overview");
@@ -242,13 +227,13 @@ export default function SettingsPage() {
   return (
     <div className="max-w-4xl mx-auto px-6 py-8 space-y-8 animate-fade-in">
       {/* Header */}
-      <div className="border-b border-zinc-800 pb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="border-b border-zinc-200/90 pb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
           <div className="flex items-center gap-2">
-            <SettingsIcon className="w-5 h-5 text-white" />
-            <h1 className="text-2xl font-bold tracking-tight text-white">Integrations & Settings</h1>
+            <SettingsIcon className="w-5 h-5 text-zinc-950" />
+            <h1 className="text-2xl font-bold tracking-tight text-zinc-950">Integrations & Settings</h1>
           </div>
-          <p className="text-xs text-zinc-400 mt-1">
+          <p className="text-xs text-zinc-500 mt-1">
             Connect your live Google Calendar, Google Tasks, and Notion accounts
           </p>
         </div>
@@ -269,34 +254,34 @@ export default function SettingsPage() {
 
       {/* Notifications */}
       {statusMsg && (
-        <div className="p-3 rounded-lg bg-zinc-900 border border-zinc-700 text-zinc-200 text-xs flex items-center gap-2">
-          <CheckCircle className="w-4 h-4 text-white flex-shrink-0" />
+        <div className="p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs flex items-center gap-2">
+          <CheckCircle className="w-4 h-4 text-emerald-700 flex-shrink-0" />
           <span>{statusMsg}</span>
         </div>
       )}
 
       {errorMsg && (
-        <div className="p-3 rounded-lg bg-black border border-white text-white text-xs flex items-center gap-2 font-semibold">
-          <AlertCircle className="w-4 h-4 text-white flex-shrink-0" />
+        <div className="p-3 rounded-lg bg-red-50 border border-red-200 text-red-800 text-xs flex items-center gap-2 font-medium">
+          <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0" />
           <span>{errorMsg}</span>
         </div>
       )}
 
       {syncFeedback && (
-        <div className="p-3 rounded-lg bg-zinc-900 border border-zinc-700 text-zinc-200 text-xs flex items-center gap-2 animate-pulse">
-          <RefreshCw className="w-4 h-4 text-white flex-shrink-0" />
+        <div className="p-3 rounded-lg bg-zinc-100 border border-zinc-200 text-zinc-800 text-xs flex items-center gap-2 animate-pulse">
+          <RefreshCw className="w-4 h-4 text-zinc-950 flex-shrink-0" />
           <span>{syncFeedback}</span>
         </div>
       )}
 
       {/* Integration Configuration Tabs */}
-      <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-950 space-y-6">
-        <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
-          <div className="flex items-center gap-2 bg-zinc-900 p-1 rounded-lg border border-zinc-800 text-xs">
+      <div className="p-5 rounded-xl border border-zinc-200/90 bg-white/90 backdrop-blur-md space-y-6 shadow-[0_1px_3px_rgba(0,0,0,0.03),0_8px_24px_rgba(0,0,0,0.02)]">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-zinc-100">
+          <div className="flex items-center gap-1.5 bg-zinc-100 p-1 rounded-lg border border-zinc-200 text-xs">
             <button
               onClick={() => setActiveConfigTab("overview")}
               className={`px-3 py-1 rounded-md font-medium transition-all ${
-                activeConfigTab === "overview" ? "bg-white text-black font-semibold shadow-sm" : "text-zinc-400 hover:text-white"
+                activeConfigTab === "overview" ? "bg-white text-zinc-950 font-semibold shadow-xs border border-zinc-200/60" : "text-zinc-600 hover:text-zinc-950"
               }`}
             >
               Overview & Status
@@ -304,7 +289,7 @@ export default function SettingsPage() {
             <button
               onClick={() => setActiveConfigTab("google")}
               className={`px-3 py-1 rounded-md font-medium transition-all flex items-center gap-1.5 ${
-                activeConfigTab === "google" ? "bg-white text-black font-semibold shadow-sm" : "text-zinc-400 hover:text-white"
+                activeConfigTab === "google" ? "bg-white text-zinc-950 font-semibold shadow-xs border border-zinc-200/60" : "text-zinc-600 hover:text-zinc-950"
               }`}
             >
               <Calendar className="w-3.5 h-3.5" />
@@ -313,7 +298,7 @@ export default function SettingsPage() {
             <button
               onClick={() => setActiveConfigTab("notion")}
               className={`px-3 py-1 rounded-md font-medium transition-all flex items-center gap-1.5 ${
-                activeConfigTab === "notion" ? "bg-white text-black font-semibold shadow-sm" : "text-zinc-400 hover:text-white"
+                activeConfigTab === "notion" ? "bg-white text-zinc-950 font-semibold shadow-xs border border-zinc-200/60" : "text-zinc-600 hover:text-zinc-950"
               }`}
             >
               <Layers className="w-3.5 h-3.5" />
@@ -325,7 +310,7 @@ export default function SettingsPage() {
             size="sm"
             onClick={handleTriggerLiveSync}
             disabled={isSyncing}
-            className="text-xs h-8 flex items-center gap-1.5 bg-white text-black font-semibold hover:bg-zinc-200"
+            className="text-xs h-8 flex items-center gap-1.5 bg-zinc-950 text-white font-semibold hover:bg-zinc-800 shadow-sm"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} />
             <span>Sync Live Accounts Now</span>
@@ -335,22 +320,22 @@ export default function SettingsPage() {
         {/* Tab 1: Overview */}
         {activeConfigTab === "overview" && (
           <div className="space-y-4">
-            <div className="divide-y divide-zinc-800">
+            <div className="divide-y divide-zinc-100">
               {/* Google Integration Card */}
               <div className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
                 <div className="flex items-start gap-3">
-                  <div className="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800 text-white">
-                    <Calendar className="w-5 h-5 text-white" />
+                  <div className="p-2.5 rounded-lg bg-zinc-50 border border-zinc-200 text-zinc-950 shadow-2xs">
+                    <Calendar className="w-5 h-5 text-zinc-950" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-sm text-zinc-100">Google Calendar & Tasks</h3>
+                      <h3 className="font-semibold text-sm text-zinc-950">Google Calendar & Tasks</h3>
                       <Badge variant="outline">Tasks + Calendar</Badge>
                     </div>
-                    <p className="text-zinc-400 mt-0.5 text-xs">
+                    <p className="text-zinc-600 mt-0.5 text-xs">
                       Synchronizes scheduled lecture blocks, personal Google Tasks, and daily calendar commitments.
                     </p>
-                    <p className="text-[10px] text-zinc-500 mt-1 font-mono">
+                    <p className="text-[10px] text-zinc-400 mt-1 font-mono">
                       Scopes: tasks, calendar.readonly, calendar.events
                     </p>
                   </div>
@@ -361,7 +346,7 @@ export default function SettingsPage() {
                     onClick={() => setActiveConfigTab("google")}
                     variant="outline"
                     size="sm"
-                    className="text-xs h-8 border-zinc-700 hover:border-white"
+                    className="text-xs h-8 border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-50"
                   >
                     <Key className="w-3.5 h-3.5 mr-1.5" />
                     Enter Tokens / OAuth
@@ -372,18 +357,18 @@ export default function SettingsPage() {
               {/* Notion Integration Card */}
               <div className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs">
                 <div className="flex items-start gap-3">
-                  <div className="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800 text-white">
-                    <Layers className="w-5 h-5 text-white" />
+                  <div className="p-2.5 rounded-lg bg-zinc-50 border border-zinc-200 text-zinc-950 shadow-2xs">
+                    <Layers className="w-5 h-5 text-zinc-950" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-sm text-zinc-100">Notion Projects & Ideas</h3>
+                      <h3 className="font-semibold text-sm text-zinc-950">Notion Projects & Ideas</h3>
                       <Badge variant="outline">Sprint Database</Badge>
                     </div>
-                    <p className="text-zinc-400 mt-0.5 text-xs">
+                    <p className="text-zinc-600 mt-0.5 text-xs">
                       Queries your Notion projects database, stages, tags, and automatically appends brain-dumped ideas.
                     </p>
-                    <p className="text-[10px] text-zinc-500 mt-1 font-mono">
+                    <p className="text-[10px] text-zinc-400 mt-1 font-mono">
                       Uses Internal Integration Token + Database ID
                     </p>
                   </div>
@@ -394,7 +379,7 @@ export default function SettingsPage() {
                     onClick={() => setActiveConfigTab("notion")}
                     variant="outline"
                     size="sm"
-                    className="text-xs h-8 border-zinc-700 hover:border-white"
+                    className="text-xs h-8 border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-50"
                   >
                     <Key className="w-3.5 h-3.5 mr-1.5" />
                     Enter Notion Keys
@@ -402,15 +387,15 @@ export default function SettingsPage() {
                 </div>
               </div>
 
-              {/* Google Classroom (Marked for Later) */}
+              {/* Google Classroom */}
               <div className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4 text-xs opacity-60">
                 <div className="flex items-start gap-3">
-                  <div className="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-400">
-                    <GraduationCap className="w-5 h-5 text-zinc-300" />
+                  <div className="p-2.5 rounded-lg bg-zinc-50 border border-zinc-200 text-zinc-500">
+                    <GraduationCap className="w-5 h-5 text-zinc-500" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
-                      <h3 className="font-semibold text-sm text-zinc-300">Google Classroom</h3>
+                      <h3 className="font-semibold text-sm text-zinc-700">Google Classroom</h3>
                       <Badge variant="secondary">Scheduled for Later</Badge>
                     </div>
                     <p className="text-zinc-500 mt-0.5 text-xs">
@@ -426,64 +411,64 @@ export default function SettingsPage() {
         {/* Tab 2: Configure Google */}
         {activeConfigTab === "google" && (
           <form onSubmit={handleSaveGoogle} className="space-y-4 text-xs">
-            <div className="p-3 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-200 space-y-1">
+            <div className="p-3 rounded-lg bg-zinc-50 border border-zinc-200 text-zinc-800 space-y-1">
               <span className="font-bold">Google Calendar & Tasks Setup:</span>
-              <p className="text-[11px] text-zinc-400 leading-relaxed">
+              <p className="text-[11px] text-zinc-600 leading-relaxed">
                 Enter your Google Cloud OAuth credentials below, or paste your existing Refresh Token / Access Token. If you have Client ID & Secret configured, you can also use the one-click Google OAuth button.
               </p>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-zinc-300 font-medium">Google Client ID</label>
+                <label className="text-zinc-700 font-medium">Google Client ID</label>
                 <input
                   type="text"
                   value={googleClientId}
                   onChange={(e) => setGoogleClientId(e.target.value)}
                   placeholder="e.g. 123456789-xyz.apps.googleusercontent.com"
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-zinc-100 placeholder-zinc-600 outline-none focus:border-white font-mono text-xs"
+                  className="w-full bg-white border border-zinc-200 rounded-lg p-2.5 text-zinc-900 placeholder-zinc-400 outline-none focus:border-zinc-950 font-mono text-xs shadow-2xs"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-zinc-300 font-medium">Google Client Secret</label>
+                <label className="text-zinc-700 font-medium">Google Client Secret</label>
                 <input
                   type="password"
                   value={googleClientSecret}
                   onChange={(e) => setGoogleClientSecret(e.target.value)}
                   placeholder="GOCSPX-..."
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-zinc-100 placeholder-zinc-600 outline-none focus:border-white font-mono text-xs"
+                  className="w-full bg-white border border-zinc-200 rounded-lg p-2.5 text-zinc-900 placeholder-zinc-400 outline-none focus:border-zinc-950 font-mono text-xs shadow-2xs"
                 />
               </div>
 
               <div className="space-y-1 sm:col-span-2">
-                <label className="text-zinc-300 font-medium">Google Refresh Token (Recommended for auto-refresh)</label>
+                <label className="text-zinc-700 font-medium">Google Refresh Token (Recommended for auto-refresh)</label>
                 <input
                   type="password"
                   value={googleRefreshToken}
                   onChange={(e) => setGoogleRefreshToken(e.target.value)}
                   placeholder="1//04xyz... (or click Connect with Google if Client ID is entered)"
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-zinc-100 placeholder-zinc-600 outline-none focus:border-white font-mono text-xs"
+                  className="w-full bg-white border border-zinc-200 rounded-lg p-2.5 text-zinc-900 placeholder-zinc-400 outline-none focus:border-zinc-950 font-mono text-xs shadow-2xs"
                 />
               </div>
 
               <div className="space-y-1 sm:col-span-2">
-                <label className="text-zinc-300 font-medium">Direct Access Token (Optional temporary token)</label>
+                <label className="text-zinc-700 font-medium">Direct Access Token (Optional temporary token)</label>
                 <input
                   type="password"
                   value={googleAccessToken}
                   onChange={(e) => setGoogleAccessToken(e.target.value)}
                   placeholder="ya29.a0A..."
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-zinc-100 placeholder-zinc-600 outline-none focus:border-white font-mono text-xs"
+                  className="w-full bg-white border border-zinc-200 rounded-lg p-2.5 text-zinc-900 placeholder-zinc-400 outline-none focus:border-zinc-950 font-mono text-xs shadow-2xs"
                 />
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-zinc-800">
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-zinc-100">
               {googleClientId && (
                 <a
                   href={`/api/auth/google?client_id=${encodeURIComponent(googleClientId.trim())}&client_secret=${encodeURIComponent(googleClientSecret.trim())}`}
-                  className="px-4 py-2 rounded-md bg-white text-black font-semibold hover:bg-zinc-200 transition-colors flex items-center gap-2 text-xs shadow-md"
+                  className="px-4 py-2 rounded-md bg-zinc-950 text-white font-semibold hover:bg-zinc-800 transition-colors flex items-center gap-2 text-xs shadow-sm"
                 >
                   <ExternalLink className="w-3.5 h-3.5" />
                   <span>Connect with Google Account (OAuth)</span>
@@ -494,7 +479,7 @@ export default function SettingsPage() {
                 <Button variant="ghost" size="sm" type="button" onClick={() => setActiveConfigTab("overview")}>
                   Cancel
                 </Button>
-                <Button size="sm" type="submit" disabled={isSaving} className="bg-white text-black font-semibold hover:bg-zinc-200">
+                <Button size="sm" type="submit" disabled={isSaving} className="bg-zinc-950 text-white font-semibold hover:bg-zinc-800 shadow-sm">
                   {isSaving ? "Saving & Syncing..." : "Save Google Credentials & Sync"}
                 </Button>
               </div>
@@ -505,33 +490,33 @@ export default function SettingsPage() {
         {/* Tab 3: Configure Notion */}
         {activeConfigTab === "notion" && (
           <form onSubmit={handleSaveNotion} className="space-y-4 text-xs">
-            <div className="p-3 rounded-lg bg-zinc-900 border border-zinc-800 text-zinc-200 space-y-1">
+            <div className="p-3 rounded-lg bg-zinc-50 border border-zinc-200 text-zinc-800 space-y-1">
               <span className="font-bold">Notion Integration Setup:</span>
-              <p className="text-[11px] text-zinc-400 leading-relaxed">
-                Create an internal integration at <a href="https://www.notion.so/my-integrations" target="_blank" rel="noreferrer" className="underline text-white">notion.so/my-integrations</a>, then share your Projects database with it.
+              <p className="text-[11px] text-zinc-600 leading-relaxed">
+                Create an internal integration at <a href="https://www.notion.so/my-integrations" target="_blank" rel="noreferrer" className="underline text-zinc-950 font-medium">notion.so/my-integrations</a>, then share your Projects database with it.
               </p>
             </div>
 
             <div className="space-y-3">
               <div className="space-y-1">
-                <label className="text-zinc-300 font-medium">Notion API Key (Internal Integration Secret)</label>
+                <label className="text-zinc-700 font-medium">Notion API Key (Internal Integration Secret)</label>
                 <input
                   type="password"
                   value={notionApiKey}
                   onChange={(e) => setNotionApiKey(e.target.value)}
                   placeholder="secret_..."
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-zinc-100 placeholder-zinc-600 outline-none focus:border-white font-mono text-xs"
+                  className="w-full bg-white border border-zinc-200 rounded-lg p-2.5 text-zinc-900 placeholder-zinc-400 outline-none focus:border-zinc-950 font-mono text-xs shadow-2xs"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-zinc-300 font-medium">Notion Database ID</label>
+                <label className="text-zinc-700 font-medium">Notion Database ID</label>
                 <input
                   type="text"
                   value={notionDatabaseId}
                   onChange={(e) => setNotionDatabaseId(e.target.value)}
                   placeholder="e.g. 2969f64c053f4c63bf1829e0689b91e9"
-                  className="w-full bg-zinc-950 border border-zinc-800 rounded-lg p-2.5 text-zinc-100 placeholder-zinc-600 outline-none focus:border-white font-mono text-xs"
+                  className="w-full bg-white border border-zinc-200 rounded-lg p-2.5 text-zinc-900 placeholder-zinc-400 outline-none focus:border-zinc-950 font-mono text-xs shadow-2xs"
                 />
                 <p className="text-[10px] text-zinc-500">
                   Find this in your Notion database link: notion.so/workspace/<strong>[database_id]</strong>?v=...
@@ -539,11 +524,11 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-zinc-800">
+            <div className="flex items-center justify-end gap-2 pt-3 border-t border-zinc-100">
               <Button variant="ghost" size="sm" type="button" onClick={() => setActiveConfigTab("overview")}>
                 Cancel
               </Button>
-              <Button size="sm" type="submit" disabled={isSaving} className="bg-white text-black font-semibold hover:bg-zinc-200">
+              <Button size="sm" type="submit" disabled={isSaving} className="bg-zinc-950 text-white font-semibold hover:bg-zinc-800 shadow-sm">
                 {isSaving ? "Saving & Syncing..." : "Save Notion Credentials & Sync"}
               </Button>
             </div>
@@ -552,15 +537,15 @@ export default function SettingsPage() {
       </div>
 
       {/* Section 2: Productivity Preferences */}
-      <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-950 space-y-4">
-        <h2 className="text-sm font-semibold text-zinc-100">Productivity Preferences</h2>
+      <div className="p-5 rounded-xl border border-zinc-200/90 bg-white/90 backdrop-blur-md space-y-4 shadow-xs">
+        <h2 className="text-sm font-semibold text-zinc-950">Productivity Preferences</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
           <div className="space-y-1.5">
-            <label className="text-zinc-400 font-medium">Default Working Mode</label>
+            <label className="text-zinc-600 font-medium">Default Working Mode</label>
             <select
               value={mode}
               onChange={(e) => setMode(e.target.value as any)}
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-zinc-200 outline-none"
+              className="w-full bg-white border border-zinc-200 rounded-lg p-2 text-zinc-900 outline-none shadow-2xs font-medium"
             >
               <option value="default">Default Mode (Balanced Command Center)</option>
               <option value="exam">Exam Mode (Academic Deadlines Prioritized)</option>
@@ -569,10 +554,10 @@ export default function SettingsPage() {
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-zinc-400 font-medium">Default Focus Session Length</label>
+            <label className="text-zinc-600 font-medium">Default Focus Session Length</label>
             <select
               defaultValue="45"
-              className="w-full bg-zinc-900 border border-zinc-800 rounded-lg p-2 text-zinc-200 outline-none"
+              className="w-full bg-white border border-zinc-200 rounded-lg p-2 text-zinc-900 outline-none shadow-2xs font-medium"
             >
               <option value="25">25 minutes (Pomodoro)</option>
               <option value="45">45 minutes (Deep Work)</option>
@@ -583,15 +568,15 @@ export default function SettingsPage() {
       </div>
 
       {/* Section 3: Data Management & Demo Reset */}
-      <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-950 space-y-4">
-        <h2 className="text-sm font-semibold text-zinc-100">Data & Cache Management</h2>
-        <p className="text-xs text-zinc-400 leading-relaxed">
+      <div className="p-5 rounded-xl border border-zinc-200/90 bg-white/90 backdrop-blur-md space-y-4 shadow-xs">
+        <h2 className="text-sm font-semibold text-zinc-950">Data & Cache Management</h2>
+        <p className="text-xs text-zinc-600 leading-relaxed">
           NEXUS operates with instant local persistence. You can toggle back to clean demo data at any time or export all your synced data as JSON.
         </p>
 
         <div className="flex flex-wrap items-center gap-3 pt-2">
-          <Button variant="outline" size="sm" onClick={handleExportData} className="text-xs h-8 border-zinc-700 hover:border-white">
-            <Download className="w-3.5 h-3.5 mr-1.5" />
+          <Button variant="outline" size="sm" onClick={handleExportData} className="text-xs h-8 border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-50 shadow-xs">
+            <Download className="w-3.5 h-3.5 mr-1.5 text-zinc-700" />
             Export Local Data (JSON)
           </Button>
 
@@ -599,9 +584,9 @@ export default function SettingsPage() {
             variant="outline" 
             size="sm" 
             onClick={handlePurgeDemoData} 
-            className="text-xs h-8 border-zinc-700 text-zinc-200 hover:border-white hover:bg-zinc-900"
+            className="text-xs h-8 border-zinc-200 bg-white text-zinc-800 hover:bg-zinc-50 shadow-xs"
           >
-            <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+            <Trash2 className="w-3.5 h-3.5 mr-1.5 text-zinc-700" />
             Purge Demo Items (Live Data Only)
           </Button>
 
@@ -614,4 +599,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-

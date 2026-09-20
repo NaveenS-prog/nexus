@@ -4,20 +4,15 @@ import { useState } from "react";
 import Link from "next/link";
 import { 
   Search, 
-  Volume2, 
-  VolumeX, 
   Sun, 
   Moon, 
   Sparkles, 
   BookOpen, 
-  Hammer, 
-  SlidersHorizontal,
-  Plus
+  Hammer
 } from "lucide-react";
 import { useNexusStore } from "@/lib/data/store";
-import { audioSynth } from "@/lib/audio/webAudioSynth";
 import { Button } from "@/components/ui/button";
-import { Badge, cn } from "@/components/ui/badge";
+import { cn } from "@/components/ui/badge";
 
 interface HeaderProps {
   onOpenCommand: () => void;
@@ -26,39 +21,28 @@ interface HeaderProps {
 
 export function Header({ onOpenCommand, onOpenBrainDump }: HeaderProps) {
   const { mode, setMode } = useNexusStore();
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
-  const [isLightMode, setIsLightMode] = useState(false);
-
-  const toggleAmbientSound = () => {
-    if (isPlayingAudio) {
-      audioSynth.stop();
-      setIsPlayingAudio(false);
-    } else {
-      audioSynth.play("rain");
-      setIsPlayingAudio(true);
-    }
-  };
+  const [isLightMode, setIsLightMode] = useState(true);
 
   const toggleTheme = () => {
     setIsLightMode(!isLightMode);
-    if (!isLightMode) {
-      document.documentElement.classList.add("light");
+    if (isLightMode) {
+      document.documentElement.classList.add("dark");
     } else {
-      document.documentElement.classList.remove("light");
+      document.documentElement.classList.remove("dark");
     }
   };
 
   return (
-    <header className="h-14 border-b border-zinc-800 bg-black/90 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-30 select-none">
+    <header className="h-14 border-b border-zinc-200/80 bg-white/80 backdrop-blur-md px-6 flex items-center justify-between sticky top-0 z-30 select-none shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
       {/* Search / Command trigger */}
       <div className="flex items-center gap-3">
         <button
           onClick={onOpenCommand}
-          className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700 transition-all text-xs w-64 md:w-80 group shadow-inner"
+          className="flex items-center gap-2.5 px-3 py-1.5 rounded-lg bg-zinc-50/90 border border-zinc-200 text-zinc-600 hover:text-zinc-950 hover:bg-white hover:border-zinc-300 transition-all text-xs w-64 md:w-80 group shadow-sm"
         >
-          <Search className="w-3.5 h-3.5 text-zinc-500 group-hover:text-zinc-300" />
-          <span className="flex-1 text-left">Search / Command...</span>
-          <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono bg-zinc-900 text-zinc-400 border border-zinc-800 rounded">
+          <Search className="w-3.5 h-3.5 text-zinc-400 group-hover:text-zinc-700" />
+          <span className="flex-1 text-left font-medium">Search / Command...</span>
+          <kbd className="hidden sm:inline-block px-1.5 py-0.5 text-[10px] font-mono bg-white text-zinc-500 border border-zinc-200 rounded shadow-xs">
             Ctrl K
           </kbd>
         </button>
@@ -68,24 +52,24 @@ export function Header({ onOpenCommand, onOpenBrainDump }: HeaderProps) {
           variant="outline" 
           size="sm" 
           onClick={onOpenBrainDump}
-          className="hidden sm:flex items-center gap-1.5 text-xs h-8 border-zinc-700 text-zinc-200 hover:bg-zinc-900 hover:border-white"
+          className="hidden sm:flex items-center gap-1.5 text-xs h-8 border-zinc-200 text-zinc-900 bg-white hover:bg-zinc-50 hover:border-zinc-300 shadow-sm"
         >
-          <Sparkles className="w-3.5 h-3.5 text-white" />
+          <Sparkles className="w-3.5 h-3.5 text-zinc-800" />
           <span>Capture</span>
         </Button>
       </div>
 
-      {/* Center / Right controls: Mode Switcher, Audio, Theme, Avatar */}
+      {/* Center / Right controls: Mode Switcher, Theme, Avatar */}
       <div className="flex items-center gap-3">
         {/* Global Mode Switcher */}
-        <div className="hidden md:flex items-center bg-zinc-950 border border-zinc-800 rounded-lg p-0.5 text-xs">
+        <div className="hidden md:flex items-center bg-zinc-100/90 border border-zinc-200/90 rounded-lg p-0.5 text-xs">
           <button
             onClick={() => setMode("default")}
             className={cn(
               "px-2.5 py-1 rounded text-xs font-medium transition-all",
               mode === "default"
-                ? "bg-white text-black font-semibold shadow-sm"
-                : "text-zinc-400 hover:text-white"
+                ? "bg-white text-zinc-950 font-semibold shadow-xs border border-zinc-200/60"
+                : "text-zinc-600 hover:text-zinc-950"
             )}
           >
             Default
@@ -95,11 +79,11 @@ export function Header({ onOpenCommand, onOpenBrainDump }: HeaderProps) {
             className={cn(
               "px-2.5 py-1 rounded text-xs font-medium transition-all flex items-center gap-1.5",
               mode === "exam"
-                ? "bg-white text-black font-semibold shadow-sm"
-                : "text-zinc-400 hover:text-white"
+                ? "bg-white text-zinc-950 font-semibold shadow-xs border border-zinc-200/60"
+                : "text-zinc-600 hover:text-zinc-950"
             )}
           >
-            <BookOpen className="w-3 h-3" />
+            <BookOpen className="w-3 h-3 text-zinc-800" />
             <span>Exam Mode</span>
           </button>
           <button
@@ -107,56 +91,32 @@ export function Header({ onOpenCommand, onOpenBrainDump }: HeaderProps) {
             className={cn(
               "px-2.5 py-1 rounded text-xs font-medium transition-all flex items-center gap-1.5",
               mode === "build"
-                ? "bg-white text-black font-semibold shadow-sm"
-                : "text-zinc-400 hover:text-white"
+                ? "bg-white text-zinc-950 font-semibold shadow-xs border border-zinc-200/60"
+                : "text-zinc-600 hover:text-zinc-950"
             )}
           >
-            <Hammer className="w-3 h-3" />
+            <Hammer className="w-3 h-3 text-zinc-800" />
             <span>Build Mode</span>
           </button>
         </div>
 
-        {/* Focus Audio Toggle */}
-        <button
-          onClick={toggleAmbientSound}
-          title={isPlayingAudio ? "Pause Ambient Rain" : "Play Ambient Rain"}
-          className={cn(
-            "p-2 rounded-lg border text-xs font-medium transition-colors flex items-center gap-1.5",
-            isPlayingAudio
-              ? "bg-white text-black border-white font-semibold shadow-sm"
-              : "bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700"
-          )}
-        >
-          {isPlayingAudio ? (
-            <>
-              <Volume2 className="w-3.5 h-3.5 text-black animate-pulse" />
-              <span className="hidden lg:inline text-[11px]">Rain Active</span>
-            </>
-          ) : (
-            <>
-              <VolumeX className="w-3.5 h-3.5 text-zinc-500" />
-              <span className="hidden lg:inline text-[11px]">Focus Sound</span>
-            </>
-          )}
-        </button>
-
         {/* Theme Toggle */}
         <button
           onClick={toggleTheme}
-          title="Toggle Light/Dark Theme"
-          className="p-2 rounded-lg bg-zinc-950 border border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700 transition-colors"
+          title="Toggle Theme"
+          className="p-2 rounded-lg bg-white border border-zinc-200 text-zinc-700 hover:text-zinc-950 hover:border-zinc-300 hover:bg-zinc-50 shadow-xs transition-colors"
         >
           {isLightMode ? <Moon className="w-3.5 h-3.5" /> : <Sun className="w-3.5 h-3.5" />}
         </button>
 
         {/* Demo Badge */}
-        <span className="hidden sm:inline-flex items-center gap-1 px-2 py-0.5 text-[11px] font-mono rounded border border-zinc-700 bg-zinc-900 text-zinc-300">
-          <span className="w-1.5 h-1.5 rounded-full bg-white" />
+        <span className="hidden sm:inline-flex items-center gap-1.5 px-2 py-0.5 text-[11px] font-mono rounded-md border border-zinc-200 bg-zinc-50 text-zinc-700">
+          <span className="w-1.5 h-1.5 rounded-full bg-zinc-900" />
           Demo Mode
         </span>
 
         {/* User Avatar */}
-        <div className="w-8 h-8 rounded-full bg-white text-black font-bold flex items-center justify-center text-xs shadow-md border border-white">
+        <div className="w-8 h-8 rounded-full bg-zinc-950 text-white font-bold flex items-center justify-center text-xs shadow-sm border border-zinc-800">
           N
         </div>
       </div>
