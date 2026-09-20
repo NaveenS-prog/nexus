@@ -229,6 +229,31 @@ export function useNexusStore() {
             localStorage.setItem(STORAGE_KEY_IS_LIVE, "true");
           }
 
+          // If Notion items exist, automatically create/update an active Project entry
+          if (data.stats.notion > 0) {
+            const notionItems = merged.filter((i: any) => i.source === "notion");
+            const completedCount = notionItems.filter((i: any) => i.status === "completed").length;
+            const progress = notionItems.length > 0 ? Math.round((completedCount / notionItems.length) * 100) : 0;
+            const notionProj: Project = {
+              id: "notion-synced-db",
+              name: "Notion Projects Database",
+              description: "Live synced initiatives and tasks from your connected Notion database.",
+              status: "in_progress",
+              priority: "high",
+              progress,
+              tasksCount: notionItems.length,
+              completedTasksCount: completedCount,
+              notionUrl: "https://notion.so",
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            };
+            const others = memoryState.projects.filter((p) => p.id !== "notion-synced-db" && !p.id.startsWith("proj-"));
+            memoryState.projects = [notionProj, ...others];
+            if (typeof window !== "undefined") {
+              localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(memoryState.projects));
+            }
+          }
+
           // Update integration counts
           memoryState.integrations = memoryState.integrations.map((integ) => {
             if (integ.provider === "google_tasks" && data.stats.googleTasks > 0) {

@@ -1,13 +1,29 @@
 import { UnifiedItem, Priority, ItemStatus } from "../types";
 import { getStoredCredentials, IntegrationCredentials } from "./config";
 
+export function cleanDatabaseId(idOrUrl: string): string {
+  let cleaned = idOrUrl.trim();
+  const match = cleaned.match(/([a-f0-9]{32})/i) || cleaned.match(/([a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12})/i);
+  if (match) {
+    return match[1].replace(/-/g, "");
+  }
+  cleaned = cleaned.split("?")[0].replace(/\/$/, "");
+  const lastSlash = cleaned.lastIndexOf("/");
+  if (lastSlash !== -1) {
+    cleaned = cleaned.substring(lastSlash + 1);
+  }
+  return cleaned.replace(/-/g, "");
+}
+
 export async function fetchLiveNotionItems(overrideCreds?: Partial<IntegrationCredentials>): Promise<UnifiedItem[]> {
   const creds = getStoredCredentials(overrideCreds);
   if (!creds.notionApiKey || !creds.notionDatabaseId) {
     throw new Error("Notion API Key or Database ID is missing.");
   }
 
-  const res = await fetch(`https://api.notion.com/v1/databases/${creds.notionDatabaseId}/query`, {
+  const databaseId = cleanDatabaseId(creds.notionDatabaseId);
+
+  const res = await fetch(`https://api.notion.com/v1/databases/${databaseId}/query`, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${creds.notionApiKey}`,
