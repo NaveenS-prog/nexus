@@ -12,6 +12,7 @@
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.48.1",
     "canvas-confetti": "^1.9.4",
+    "chrono-node": "^2.10.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.0.0",
     "date-fns": "^3.6.0",

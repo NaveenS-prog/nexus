@@ -170,3 +170,32 @@ export interface IntegrationStatus {
   status: "idle" | "syncing" | "success" | "error" | "needs_reconnect";
   errorMessage?: string;
 }
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  startTime: string; // ISO 8601
+  endTime: string;   // ISO 8601
+  allDay?: boolean;
+  location?: string;
+  url?: string;
+  description?: string;
+}
+
+export interface ParsedSlotCommand {
+  isSlotCommand: boolean;
+  rawQuery: string;
+  taskTitle: string;
+  targetDate: Date | null;
+  targetDateFormatted: string | null; // YYYY-MM-DD
+  targetDateLabel: string | null;     // e.g. "Wednesday, Sep 23"
+  durationMinutes: number;
+}
+
+export interface FreeSlotResult {
+  start: string; // ISO-8601
+  end: string;   // ISO-8601
+  formattedDate: string; // e.g. "Wednesday, Sep 23"
+  formattedTimeRange: string; // e.g. "10:30 AM – 11:30 AM"
+  taskTitle: string;
+}

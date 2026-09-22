@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Command } from "cmdk";
 import { 
@@ -16,10 +16,16 @@ import {
   RefreshCw,
   Sparkles,
   BookOpen,
-  Hammer
+  Hammer,
+  CalendarCheck,
+  Clock,
+  ArrowRight,
+  AlertCircle
 } from "lucide-react";
 import { useNexusStore } from "@/lib/data/store";
-import { DashboardMode } from "@/lib/types";
+import { DashboardMode, FreeSlotResult } from "@/lib/types";
+import { parseSlotCommand } from "@/lib/parser";
+import { findFirstFreeSlot } from "@/lib/calendar/slotFinder";
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -31,25 +37,91 @@ export function CommandPalette({ isOpen, onClose, onOpenBrainDump }: CommandPale
   const router = useRouter();
   const { items, projects, addItem, setMode, syncAll } = useNexusStore();
   const [search, setSearch] = useState("");
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!isOpen) setSearch("");
+    if (!isOpen) {
+      setSearch("");
+      setToastMessage(null);
+    }
   }, [isOpen]);
 
+  // Deterministic local slot parsing via chrono-node
+  const slotData = useMemo(() => {
+    const trimmed = search.trim();
+    if (!trimmed || trimmed.startsWith("/")) return null;
+
+    const parsed = parseSlotCommand(trimmed);
+    if (!parsed.isSlotCommand || !parsed.targetDate) return null;
+
+    const slot = findFirstFreeSlot(
+      items,
+      parsed.targetDate,
+      parsed.durationMinutes,
+      parsed.taskTitle
+    );
+
+    return { parsed, slot };
+  }, [search, items]);
+
   if (!isOpen) return null;
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(null);
+      onClose();
+    }, 1200);
+  };
 
   const handleSelect = (action: () => void) => {
     action();
     onClose();
   };
 
+  const handleCommitSlot = (slot: FreeSlotResult) => {
+    // 1. Add Task into store
+    addItem({
+      source: "google_tasks",
+      title: slot.taskTitle,
+      category: "personal",
+      priority: "high",
+      status: "pending",
+      dueAt: slot.start,
+      estimatedMinutes: 60,
+      description: `Auto-scheduled free slot (${slot.formattedTimeRange})`,
+    });
+
+    // 2. Add Calendar focus block
+    addItem({
+      source: "google_calendar",
+      title: `Focus: ${slot.taskTitle}`,
+      category: "calendar",
+      priority: "medium",
+      status: "pending",
+      startAt: slot.start,
+      dueAt: slot.end,
+      estimatedMinutes: 60,
+      description: `Reserved focus block for ${slot.taskTitle}`,
+    });
+
+    showToast(`✓ Scheduled "${slot.taskTitle}" for ${slot.formattedDate} (${slot.formattedTimeRange})`);
+  };
+
   const handleCustomCommand = (input: string) => {
     const trimmed = input.trim();
+
+    // 0. If slot preview is active, pressing Enter schedules it!
+    if (slotData?.slot) {
+      handleCommitSlot(slotData.slot);
+      return;
+    }
+
     if (trimmed.startsWith("/task ")) {
       const taskTitle = trimmed.replace("/task ", "").trim();
       if (taskTitle) {
         addItem({
-          source: "nexus",
+          source: "google_tasks",
           title: taskTitle,
           category: "personal",
           priority: "medium",
@@ -57,20 +129,20 @@ export function CommandPalette({ isOpen, onClose, onOpenBrainDump }: CommandPale
           dueAt: new Date(Date.now() + 86400000).toISOString(),
           estimatedMinutes: 30,
         });
-        onClose();
+        showToast(`✓ Task created: "${taskTitle}"`);
       }
     } else if (trimmed.startsWith("/idea ")) {
       const ideaTitle = trimmed.replace("/idea ", "").trim();
       if (ideaTitle) {
         addItem({
-          source: "nexus",
+          source: "notion",
           title: ideaTitle,
           category: "idea",
           priority: "medium",
           status: "pending",
           tags: ["Idea"],
         });
-        onClose();
+        showToast(`✓ Idea logged: "${ideaTitle}"`);
       }
     } else if (trimmed.startsWith("/focus")) {
       router.push("/focus");
@@ -80,10 +152,10 @@ export function CommandPalette({ isOpen, onClose, onOpenBrainDump }: CommandPale
       onClose();
     } else if (trimmed.startsWith("/mode exam")) {
       setMode("exam");
-      onClose();
+      showToast("✓ Switched to Exam Mode");
     } else if (trimmed.startsWith("/mode build")) {
       setMode("build");
-      onClose();
+      showToast("✓ Switched to Build Mode");
     }
   };
 
@@ -94,12 +166,26 @@ export function CommandPalette({ isOpen, onClose, onOpenBrainDump }: CommandPale
         onClick={onClose} 
       />
 
-      <div className="relative w-full max-w-xl bg-black border border-zinc-800 rounded-xl shadow-2xl overflow-hidden z-10">
+      <div className="relative w-full max-w-xl bg-black border border-zinc-800 rounded-xl shadow-2xl overflow-hidden z-10 flex flex-col">
+        {/* Toast feedback */}
+        {toastMessage && (
+          <div className="bg-emerald-950/90 border-b border-emerald-800/80 px-4 py-2 text-xs text-emerald-200 font-semibold flex items-center gap-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+            {toastMessage}
+          </div>
+        )}
+
         <Command 
           className="w-full bg-transparent"
           onKeyDown={(e) => {
-            if (e.key === "Enter" && search.startsWith("/")) {
-              handleCustomCommand(search);
+            if (e.key === "Enter") {
+              if (slotData?.slot) {
+                e.preventDefault();
+                handleCommitSlot(slotData.slot);
+              } else if (search.startsWith("/")) {
+                e.preventDefault();
+                handleCustomCommand(search);
+              }
             }
           }}
         >
@@ -107,14 +193,63 @@ export function CommandPalette({ isOpen, onClose, onOpenBrainDump }: CommandPale
             <Command.Input
               value={search}
               onValueChange={setSearch}
-              placeholder="Type a command (/task, /idea, /focus) or search anything..."
-              className="w-full bg-transparent py-3.5 text-sm text-zinc-100 placeholder-zinc-500 outline-none"
+              placeholder="Type natural command ('find free time wednesday to prep for viva') or /task..."
+              className="w-full bg-transparent py-3.5 text-sm text-zinc-100 placeholder-zinc-500 outline-none font-sans"
               autoFocus
             />
             <span className="text-[10px] font-mono text-zinc-400 bg-zinc-900 px-1.5 py-0.5 rounded border border-zinc-800">
               ESC
             </span>
           </div>
+
+          {/* DETERMINISTIC FREE-SLOT PREVIEW CARD */}
+          {slotData && slotData.slot && (
+            <div className="p-3 border-b border-zinc-800 bg-emerald-950/30">
+              <div 
+                onClick={() => handleCommitSlot(slotData.slot!)}
+                className="p-3.5 rounded-lg bg-zinc-900/90 border border-emerald-500/50 hover:border-emerald-400 cursor-pointer transition-all flex items-start justify-between gap-3 shadow-lg group"
+              >
+                <div className="flex items-start gap-2.5">
+                  <div className="p-2 rounded-md bg-emerald-950 text-emerald-400 border border-emerald-800/80 mt-0.5">
+                    <CalendarCheck className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[9px] font-mono uppercase tracking-wider text-emerald-400 font-bold px-1.5 py-0.2 rounded bg-emerald-950/80 border border-emerald-800">
+                        Deterministic Free Slot (No-AI)
+                      </span>
+                      <span className="text-[10px] font-mono text-zinc-400">
+                        {slotData.slot.formattedDate}
+                      </span>
+                    </div>
+                    <h4 className="text-xs font-bold text-white mt-1 flex items-center gap-1.5">
+                      <Clock className="w-3 h-3 text-emerald-400" />
+                      <span>{slotData.slot.formattedTimeRange}</span>
+                    </h4>
+                    <p className="text-[11px] text-zinc-300 mt-0.5">
+                      Found free slot: <strong className="text-white font-semibold">{slotData.slot.formattedDate}, {slotData.slot.formattedTimeRange}</strong>. Create task <strong className="text-emerald-300">'{slotData.slot.taskTitle}'</strong>?
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-end gap-1 shrink-0">
+                  <span className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-[10px] font-semibold text-white flex items-center gap-1 transition-colors">
+                    <span>Schedule</span>
+                    <ArrowRight className="w-3 h-3" />
+                  </span>
+                  <span className="text-[9px] font-mono text-zinc-500">press ↵</span>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* No Slot Message */}
+          {slotData && !slotData.slot && (
+            <div className="p-3 border-b border-zinc-800 bg-amber-950/20 text-xs text-amber-300 flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+              <span>No continuous {slotData.parsed.durationMinutes}-minute free gap found between 09:00 and 18:00 on {slotData.parsed.targetDateLabel}.</span>
+            </div>
+          )}
 
           <Command.List className="max-h-[380px] overflow-y-auto p-2 space-y-1">
             <Command.Empty className="py-6 text-center text-xs text-zinc-500">
@@ -255,8 +390,7 @@ export function CommandPalette({ isOpen, onClose, onOpenBrainDump }: CommandPale
               <span><kbd className="text-zinc-400">ESC</kbd> to close</span>
             </div>
             <div className="flex items-center gap-2">
-              <span>Mode: <kbd className="text-zinc-400 font-mono">E</kbd> / <kbd className="text-zinc-400 font-mono">B</kbd></span>
-              <span>Focus: <kbd className="text-zinc-400 font-mono">F</kbd></span>
+              <span className="text-[10px] text-emerald-400 font-mono">Chrono-Node (No-AI)</span>
             </div>
           </div>
         </Command>
