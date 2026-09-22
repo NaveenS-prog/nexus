@@ -49,7 +49,7 @@ export function CommandPalette({ isOpen, onClose, onOpenBrainDump }: CommandPale
   // Deterministic local slot parsing via chrono-node
   const slotData = useMemo(() => {
     const trimmed = search.trim();
-    if (!trimmed || trimmed.startsWith("/")) return null;
+    if (!trimmed) return null;
 
     const parsed = parseSlotCommand(trimmed);
     if (!parsed.isSlotCommand || !parsed.targetDate) return null;
@@ -58,7 +58,8 @@ export function CommandPalette({ isOpen, onClose, onOpenBrainDump }: CommandPale
       items,
       parsed.targetDate,
       parsed.durationMinutes,
-      parsed.taskTitle
+      parsed.taskTitle,
+      parsed.hasExplicitTime
     );
 
     return { parsed, slot };
@@ -117,17 +118,20 @@ export function CommandPalette({ isOpen, onClose, onOpenBrainDump }: CommandPale
       return;
     }
 
-    if (trimmed.startsWith("/task ")) {
-      const taskTitle = trimmed.replace("/task ", "").trim();
+    if (trimmed.startsWith("/task ") || /^(?:assign\s+task|assign|add\s+task|create\s+task|task)\s+/i.test(trimmed)) {
+      const parsed = parseSlotCommand(trimmed);
+      const taskTitle = parsed.taskTitle || trimmed.replace(/^(?:assign\s+task|assign|add\s+task|create\s+task|task|\/task)\s+/i, "").trim();
+      const dueAt = parsed.targetDate ? parsed.targetDate.toISOString() : new Date(Date.now() + 86400000).toISOString();
       if (taskTitle) {
         addItem({
           source: "google_tasks",
           title: taskTitle,
           category: "personal",
-          priority: "medium",
+          priority: "high",
           status: "pending",
-          dueAt: new Date(Date.now() + 86400000).toISOString(),
-          estimatedMinutes: 30,
+          dueAt,
+          estimatedMinutes: 60,
+          description: parsed.hasExplicitTime ? `Scheduled at ${parsed.targetDate?.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}` : undefined,
         });
         showToast(`✓ Task created: "${taskTitle}"`);
       }
@@ -156,6 +160,21 @@ export function CommandPalette({ isOpen, onClose, onOpenBrainDump }: CommandPale
     } else if (trimmed.startsWith("/mode build")) {
       setMode("build");
       showToast("✓ Switched to Build Mode");
+    } else if (trimmed.length > 0) {
+      // General natural language fallback
+      const parsed = parseSlotCommand(trimmed);
+      const title = parsed.taskTitle || trimmed;
+      const dueAt = parsed.targetDate ? parsed.targetDate.toISOString() : new Date(Date.now() + 86400000).toISOString();
+      addItem({
+        source: "google_tasks",
+        title,
+        category: "personal",
+        priority: "medium",
+        status: "pending",
+        dueAt,
+        estimatedMinutes: 30,
+      });
+      showToast(`✓ Task added: "${title}"`);
     }
   };
 
@@ -182,7 +201,7 @@ export function CommandPalette({ isOpen, onClose, onOpenBrainDump }: CommandPale
               if (slotData?.slot) {
                 e.preventDefault();
                 handleCommitSlot(slotData.slot);
-              } else if (search.startsWith("/")) {
+              } else if (search.trim().length > 0) {
                 e.preventDefault();
                 handleCustomCommand(search);
               }

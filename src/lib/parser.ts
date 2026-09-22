@@ -1,25 +1,12 @@
 import * as chrono from 'chrono-node';
 import { ParsedSlotCommand } from './types';
 
-// Triggers that signal free-slot booking intent
-const SLOT_TRIGGERS = [
-  /find\s+(?:a\s+)?free\s+time/i,
-  /find\s+(?:a\s+)?free\s+slot/i,
-  /find\s+(?:a\s+)?slot/i,
-  /free\s+slot/i,
-  /free\s+time/i,
-  /schedule\s+(?:a\s+)?slot/i,
-  /schedule\s+(?:a\s+)?task/i,
-  /book\s+(?:a\s+)?slot/i,
-  /book\s+(?:a\s+)?time/i,
-  /^\/slot/i,
-  /^\/free/i,
-  /^\/schedule/i,
-];
+// Triggers that signal task assignment or free-slot booking intent
+const TRIGGER_REGEX = /^(?:assign\s+task|assign|schedule\s+task|schedule|add\s+task|create\s+task|find\s+(?:a\s+)?free\s+time|find\s+(?:a\s+)?free\s+slot|find\s+(?:a\s+)?slot|free\s+slot|free\s+time|book\s+slot|book\s+time|task|\/slot|\/schedule|\/task)/i;
 
 /**
- * Deterministically parses a natural language command into a structured slot booking request.
- * Uses chrono-node for zero-latency, local date extraction without LLMs.
+ * Deterministically parses a natural language command into a structured task/slot booking request.
+ * Uses chrono-node for zero-latency, local date & time extraction without LLMs.
  */
 export function parseSlotCommand(input: string): ParsedSlotCommand {
   const trimmed = input.trim();
@@ -32,12 +19,15 @@ export function parseSlotCommand(input: string): ParsedSlotCommand {
       targetDateFormatted: null,
       targetDateLabel: null,
       durationMinutes: 60,
+      hasExplicitTime: false,
     };
   }
 
-  // Check if any slot trigger matches
-  const isSlotCommand = SLOT_TRIGGERS.some((regex) => regex.test(trimmed));
-  if (!isSlotCommand) {
+  const hasTrigger = TRIGGER_REGEX.test(trimmed);
+  const chronoResults = chrono.parse(trimmed, new Date(), { forwardDate: true });
+
+  // If neither an action trigger nor a date/time was found, not a slot/task command
+  if (!hasTrigger && chronoResults.length === 0) {
     return {
       isSlotCommand: false,
       rawQuery: input,
@@ -46,38 +36,63 @@ export function parseSlotCommand(input: string): ParsedSlotCommand {
       targetDateFormatted: null,
       targetDateLabel: null,
       durationMinutes: 60,
+      hasExplicitTime: false,
     };
   }
 
-  // 1. Extract duration if explicitly stated (e.g. "30 mins", "2 hours", "90 minutes")
-  let durationMinutes = 60; // default to 60-minute window
+  // 1. Extract duration if stated (e.g. "30 mins", "2 hours")
+  let durationMinutes = 60;
   const durationMatch = trimmed.match(/(\d+)\s*(?:mins?|minutes?|hrs?|hours?)/i);
   if (durationMatch) {
     const val = parseInt(durationMatch[1], 10);
-    if (/hrs?|hours?/i.test(durationMatch[0])) {
-      durationMinutes = val * 60;
-    } else {
-      durationMinutes = val;
-    }
+    durationMinutes = /hrs?|hours?/i.test(durationMatch[0]) ? val * 60 : val;
   }
 
-  // 2. Extract date using chrono-node
-  const chronoResults = chrono.parse(trimmed, new Date(), { forwardDate: true });
+  // 2. Extract date & time
   let targetDate: Date | null = null;
-  let dateText = '';
+  let hasExplicitTime = false;
 
   if (chronoResults.length > 0) {
-    const firstResult = chronoResults[0];
-    dateText = firstResult.text;
-    targetDate = firstResult.start.date();
+    // Prefer the result that specified an explicit hour/time
+    const withCertainHour = chronoResults.find((r) => r.start.isCertain('hour'));
+    const chosen = withCertainHour || chronoResults[0];
+    targetDate = chosen.start.date();
+    hasExplicitTime = chosen.start.isCertain('hour');
   } else {
-    // Default to tomorrow if not specified
+    // Default to tomorrow at 10:00 AM
     const tomorrow = new Date();
     tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(10, 0, 0, 0);
     targetDate = tomorrow;
   }
 
-  // Format dates
+  // 3. Clean Task Title
+  let cleaned = trimmed;
+  for (const r of chronoResults) {
+    cleaned = cleaned.replace(r.text, ' ');
+  }
+  if (durationMatch) {
+    cleaned = cleaned.replace(durationMatch[0], ' ');
+  }
+
+  // Remove trigger prefix words
+  cleaned = cleaned.replace(TRIGGER_REGEX, ' ');
+
+  // Clean dangling connectors & prepositions
+  cleaned = cleaned.replace(/\s+(?:on|at|by|for|to|due)\s*$/gi, ' ');
+  cleaned = cleaned.replace(/^\s*(?:on|at|by|for|to|due)\s+/gi, ' ');
+  cleaned = cleaned.replace(/\s+and\s+(?:assign|schedule|create|add)?\s+/gi, ' ');
+  cleaned = cleaned.replace(/\s+/g, ' ').trim();
+  cleaned = cleaned.replace(/^["']|["']$/g, '').trim();
+
+  // If still leading with "for " or "to "
+  cleaned = cleaned.replace(/^(?:for|to|prep)\s+(?:prep\s+)?/i, (m) => {
+    if (/prep/i.test(m)) return 'prep ';
+    return '';
+  }).trim();
+
+  const taskTitle = cleaned || 'Scheduled Task';
+
   const year = targetDate.getFullYear();
   const month = String(targetDate.getMonth() + 1).padStart(2, '0');
   const day = String(targetDate.getDate()).padStart(2, '0');
@@ -87,50 +102,6 @@ export function parseSlotCommand(input: string): ParsedSlotCommand {
   const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   const targetDateLabel = `${weekdayNames[targetDate.getDay()]}, ${monthNames[targetDate.getMonth()]} ${targetDate.getDate()}`;
 
-  // 3. Extract clean task title
-  let cleaned = trimmed;
-
-  if (dateText) {
-    cleaned = cleaned.replace(new RegExp(escapeRegex(dateText), 'i'), ' ');
-  }
-
-  if (durationMatch) {
-    cleaned = cleaned.replace(new RegExp(escapeRegex(durationMatch[0]), 'i'), ' ');
-  }
-
-  const triggerPatterns = [
-    /^\/slot\s*/i,
-    /^\/free\s*/i,
-    /^\/schedule\s*/i,
-    /find\s+(?:a\s+)?free\s+time(?:\s+for)?/gi,
-    /find\s+(?:a\s+)?free\s+slot(?:\s+for)?/gi,
-    /find\s+(?:a\s+)?slot(?:\s+for)?/gi,
-    /free\s+slot(?:\s+for)?/gi,
-    /free\s+time(?:\s+for)?/gi,
-    /book\s+(?:a\s+)?slot(?:\s+for)?/gi,
-    /book\s+(?:a\s+)?time(?:\s+for)?/gi,
-    /and\s+(?:assign\s+a\s+task\s+to|assign\s+task\s+to|schedule\s+a\s+task\s+to|schedule\s+task\s+to|schedule|assign)/gi,
-    /(?:assign\s+a\s+task\s+to|assign\s+task\s+to|schedule\s+a\s+task\s+to|schedule\s+task\s+to|schedule|assign)/gi,
-    /^\s*and\s+/gi,
-    /\s+and\s*$/gi,
-    /^\s*for\s+/gi,
-    /^\s*to\s+/gi,
-  ];
-
-  for (const pat of triggerPatterns) {
-    cleaned = cleaned.replace(pat, ' ');
-  }
-
-  cleaned = cleaned.replace(/\s+/g, ' ').trim();
-  cleaned = cleaned.replace(/^["']|["']$/g, '').trim();
-
-  cleaned = cleaned.replace(/^(?:for|to|prep)\s+(?:prep\s+)?/i, (m) => {
-    if (/prep/i.test(m)) return 'prep ';
-    return '';
-  }).trim();
-
-  const taskTitle = cleaned || 'Scheduled Task';
-
   return {
     isSlotCommand: true,
     rawQuery: input,
@@ -139,9 +110,6 @@ export function parseSlotCommand(input: string): ParsedSlotCommand {
     targetDateFormatted,
     targetDateLabel,
     durationMinutes,
+    hasExplicitTime,
   };
-}
-
-function escapeRegex(str: string): string {
-  return str.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }

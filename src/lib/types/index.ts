@@ -190,6 +190,7 @@ export interface ParsedSlotCommand {
   targetDateFormatted: string | null; // YYYY-MM-DD
   targetDateLabel: string | null;     // e.g. "Wednesday, Sep 23"
   durationMinutes: number;
+  hasExplicitTime?: boolean;
 }
 
 export interface FreeSlotResult {

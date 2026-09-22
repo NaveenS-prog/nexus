@@ -15,7 +15,7 @@ export const DEFAULT_WORK_HOURS: WorkHoursConfig = {
 };
 
 /**
- * Deterministically finds the first continuous free slot matching durationMinutes
+ * Deterministically finds the requested slot or the first continuous free slot matching durationMinutes
  * within working hours (09:00 to 18:00) for a given date.
  */
 export function findFirstFreeSlot(
@@ -23,11 +23,19 @@ export function findFirstFreeSlot(
   targetDate: Date,
   durationMinutes: number = 60,
   taskTitle: string = 'Scheduled Task',
+  hasExplicitTime: boolean = false,
   workHours: WorkHoursConfig = DEFAULT_WORK_HOURS
 ): FreeSlotResult | null {
   const durationMs = durationMinutes * 60 * 1000;
 
-  // 1. Establish the working window for targetDate
+  // 1. If the user specified an explicit time (e.g., "1 pm", "at 14:00")
+  if (hasExplicitTime) {
+    const startMs = targetDate.getTime();
+    const endMs = startMs + durationMs;
+    return formatSlotResult(startMs, endMs, targetDate, taskTitle);
+  }
+
+  // 2. Establish the working window for targetDate
   const windowStart = new Date(targetDate);
   windowStart.setHours(workHours.startHour, workHours.startMinute, 0, 0);
 
@@ -52,7 +60,7 @@ export function findFirstFreeSlot(
     return null;
   }
 
-  // 2. Filter events that fall on the target date and overlap with the working window
+  // 3. Filter events that fall on the target date and overlap with the working window
   interface BusyInterval {
     start: number;
     end: number;
@@ -82,7 +90,6 @@ export function findFirstFreeSlot(
 
     if (isNaN(evStart) || isNaN(evEnd) || evStart >= evEnd) continue;
 
-    // Check overlap with working window [effectiveStartMs, windowEnd]
     const clampedStart = Math.max(evStart, effectiveStartMs);
     const clampedEnd = Math.min(evEnd, windowEnd.getTime());
 
@@ -91,10 +98,10 @@ export function findFirstFreeSlot(
     }
   }
 
-  // 3. Sort busy intervals by start time
+  // 4. Sort busy intervals by start time
   busyIntervals.sort((a, b) => a.start - b.start);
 
-  // 4. Merge overlapping or adjacent busy intervals
+  // 5. Merge overlapping or adjacent busy intervals
   const merged: BusyInterval[] = [];
   for (const interval of busyIntervals) {
     if (merged.length === 0) {
@@ -109,7 +116,7 @@ export function findFirstFreeSlot(
     }
   }
 
-  // 5. Deterministic interval-gap search
+  // 6. Deterministic interval-gap search
   let candidateStart = effectiveStartMs;
 
   for (const busy of merged) {
