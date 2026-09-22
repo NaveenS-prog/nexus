@@ -4,8 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { 
   Search, 
-  Volume2, 
-  VolumeX, 
   Sun, 
   Moon, 
   Sparkles, 
@@ -15,7 +13,6 @@ import {
   Plus
 } from "lucide-react";
 import { useNexusStore } from "@/lib/data/store";
-import { audioSynth } from "@/lib/audio/webAudioSynth";
 import { Button } from "@/components/ui/button";
 import { Badge, cn } from "@/components/ui/badge";
 
@@ -26,18 +23,7 @@ interface HeaderProps {
 
 export function Header({ onOpenCommand, onOpenBrainDump }: HeaderProps) {
   const { mode, setMode } = useNexusStore();
-  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
   const [isLightMode, setIsLightMode] = useState(false);
-
-  const toggleAmbientSound = () => {
-    if (isPlayingAudio) {
-      audioSynth.stop();
-      setIsPlayingAudio(false);
-    } else {
-      audioSynth.play("rain");
-      setIsPlayingAudio(true);
-    }
-  };
 
   const toggleTheme = () => {
     setIsLightMode(!isLightMode);
@@ -116,29 +102,6 @@ export function Header({ onOpenCommand, onOpenBrainDump }: HeaderProps) {
           </button>
         </div>
 
-        {/* Focus Audio Toggle */}
-        <button
-          onClick={toggleAmbientSound}
-          title={isPlayingAudio ? "Pause Ambient Rain" : "Play Ambient Rain"}
-          className={cn(
-            "p-2 rounded-lg border text-xs font-medium transition-colors flex items-center gap-1.5",
-            isPlayingAudio
-              ? "bg-white text-black border-white font-semibold shadow-sm"
-              : "bg-zinc-950 border-zinc-800 text-zinc-400 hover:text-white hover:border-zinc-700"
-          )}
-        >
-          {isPlayingAudio ? (
-            <>
-              <Volume2 className="w-3.5 h-3.5 text-black animate-pulse" />
-              <span className="hidden lg:inline text-[11px]">Rain Active</span>
-            </>
-          ) : (
-            <>
-              <VolumeX className="w-3.5 h-3.5 text-zinc-500" />
-              <span className="hidden lg:inline text-[11px]">Focus Sound</span>
-            </>
-          )}
-        </button>
 
         {/* Theme Toggle */}
         <button

@@ -49,7 +49,7 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 | `Ctrl + K` or `Cmd + K` | Global Command Palette & Fuzzy Search |
 | `E` | Switch to **Exam Mode** (Coursework & exams prioritized) |
 | `B` | Switch to **Build Mode** (Sprint tasks & GitHub prioritized) |
-| `F` | Launch **Focus Mode** (Countdown timer & ambient audio) |
+| `F` | Launch **Focus Mode** (Countdown timer & session tracker) |
 | `Esc` | Dismiss modals / slide-over drawers |
 
 ---
@@ -61,18 +61,6 @@ Open [http://localhost:3000](http://localhost:3000) in your browser.
 - `/focus [min]` — Start a focus sprint
 - `/plan` — Open the command center planner
 - `/mode exam` / `/mode build` / `/mode default` — Switch active work modes
-
----
-
-## 🌧 Native Web Audio Ambient Soundscapes
-
-NEXUS includes an offline, zero-latency synthesizer built directly with the browser's **Web Audio API**:
-- **Rain**: Filtered pink/brown noise for steady rainfall
-- **Cafe**: Multi-tonal background murmur
-- **Forest**: Filtered breeze through foliage
-- **White Noise**: Broadband masking noise
-- **Keyboard**: Transient mechanical keystrokes
-- **Ocean**: Low-frequency oscillator sweeping resonant wave filters
 
 ---
 
@@ -105,7 +93,6 @@ nexus/
 │   │   ├── shell/                            # AppShell, Sidebar, Header
 │   │   └── ui/                               # Design primitives (Card, Badge, Drawer)
 │   └── lib/
-│       ├── audio/                            # Web Audio API ambient synth
 │       ├── data/                             # Reactive store & rich mock dataset
 │       ├── engines/                          # Workload radar & recommendation engines
 │       ├── integrations/                     # Google, Notion, GitHub providers
