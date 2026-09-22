@@ -25,7 +25,7 @@ import {
 import { useNexusStore } from "@/lib/data/store";
 import { DashboardMode, FreeSlotResult } from "@/lib/types";
 import { parseSlotCommand } from "@/lib/parser";
-import { findFirstFreeSlot } from "@/lib/calendar/slotFinder";
+import { findFirstFreeSlot, findAllFreeSlots } from "@/lib/calendar/slotFinder";
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -54,15 +54,20 @@ export function CommandPalette({ isOpen, onClose, onOpenBrainDump }: CommandPale
     const parsed = parseSlotCommand(trimmed);
     if (!parsed.isSlotCommand || !parsed.targetDate) return null;
 
-    const slot = findFirstFreeSlot(
+    // Deterministically list every free slot within 9:00 AM - 4:00 PM (even 5 or 10 min small slots)
+    const allSlots = findAllFreeSlots(
       items,
       parsed.targetDate,
-      parsed.durationMinutes,
-      parsed.taskTitle,
-      parsed.hasExplicitTime
+      5, // capture every free slot down to 5 mins
+      parsed.taskTitle
     );
 
-    return { parsed, slot };
+    // Primary slot for instant Enter key execution
+    const slot = parsed.hasExplicitTime
+      ? findFirstFreeSlot(items, parsed.targetDate, parsed.durationMinutes, parsed.taskTitle, true)
+      : (allSlots.find((s) => (s.durationMinutes || 0) >= parsed.durationMinutes) || allSlots[0] || null);
+
+    return { parsed, slot, allSlots };
   }, [search, items]);
 
   if (!isOpen) return null;
@@ -81,6 +86,8 @@ export function CommandPalette({ isOpen, onClose, onOpenBrainDump }: CommandPale
   };
 
   const handleCommitSlot = (slot: FreeSlotResult) => {
+    const mins = slot.durationMinutes || 60;
+
     // 1. Add Task into store
     addItem({
       source: "google_tasks",
@@ -89,7 +96,7 @@ export function CommandPalette({ isOpen, onClose, onOpenBrainDump }: CommandPale
       priority: "high",
       status: "pending",
       dueAt: slot.start,
-      estimatedMinutes: 60,
+      estimatedMinutes: mins,
       description: `Auto-scheduled free slot (${slot.formattedTimeRange})`,
     });
 
@@ -102,7 +109,7 @@ export function CommandPalette({ isOpen, onClose, onOpenBrainDump }: CommandPale
       status: "pending",
       startAt: slot.start,
       dueAt: slot.end,
-      estimatedMinutes: 60,
+      estimatedMinutes: mins,
       description: `Reserved focus block for ${slot.taskTitle}`,
     });
 
@@ -201,6 +208,9 @@ export function CommandPalette({ isOpen, onClose, onOpenBrainDump }: CommandPale
               if (slotData?.slot) {
                 e.preventDefault();
                 handleCommitSlot(slotData.slot);
+              } else if (slotData?.allSlots && slotData.allSlots.length > 0) {
+                e.preventDefault();
+                handleCommitSlot(slotData.allSlots[0]);
               } else if (search.trim().length > 0) {
                 e.preventDefault();
                 handleCustomCommand(search);
@@ -221,52 +231,120 @@ export function CommandPalette({ isOpen, onClose, onOpenBrainDump }: CommandPale
             </span>
           </div>
 
-          {/* DETERMINISTIC FREE-SLOT PREVIEW CARD */}
-          {slotData && slotData.slot && (
-            <div className="p-3 border-b border-zinc-800 bg-emerald-950/30">
-              <div 
-                onClick={() => handleCommitSlot(slotData.slot!)}
-                className="p-3.5 rounded-lg bg-zinc-900/90 border border-emerald-500/50 hover:border-emerald-400 cursor-pointer transition-all flex items-start justify-between gap-3 shadow-lg group"
-              >
-                <div className="flex items-start gap-2.5">
-                  <div className="p-2 rounded-md bg-emerald-950 text-emerald-400 border border-emerald-800/80 mt-0.5">
-                    <CalendarCheck className="w-4 h-4" />
-                  </div>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[9px] font-mono uppercase tracking-wider text-emerald-400 font-bold px-1.5 py-0.2 rounded bg-emerald-950/80 border border-emerald-800">
-                        Deterministic Free Slot (No-AI)
-                      </span>
-                      <span className="text-[10px] font-mono text-zinc-400">
-                        {slotData.slot.formattedDate}
-                      </span>
+          {/* DETERMINISTIC FREE-SLOT PREVIEW & ALL SLOTS LIST (9:00 AM - 4:00 PM) */}
+          {slotData && (
+            <div className="p-3 border-b border-zinc-800 bg-emerald-950/20 space-y-2.5">
+              {/* Primary / Requested Slot Card */}
+              {slotData.slot ? (
+                <div 
+                  onClick={() => handleCommitSlot(slotData.slot!)}
+                  className="p-3 rounded-lg bg-zinc-900/95 border border-emerald-500/60 hover:border-emerald-400 cursor-pointer transition-all flex items-start justify-between gap-3 shadow-lg group"
+                >
+                  <div className="flex items-start gap-2.5 min-w-0">
+                    <div className="p-2 rounded-md bg-emerald-950 text-emerald-400 border border-emerald-800/80 mt-0.5 shrink-0">
+                      <CalendarCheck className="w-4 h-4" />
                     </div>
-                    <h4 className="text-xs font-bold text-white mt-1 flex items-center gap-1.5">
-                      <Clock className="w-3 h-3 text-emerald-400" />
-                      <span>{slotData.slot.formattedTimeRange}</span>
-                    </h4>
-                    <p className="text-[11px] text-zinc-300 mt-0.5">
-                      Found free slot: <strong className="text-white font-semibold">{slotData.slot.formattedDate}, {slotData.slot.formattedTimeRange}</strong>. Create task <strong className="text-emerald-300">'{slotData.slot.taskTitle}'</strong>?
-                    </p>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-[9px] font-mono uppercase tracking-wider text-emerald-400 font-bold px-1.5 py-0.2 rounded bg-emerald-950/80 border border-emerald-800">
+                          {slotData.parsed.hasExplicitTime ? "Target Time Slot" : "Primary Free Slot"} (9 AM – 4 PM)
+                        </span>
+                        <span className="text-[10px] font-mono text-zinc-400">
+                          {slotData.slot.formattedDate}
+                        </span>
+                        {slotData.slot.durationMinutes && (
+                          <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-zinc-800 text-emerald-300 border border-zinc-700">
+                            {slotData.slot.durationMinutes < 60
+                              ? `${slotData.slot.durationMinutes}m`
+                              : `${Math.floor(slotData.slot.durationMinutes / 60)}h ${slotData.slot.durationMinutes % 60 ? `${slotData.slot.durationMinutes % 60}m` : ''}`}
+                          </span>
+                        )}
+                      </div>
+                      <h4 className="text-xs font-bold text-white mt-1 flex items-center gap-1.5">
+                        <Clock className="w-3 h-3 text-emerald-400 shrink-0" />
+                        <span>{slotData.slot.formattedTimeRange}</span>
+                      </h4>
+                      <p className="text-[11px] text-zinc-300 mt-0.5 truncate">
+                        Schedule <strong className="text-emerald-300">'{slotData.slot.taskTitle}'</strong> for <strong className="text-white">{slotData.slot.formattedTimeRange}</strong>?
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-col items-end gap-1 shrink-0">
+                    <span className="px-2.5 py-1 rounded bg-emerald-600 group-hover:bg-emerald-500 text-[10px] font-semibold text-white flex items-center gap-1 transition-colors shadow">
+                      <span>Schedule</span>
+                      <ArrowRight className="w-3 h-3" />
+                    </span>
+                    <span className="text-[9px] font-mono text-zinc-400">press ↵</span>
                   </div>
                 </div>
-
-                <div className="flex flex-col items-end gap-1 shrink-0">
-                  <span className="px-2.5 py-1 rounded bg-emerald-600 hover:bg-emerald-500 text-[10px] font-semibold text-white flex items-center gap-1 transition-colors">
-                    <span>Schedule</span>
-                    <ArrowRight className="w-3 h-3" />
-                  </span>
-                  <span className="text-[9px] font-mono text-zinc-500">press ↵</span>
+              ) : (
+                <div className="p-2.5 rounded-lg bg-amber-950/30 border border-amber-800/60 text-xs text-amber-300 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span>No continuous {slotData.parsed.durationMinutes}-minute free gap found between 09:00 and 16:00 on {slotData.parsed.targetDateLabel}.</span>
                 </div>
-              </div>
-            </div>
-          )}
+              )}
 
-          {/* No Slot Message */}
-          {slotData && !slotData.slot && (
-            <div className="p-3 border-b border-zinc-800 bg-amber-950/20 text-xs text-amber-300 flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
-              <span>No continuous {slotData.parsed.durationMinutes}-minute free gap found between 09:00 and 18:00 on {slotData.parsed.targetDateLabel}.</span>
+              {/* LIST OF EVERY AVAILABLE FREE SLOT (EVEN 5 OR 10 MIN SLOTS) */}
+              {slotData.allSlots && slotData.allSlots.length > 0 && (
+                <div className="pt-0.5">
+                  <div className="flex items-center justify-between text-[11px] font-medium text-zinc-400 mb-1.5 px-0.5">
+                    <span className="flex items-center gap-1.5 text-zinc-300">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                      All Free Slots (9:00 AM – 4:00 PM)
+                    </span>
+                    <span className="font-mono text-[10px] text-zinc-400">
+                      {slotData.allSlots.length} available (down to 5m)
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 max-h-[160px] overflow-y-auto pr-1">
+                    {slotData.allSlots.map((s, idx) => {
+                      const isSelected = slotData.slot?.start === s.start;
+                      const mins = s.durationMinutes || 5;
+                      const isSmall = mins <= 10;
+                      return (
+                        <div
+                          key={idx}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleCommitSlot({ ...s, taskTitle: slotData.parsed.taskTitle });
+                          }}
+                          className={`p-2 rounded-md border text-left cursor-pointer transition-all flex items-center justify-between gap-2 ${
+                            isSelected
+                              ? 'bg-emerald-950/80 border-emerald-500/80 text-white'
+                              : 'bg-zinc-900/80 border-zinc-800 hover:border-zinc-600 hover:bg-zinc-800 text-zinc-200'
+                          }`}
+                        >
+                          <div className="min-w-0 flex items-center gap-2">
+                            <Clock className={`w-3.5 h-3.5 shrink-0 ${isSmall ? 'text-amber-400' : 'text-emerald-400'}`} />
+                            <div className="truncate">
+                              <div className="text-[11px] font-mono font-medium text-zinc-100">
+                                {s.formattedTimeRange}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <span
+                              className={`text-[9px] font-mono font-semibold px-1.5 py-0.5 rounded border ${
+                                isSmall
+                                  ? 'bg-amber-950/70 border-amber-800/80 text-amber-300'
+                                  : 'bg-emerald-950/70 border-emerald-800/80 text-emerald-300'
+                              }`}
+                            >
+                              {mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}h${mins % 60 ? ` ${mins % 60}m` : ''}`}
+                            </span>
+                            <span className="text-[10px] text-zinc-500 hover:text-white">
+                              +
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

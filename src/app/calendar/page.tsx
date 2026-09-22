@@ -22,6 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ItemDetailDrawer } from "@/components/dashboard/ItemDetailDrawer";
 import { UnifiedItem } from "@/lib/types";
+import { findAllFreeSlots } from "@/lib/calendar/slotFinder";
 import { 
   format, 
   addDays, 
@@ -33,12 +34,18 @@ import {
 } from "date-fns";
 
 export default function CalendarPage() {
-  const { items, toggleItemCompletion, deleteItem, syncAll, isSyncing, purgeDemoData } = useNexusStore();
+  const { items, addItem, toggleItemCompletion, deleteItem, syncAll, isSyncing, purgeDemoData } = useNexusStore();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [viewMode, setViewMode] = useState<"day" | "week">("day");
   const [filterType, setFilterType] = useState<"events" | "all">("events");
   const [selectedItem, setSelectedItem] = useState<UnifiedItem | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [slotFeedback, setSlotFeedback] = useState<string | null>(null);
+
+  // Compute all free slots between 9:00 AM and 4:00 PM (down to 5m and 10m gaps)
+  const availableSlots = useMemo(() => {
+    return findAllFreeSlots(items, selectedDate, 5, "Focus Block");
+  }, [items, selectedDate]);
 
   // Hours to show in day view: 07:00 to 23:00
   const hours = Array.from({ length: 17 }, (_, i) => i + 7);
@@ -282,6 +289,75 @@ export default function CalendarPage() {
               </div>
             </div>
           )}
+
+          {/* Available Free Slots Banner (9:00 AM – 4:00 PM) */}
+          <div className="p-3.5 rounded-xl border border-zinc-800 bg-zinc-950 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-semibold flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-emerald-400" />
+                Available Free Slots (9:00 AM – 4:00 PM)
+              </span>
+              <span className="text-[11px] font-mono text-zinc-400">
+                {availableSlots.length} slot{availableSlots.length !== 1 ? "s" : ""} found (down to 5m)
+              </span>
+            </div>
+
+            {availableSlots.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {availableSlots.map((slot, idx) => {
+                  const mins = slot.durationMinutes || 5;
+                  const isSmall = mins <= 10;
+                  return (
+                    <button
+                      key={idx}
+                      onClick={() => {
+                        addItem({
+                          source: "google_calendar",
+                          title: "Focus Block",
+                          category: "calendar",
+                          priority: "medium",
+                          status: "pending",
+                          startAt: slot.start,
+                          dueAt: slot.end,
+                          estimatedMinutes: mins,
+                          description: `Scheduled free slot (${slot.formattedTimeRange})`,
+                        });
+                        setSlotFeedback(`✓ Booked Focus Block for ${slot.formattedTimeRange}`);
+                        setTimeout(() => setSlotFeedback(null), 2500);
+                      }}
+                      className="px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-emerald-500 hover:bg-emerald-950/30 text-xs text-zinc-200 transition-all flex items-center gap-2 group cursor-pointer"
+                      title="Click to schedule a Focus Block in this slot"
+                    >
+                      <span className={`w-1.5 h-1.5 rounded-full ${isSmall ? "bg-amber-400" : "bg-emerald-400"}`} />
+                      <span className="font-mono text-[11px] text-zinc-200 group-hover:text-white">
+                        {slot.formattedTimeRange}
+                      </span>
+                      <span
+                        className={`text-[9px] font-mono px-1.5 py-0.2 rounded border ${
+                          isSmall
+                            ? "bg-amber-950/80 border-amber-800/80 text-amber-300"
+                            : "bg-emerald-950/80 border-emerald-800/80 text-emerald-300"
+                        }`}
+                      >
+                        {mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}h${mins % 60 ? ` ${mins % 60}m` : ""}`}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-xs text-zinc-500">
+                No free slots available between 9:00 AM and 4:00 PM for this day.
+              </p>
+            )}
+
+            {slotFeedback && (
+              <div className="text-xs text-emerald-400 font-mono pt-1 flex items-center gap-1.5 animate-fade-in">
+                <span>✓</span>
+                <span>{slotFeedback}</span>
+              </div>
+            )}
+          </div>
 
           {/* Timed Grid */}
           <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4 space-y-3">

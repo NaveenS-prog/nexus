@@ -2,7 +2,7 @@ import * as chrono from 'chrono-node';
 import { ParsedSlotCommand } from './types';
 
 // Triggers that signal task assignment or free-slot booking intent
-const TRIGGER_REGEX = /^(?:assign\s+task|assign|schedule\s+task|schedule|add\s+task|create\s+task|find\s+(?:a\s+)?free\s+time|find\s+(?:a\s+)?free\s+slot|find\s+(?:a\s+)?slot|free\s+slot|free\s+time|book\s+slot|book\s+time|task|\/slot|\/schedule|\/task)/i;
+const TRIGGER_REGEX = /^(?:assign\s+task|assign|schedule\s+task|schedule|add\s+task|create\s+task|find\s+(?:a\s+)?free\s+time|find\s+(?:a\s+)?free\s+slots?|find\s+(?:a\s+)?slots?|free\s+slots?|free\s+time|show\s+free\s+slots?|list\s+free\s+slots?|all\s+free\s+slots?|book\s+slots?|book\s+time|task|\/slot|\/schedule|\/task|\/free)/i;
 
 /**
  * Deterministically parses a natural language command into a structured task/slot booking request.
@@ -40,7 +40,7 @@ export function parseSlotCommand(input: string): ParsedSlotCommand {
     };
   }
 
-  // 1. Extract duration if stated (e.g. "30 mins", "2 hours")
+  // 1. Extract duration if stated (e.g. "5 mins", "10 mins", "30 mins", "2 hours")
   let durationMinutes = 60;
   const durationMatch = trimmed.match(/(\d+)\s*(?:mins?|minutes?|hrs?|hours?)/i);
   if (durationMatch) {
@@ -59,11 +59,17 @@ export function parseSlotCommand(input: string): ParsedSlotCommand {
     targetDate = chosen.start.date();
     hasExplicitTime = chosen.start.isCertain('hour');
   } else {
-    // Default to tomorrow at 10:00 AM
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(10, 0, 0, 0);
-    targetDate = tomorrow;
+    // If before 4:00 PM (16:00), default to today; otherwise default to tomorrow at 9:00 AM
+    const now = new Date();
+    if (now.getHours() < 16) {
+      targetDate = new Date();
+      targetDate.setHours(Math.max(9, now.getHours()), 0, 0, 0);
+    } else {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      tomorrow.setHours(9, 0, 0, 0);
+      targetDate = tomorrow;
+    }
   }
 
   // 3. Clean Task Title
@@ -82,6 +88,7 @@ export function parseSlotCommand(input: string): ParsedSlotCommand {
   cleaned = cleaned.replace(/\s+(?:on|at|by|for|to|due)\s*$/gi, ' ');
   cleaned = cleaned.replace(/^\s*(?:on|at|by|for|to|due)\s+/gi, ' ');
   cleaned = cleaned.replace(/\s+and\s+(?:assign|schedule|create|add)?\s+/gi, ' ');
+  cleaned = cleaned.replace(/\b(?:free\s+slots?|slots?|free\s+time)\b/gi, ' ');
   cleaned = cleaned.replace(/\s+/g, ' ').trim();
   cleaned = cleaned.replace(/^["']|["']$/g, '').trim();
 
@@ -91,7 +98,7 @@ export function parseSlotCommand(input: string): ParsedSlotCommand {
     return '';
   }).trim();
 
-  const taskTitle = cleaned || 'Scheduled Task';
+  const taskTitle = cleaned || 'Free Slot';
 
   const year = targetDate.getFullYear();
   const month = String(targetDate.getMonth() + 1).padStart(2, '0');

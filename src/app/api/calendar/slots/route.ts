@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { parseSlotCommand } from '@/lib/parser';
-import { findFirstFreeSlot } from '@/lib/calendar/slotFinder';
+import { findFirstFreeSlot, findAllFreeSlots } from '@/lib/calendar/slotFinder';
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,17 +20,27 @@ export async function POST(req: NextRequest) {
         rawQuery: query,
         parsed,
         slot: null,
+        slots: [],
       });
     }
 
     // 2. Events passed in request or default empty
     const events = body.events || [];
 
-    // 3. Run deterministic interval-gap availability search
+    // 3. Find primary slot matching duration/explicit time
     const slot = findFirstFreeSlot(
       events,
       parsed.targetDate,
       parsed.durationMinutes,
+      parsed.taskTitle,
+      parsed.hasExplicitTime
+    );
+
+    // 4. Find all free slots within 9:00 - 16:00 (down to 5 min small slots)
+    const slots = findAllFreeSlots(
+      events,
+      parsed.targetDate,
+      5, // list every free slot including 5 and 10 min slots
       parsed.taskTitle
     );
 
@@ -42,8 +52,10 @@ export async function POST(req: NextRequest) {
         targetDateFormatted: parsed.targetDateFormatted,
         targetDateLabel: parsed.targetDateLabel,
         durationMinutes: parsed.durationMinutes,
+        hasExplicitTime: parsed.hasExplicitTime,
       },
       slot,
+      slots,
     });
   } catch (err: any) {
     console.error('Error in /api/calendar/slots:', err);

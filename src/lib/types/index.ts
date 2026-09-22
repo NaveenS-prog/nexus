@@ -199,4 +199,5 @@ export interface FreeSlotResult {
   formattedDate: string; // e.g. "Wednesday, Sep 23"
   formattedTimeRange: string; // e.g. "10:30 AM – 11:30 AM"
   taskTitle: string;
+  durationMinutes?: number;
 }
