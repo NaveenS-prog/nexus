@@ -1,16 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 import { CommandPalette } from "@/components/command/CommandPalette";
 import { BrainDumpModal } from "@/components/command/BrainDumpModal";
-import { useNexusStore } from "@/lib/data/store";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  const router = useRouter();
-  const { setMode } = useNexusStore();
   const [commandOpen, setCommandOpen] = useState(false);
   const [brainDumpOpen, setBrainDumpOpen] = useState(false);
 
@@ -31,20 +27,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         e.preventDefault();
         setCommandOpen((prev) => !prev);
       }
-
-      // Quick hotkeys
-      if (e.key.toLowerCase() === "e" && !e.ctrlKey && !e.metaKey) {
-        setMode("exam");
-      } else if (e.key.toLowerCase() === "b" && !e.ctrlKey && !e.metaKey) {
-        setMode("build");
-      } else if (e.key.toLowerCase() === "f" && !e.ctrlKey && !e.metaKey) {
-        router.push("/focus");
-      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [router, setMode]);
+  }, []);
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-black text-foreground font-sans">

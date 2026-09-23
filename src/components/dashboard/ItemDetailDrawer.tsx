@@ -1,12 +1,10 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { 
   CheckCircle2, 
   Circle, 
   ExternalLink, 
   Trash2, 
-  Play, 
   Calendar, 
   Clock, 
   Tag, 
@@ -34,7 +32,6 @@ export function ItemDetailDrawer({
   onToggleStatus,
   onDelete,
 }: ItemDetailDrawerProps) {
-  const router = useRouter();
   if (!item) return null;
 
   const isCompleted = item.status === "completed";
@@ -216,17 +213,6 @@ export function ItemDetailDrawer({
               )}
             </Button>
           )}
-
-          <Button
-            onClick={() => {
-              onClose();
-              router.push("/focus");
-            }}
-            className="w-full flex items-center justify-center gap-2 text-xs bg-white text-black font-semibold hover:bg-zinc-200"
-          >
-            <Play className="w-3.5 h-3.5 fill-current" />
-            <span>Launch Focus Session for this Item</span>
-          </Button>
 
           <Button
             variant="outline"

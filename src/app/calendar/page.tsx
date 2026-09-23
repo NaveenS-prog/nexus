@@ -59,7 +59,7 @@ export default function CalendarPage() {
 
   // Compute all free slots between 9:00 AM and 4:00 PM (down to 5m and 10m gaps)
   const availableSlots = useMemo(() => {
-    return findAllFreeSlots(items, selectedDate, 5, "Focus Block");
+    return findAllFreeSlots(items, selectedDate, 5, "Study Block");
   }, [items, selectedDate]);
 
   // Detect live synced items vs mock demo items
@@ -542,7 +542,7 @@ export default function CalendarPage() {
                       onClick={() => {
                         addItem({
                           source: "google_calendar",
-                          title: "Focus Block",
+                          title: "Study Block",
                           category: "calendar",
                           priority: "medium",
                           status: "pending",
@@ -551,11 +551,11 @@ export default function CalendarPage() {
                           estimatedMinutes: mins,
                           description: `Scheduled free slot (${slot.formattedTimeRange})`,
                         });
-                        setSlotFeedback(`✓ Booked Focus Block for ${slot.formattedTimeRange}`);
+                        setSlotFeedback(`✓ Booked Study Block for ${slot.formattedTimeRange}`);
                         setTimeout(() => setSlotFeedback(null), 2500);
                       }}
                       className="px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-emerald-500 hover:bg-emerald-950/30 text-xs text-zinc-200 transition-all flex items-center gap-2 group cursor-pointer"
-                      title="Click to schedule a Focus Block in this slot"
+                      title="Click to schedule a Study Block in this slot"
                     >
                       <span className={`w-1.5 h-1.5 rounded-full ${isSmall ? "bg-amber-400" : "bg-emerald-400"}`} />
                       <span className="font-mono text-[11px] text-zinc-200 group-hover:text-white">
@@ -661,12 +661,12 @@ export default function CalendarPage() {
                   {positionedEvents.map((ev) => {
                     const timeStr = formatEventTime(ev.item);
                     const isCalendar = ev.item.category === "calendar" || ev.item.source === "google_calendar";
-                    const isFocusBlock = ev.item.title === "Focus Block" || ev.item.description?.includes("Focus Block");
+                    const isStudyBlock = ev.item.title === "Study Block" || ev.item.title === "Focus Block" || ev.item.description?.includes("Study Block") || ev.item.description?.includes("Focus Block");
                     const isCritical = ev.item.priority === "critical" || ev.item.priority === "high";
 
                     // Color scheme matching Google Calendar / Linear style
                     let colorStyle = "bg-sky-950/80 border-sky-800 hover:border-sky-400 text-sky-100 border-l-sky-500";
-                    if (isFocusBlock) {
+                    if (isStudyBlock) {
                       colorStyle = "bg-emerald-950/80 border-emerald-800 hover:border-emerald-400 text-emerald-100 border-l-emerald-500";
                     } else if (isCritical) {
                       colorStyle = "bg-rose-950/80 border-rose-800 hover:border-rose-400 text-rose-100 border-l-rose-500";

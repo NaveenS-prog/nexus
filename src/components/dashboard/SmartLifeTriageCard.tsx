@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { 
   Sparkles, 
   GraduationCap, 
@@ -9,7 +9,6 @@ import {
   Calendar as CalendarIcon, 
   CheckSquare, 
   Code, 
-  Play, 
   CheckCircle2, 
   Circle, 
   ChevronRight, 
@@ -42,7 +41,6 @@ export function SmartLifeTriageCard({
   onToggleStatus,
   onSelectItem,
 }: SmartLifeTriageCardProps) {
-  const router = useRouter();
   const [selectedDomain, setSelectedDomain] = useState<FilterDomain>("all");
 
   // Run autonomous smart triage on all items
@@ -301,23 +299,8 @@ export function SmartLifeTriageCard({
                   </div>
                 </div>
 
-                {/* Right: Quick Focus Action & Detail Chevron */}
+                {/* Right: Detail Chevron */}
                 <div className="flex items-center gap-2 shrink-0">
-                  {triage.isActionableTask && !isCompleted && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/focus?taskId=${item.id}`);
-                      }}
-                      className="px-2 py-1 rounded bg-zinc-800 hover:bg-white hover:text-black text-zinc-300 transition-all flex items-center gap-1 text-[11px] font-medium"
-                      title="Launch focused session"
-                    >
-                      <Play className="w-3 h-3 fill-current" />
-                      <span className="hidden sm:inline">Focus</span>
-                    </button>
-                  )}
-
                   <ChevronRight className="w-4 h-4 text-zinc-600 group-hover:text-zinc-300 transition-colors" />
                 </div>
               </div>
@@ -328,14 +311,13 @@ export function SmartLifeTriageCard({
 
       {filteredItems.length > 6 && (
         <div className="text-center pt-1">
-          <button
-            type="button"
-            onClick={() => router.push("/tasks")}
+          <Link
+            href="/tasks"
             className="text-xs text-zinc-400 hover:text-white font-mono flex items-center justify-center gap-1 mx-auto transition-colors"
           >
             <span>View all {filteredItems.length} items in Unified Tasks</span>
             <ArrowRight className="w-3.5 h-3.5" />
-          </button>
+          </Link>
         </div>
       )}
     </div>

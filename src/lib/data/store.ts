@@ -19,6 +19,7 @@ import {
   MOCK_FOCUS_SESSIONS
 } from "./mockData";
 import { smartTriageItem } from "../nlp/itemClassifier";
+import { scanAndAutoAssignExamTasks } from "../calendar/examScanner";
 
 const STORAGE_KEY_ITEMS = "nexus_items_v1";
 const STORAGE_KEY_PROJECTS = "nexus_projects_v1";
@@ -27,23 +28,63 @@ const STORAGE_KEY_FOCUS = "nexus_focus_sessions_v1";
 const STORAGE_KEY_NOTIFS = "nexus_notifications_v1";
 const STORAGE_KEY_IS_LIVE = "nexus_is_live_v1";
 
-export const DEFAULT_PYTHON_EXAM: UnifiedItem = {
-  id: "evt-python-ia-exam-oct9",
-  externalId: "python-ia-exam-oct9",
-  source: "google_calendar",
-  title: "Python ia exam",
-  category: "academic",
-  priority: "critical",
-  status: "pending",
-  smartDomain: "exam",
-  startAt: "2026-10-09T00:00:00",
-  dueAt: "2026-10-09T23:59:59",
-  estimatedMinutes: 90,
-  tags: ["Exam", "Calendar", "All Day", "Academic"],
-  metadata: { isAllDay: true },
-  createdAt: "2026-09-24T00:00:00.000Z",
-  updatedAt: "2026-09-24T00:00:00.000Z",
-};
+export const DEFAULT_EXAMS: UnifiedItem[] = [
+  {
+    id: "evt-os-ia-exam-oct3",
+    externalId: "os-ia-exam-oct3",
+    source: "google_calendar",
+    title: "OS IA exam",
+    category: "academic",
+    priority: "critical",
+    status: "pending",
+    smartDomain: "exam",
+    startAt: "2026-10-03T09:00:00",
+    dueAt: "2026-10-03T11:00:00",
+    estimatedMinutes: 120,
+    tags: ["Exam", "Calendar", "Academic"],
+    metadata: { location: "Hall 114 B" },
+    createdAt: "2026-09-24T00:00:00.000Z",
+    updatedAt: "2026-09-24T00:00:00.000Z",
+  },
+  {
+    id: "evt-coa-ia-exam-oct6",
+    externalId: "coa-ia-exam-oct6",
+    source: "google_calendar",
+    title: "COA IA exam",
+    category: "academic",
+    priority: "critical",
+    status: "pending",
+    smartDomain: "exam",
+    startAt: "2026-10-06T09:00:00",
+    dueAt: "2026-10-06T11:00:00",
+    estimatedMinutes: 120,
+    tags: ["Exam", "Calendar", "Academic"],
+    metadata: { location: "Hall 125B" },
+    createdAt: "2026-09-24T00:00:00.000Z",
+    updatedAt: "2026-09-24T00:00:00.000Z",
+  },
+  {
+    id: "evt-python-ia-exam-oct9",
+    externalId: "python-ia-exam-oct9",
+    source: "google_calendar",
+    title: "Python ia exam",
+    category: "academic",
+    priority: "critical",
+    status: "pending",
+    smartDomain: "exam",
+    startAt: "2026-10-09T00:00:00",
+    dueAt: "2026-10-09T23:59:59",
+    estimatedMinutes: 90,
+    tags: ["Exam", "Calendar", "All Day", "Academic"],
+    metadata: { isAllDay: true },
+    createdAt: "2026-09-24T00:00:00.000Z",
+    updatedAt: "2026-09-24T00:00:00.000Z",
+  },
+];
+
+export const DEFAULT_PYTHON_EXAM = DEFAULT_EXAMS[2];
+
+const initialScannedItems = scanAndAutoAssignExamTasks(DEFAULT_EXAMS).items;
 
 let memoryState: {
   items: UnifiedItem[];
@@ -56,7 +97,7 @@ let memoryState: {
   lastSyncedText: string;
   isLiveSynced: boolean;
 } = {
-  items: [DEFAULT_PYTHON_EXAM],
+  items: initialScannedItems,
   projects: [],
   mode: "default",
   notifications: [],
@@ -93,17 +134,29 @@ export function useNexusStore() {
                 !i.externalId?.startsWith("gcal-lunch")
             );
 
-            // Ensure Python IA exam on Oct 9 is seeded and present
-            if (!realOnly.some((i: any) => i.id === DEFAULT_PYTHON_EXAM.id || (i.title?.toLowerCase().includes("python ia exam") && i.startAt?.includes("2026-10-09")))) {
-              realOnly.push(DEFAULT_PYTHON_EXAM);
-            }
+            // Ensure all default exams (OS, COA, Python) are present
+            DEFAULT_EXAMS.forEach((defExam) => {
+              if (
+                !realOnly.some(
+                  (i: any) =>
+                    i.id === defExam.id ||
+                    (i.title?.toLowerCase() === defExam.title.toLowerCase() && i.startAt?.slice(0, 10) === defExam.startAt?.slice(0, 10))
+                )
+              ) {
+                realOnly.push(defExam);
+              }
+            });
 
-            memoryState.items = realOnly;
-            localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(realOnly));
+            // Automatically scan all events and assign exam reminder tasks
+            const { items: scannedItems } = scanAndAutoAssignExamTasks(realOnly);
+
+            memoryState.items = scannedItems;
+            localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(scannedItems));
           }
         } else {
-          memoryState.items = [DEFAULT_PYTHON_EXAM];
-          localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify([DEFAULT_PYTHON_EXAM]));
+          const { items: scannedDefaults } = scanAndAutoAssignExamTasks(DEFAULT_EXAMS);
+          memoryState.items = scannedDefaults;
+          localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(scannedDefaults));
         }
 
         const savedProjects = localStorage.getItem(STORAGE_KEY_PROJECTS);
@@ -211,7 +264,8 @@ export function useNexusStore() {
       updatedAt: new Date().toISOString(),
     };
     const updated = [newItem, ...memoryState.items];
-    saveItems(updated);
+    const { items: scannedUpdated } = scanAndAutoAssignExamTasks(updated);
+    saveItems(scannedUpdated);
     return newItem;
   }, []);
 
@@ -294,10 +348,11 @@ export function useNexusStore() {
           });
 
           const merged = [...triagedLiveItems, ...nonLiveItems];
-          memoryState.items = merged;
+          const { items: scannedMerged } = scanAndAutoAssignExamTasks(merged);
+          memoryState.items = scannedMerged;
           memoryState.isLiveSynced = true;
           if (typeof window !== "undefined") {
-            localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(merged));
+            localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(scannedMerged));
             localStorage.setItem(STORAGE_KEY_IS_LIVE, "true");
           }
 

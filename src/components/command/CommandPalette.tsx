@@ -7,23 +7,20 @@ import {
   CheckSquare, 
   Lightbulb, 
   FileText, 
-  Target, 
   Compass, 
   GraduationCap, 
   Rocket, 
   BarChart3, 
   Settings, 
-  RefreshCw,
-  Sparkles,
-  BookOpen,
-  Hammer,
-  CalendarCheck,
-  Clock,
-  ArrowRight,
-  AlertCircle
+  RefreshCw, 
+  Sparkles, 
+  CalendarCheck, 
+  Clock, 
+  ArrowRight, 
+  AlertCircle 
 } from "lucide-react";
 import { useNexusStore } from "@/lib/data/store";
-import { DashboardMode, FreeSlotResult } from "@/lib/types";
+import { FreeSlotResult } from "@/lib/types";
 import { parseSlotCommand } from "@/lib/parser";
 import { findFirstFreeSlot, findAllFreeSlots } from "@/lib/calendar/slotFinder";
 import { format } from "date-fns";
@@ -37,7 +34,7 @@ interface CommandPaletteProps {
 
 export function CommandPalette({ isOpen, onClose, onOpenBrainDump }: CommandPaletteProps) {
   const router = useRouter();
-  const { items, projects, addItem, setMode, syncAll } = useNexusStore();
+  const { items, projects, addItem, syncAll } = useNexusStore();
   const [search, setSearch] = useState("");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -102,17 +99,17 @@ export function CommandPalette({ isOpen, onClose, onOpenBrainDump }: CommandPale
       description: `Auto-scheduled free slot (${slot.formattedTimeRange})`,
     });
 
-    // 2. Add Calendar focus block
+    // 2. Add Calendar scheduled block
     addItem({
       source: "google_calendar",
-      title: `Focus: ${slot.taskTitle}`,
+      title: slot.taskTitle,
       category: "calendar",
       priority: "medium",
       status: "pending",
       startAt: slot.start,
       dueAt: slot.end,
       estimatedMinutes: mins,
-      description: `Reserved focus block for ${slot.taskTitle}`,
+      description: `Scheduled slot for ${slot.taskTitle}`,
     });
 
     showToast(`✓ Scheduled "${slot.taskTitle}" for ${slot.formattedDate} (${slot.formattedTimeRange})`);
@@ -179,18 +176,9 @@ export function CommandPalette({ isOpen, onClose, onOpenBrainDump }: CommandPale
         description: `All-day event scheduled via Command Palette`,
       });
       showToast(`✓ All-day event created: "${eventTitle}" for ${format(targetDate, "MMM d, yyyy")}`);
-    } else if (trimmed.startsWith("/focus")) {
-      router.push("/focus");
-      onClose();
     } else if (trimmed.startsWith("/plan")) {
       router.push("/");
       onClose();
-    } else if (trimmed.startsWith("/mode exam")) {
-      setMode("exam");
-      showToast("✓ Switched to Exam Mode");
-    } else if (trimmed.startsWith("/mode build")) {
-      setMode("build");
-      showToast("✓ Switched to Build Mode");
     } else if (trimmed.length > 0) {
       // General natural language fallback
       const parsed = parseSlotCommand(trimmed);
@@ -393,49 +381,11 @@ export function CommandPalette({ isOpen, onClose, onOpenBrainDump }: CommandPale
               </Command.Item>
 
               <Command.Item
-                onSelect={() => handleSelect(() => router.push("/focus"))}
-                className="flex items-center gap-2.5 px-3 py-2 rounded-md text-xs text-zinc-300 hover:bg-zinc-900 hover:text-white cursor-pointer transition-colors"
-              >
-                <Target className="w-4 h-4 text-white" />
-                <span className="font-medium">Start Focus Session</span>
-                <span className="ml-auto text-[10px] text-zinc-500 font-mono">F</span>
-              </Command.Item>
-
-              <Command.Item
                 onSelect={() => handleSelect(() => syncAll())}
                 className="flex items-center gap-2.5 px-3 py-2 rounded-md text-xs text-zinc-300 hover:bg-zinc-900 hover:text-white cursor-pointer transition-colors"
               >
                 <RefreshCw className="w-4 h-4 text-white" />
                 <span className="font-medium">Sync All Integrations Now</span>
-              </Command.Item>
-            </Command.Group>
-
-            {/* Mode Switchers */}
-            <Command.Group heading="Work Modes">
-              <Command.Item
-                onSelect={() => handleSelect(() => setMode("exam"))}
-                className="flex items-center gap-2.5 px-3 py-2 rounded-md text-xs text-zinc-300 hover:bg-zinc-900 hover:text-white cursor-pointer transition-colors"
-              >
-                <BookOpen className="w-4 h-4 text-white" />
-                <span className="font-medium">Switch to Exam Mode</span>
-                <span className="ml-auto text-[10px] text-zinc-500 font-mono">E</span>
-              </Command.Item>
-
-              <Command.Item
-                onSelect={() => handleSelect(() => setMode("build"))}
-                className="flex items-center gap-2.5 px-3 py-2 rounded-md text-xs text-zinc-300 hover:bg-zinc-900 hover:text-white cursor-pointer transition-colors"
-              >
-                <Hammer className="w-4 h-4 text-white" />
-                <span className="font-medium">Switch to Build Mode</span>
-                <span className="ml-auto text-[10px] text-zinc-500 font-mono">B</span>
-              </Command.Item>
-
-              <Command.Item
-                onSelect={() => handleSelect(() => setMode("default"))}
-                className="flex items-center gap-2.5 px-3 py-2 rounded-md text-xs text-zinc-300 hover:bg-zinc-900 hover:text-white cursor-pointer transition-colors"
-              >
-                <Compass className="w-4 h-4 text-zinc-400" />
-                <span className="font-medium">Switch to Default Mode</span>
               </Command.Item>
             </Command.Group>
 

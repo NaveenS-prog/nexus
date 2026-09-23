@@ -9,8 +9,6 @@ import { NextMoveCard } from "@/components/dashboard/NextMoveCard";
 import { AiBriefingCard } from "@/components/dashboard/AiBriefingCard";
 import { SmartLifeTriageCard } from "@/components/dashboard/SmartLifeTriageCard";
 import { ActiveProjectsCard } from "@/components/dashboard/ActiveProjectsCard";
-import { ExamModeBanner } from "@/components/dashboard/ExamModeBanner";
-import { BuildModeBanner } from "@/components/dashboard/BuildModeBanner";
 import { ItemDetailDrawer } from "@/components/dashboard/ItemDetailDrawer";
 import { UnifiedItem } from "@/lib/types";
 import { format, isSameDay, parseISO, isBefore, differenceInDays } from "date-fns";
@@ -21,7 +19,6 @@ export default function CommandCenterDashboard() {
   const {
     items,
     projects,
-    mode,
     githubStats,
     toggleItemCompletion,
     deleteItem,
@@ -46,8 +43,8 @@ export default function CommandCenterDashboard() {
 
   // Compute next recommended task
   const nextMove = useMemo(() => {
-    return recommendNextTask(items, mode, new Date());
-  }, [items, mode, recommendTick]);
+    return recommendNextTask(items, "default", new Date());
+  }, [items, recommendTick]);
 
   // All actionable tasks and academic assignments identified by NLP (excluding calendar class lectures)
   const actionableTasks = useMemo(() => {
@@ -141,16 +138,7 @@ export default function CommandCenterDashboard() {
         </div>
       </div>
 
-      {/* 2. Global Mode Dynamic Banner (if Exam or Build Mode active) */}
-      {mode === "exam" && (
-        <ExamModeBanner items={items} onSelectItem={handleOpenItem} />
-      )}
-
-      {mode === "build" && (
-        <BuildModeBanner projects={projects} githubStats={githubStats} />
-      )}
-
-      {/* 3. Main Dashboard 2-Column Grid */}
+      {/* Main Dashboard 2-Column Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Left Primary Column (7 cols): What should I do now + Today's Focus + Workload Radar */}
         <div className="lg:col-span-7 space-y-8">

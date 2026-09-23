@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Zap, Play, CheckCircle, Clock, Sparkles, RefreshCw } from "lucide-react";
+import { Zap, CheckCircle, Clock, Sparkles, RefreshCw, ArrowRight } from "lucide-react";
 import { RecommendationResult, UnifiedItem } from "@/lib/types";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +13,6 @@ interface NextMoveCardProps {
 }
 
 export function NextMoveCard({ recommendation, onRefresh, onSelectTask }: NextMoveCardProps) {
-  const router = useRouter();
   const [dismissed, setDismissed] = useState(false);
 
   if (!recommendation || dismissed) {
@@ -96,13 +94,11 @@ export function NextMoveCard({ recommendation, onRefresh, onSelectTask }: NextMo
 
           <Button
             size="sm"
-            onClick={() => {
-              router.push("/focus");
-            }}
+            onClick={() => onSelectTask(item)}
             className="flex items-center gap-1.5 text-xs h-8 bg-white text-black font-semibold hover:bg-zinc-200"
           >
-            <Play className="w-3.5 h-3.5 fill-current" />
-            <span>Start Focus</span>
+            <span>View Task</span>
+            <ArrowRight className="w-3.5 h-3.5" />
           </Button>
         </div>
       </div>

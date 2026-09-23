@@ -1,13 +1,11 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import { useRouter } from "next/navigation";
 import { 
   GraduationCap, 
   FileText, 
   Calendar as CalendarIcon, 
   Clock, 
-  Play, 
   CheckCircle2, 
   Circle, 
   ChevronRight, 
@@ -44,7 +42,6 @@ export function UpcomingExamsAndAssignments({
   onToggleStatus,
   onSelectItem,
 }: UpcomingExamsAndAssignmentsProps) {
-  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>("exams");
   const [isCreateEventOpen, setIsCreateEventOpen] = useState(false);
 
@@ -397,22 +394,6 @@ export function UpcomingExamsAndAssignments({
                     <Badge variant="warning" className="text-[10px] px-1.5 py-0">
                       High
                     </Badge>
-                  )}
-
-                  {/* Launch Focus Mode button */}
-                  {!isCompleted && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/focus?taskId=${item.id}`);
-                      }}
-                      className="px-2.5 py-1 rounded-md bg-white text-black hover:bg-zinc-200 transition-all flex items-center gap-1.5 text-xs font-semibold shadow-sm cursor-pointer group/focus"
-                      title={`Launch Focus session for "${item.title}"`}
-                    >
-                      <Play className="w-3 h-3 fill-current group-hover/focus:scale-110 transition-transform" />
-                      <span className="hidden sm:inline text-[11px]">Focus</span>
-                    </button>
                   )}
 
                   <ChevronRight className="w-4 h-4 text-zinc-600 group-hover:text-zinc-400 transition-colors" />

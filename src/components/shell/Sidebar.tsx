@@ -8,21 +8,16 @@ import {
   Calendar as CalendarIcon, 
   GraduationCap, 
   Rocket, 
-  FileText, 
   BarChart3, 
-  Target, 
-  Brain, 
-  Settings, 
-  RefreshCw,
-  Zap,
-  Sparkles
+  Settings,
+  RefreshCw 
 } from "lucide-react";
 import { useNexusStore } from "@/lib/data/store";
 import { cn } from "@/components/ui/badge";
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { isSyncing, lastSyncedText, syncAll, mode } = useNexusStore();
+  const { isSyncing, lastSyncedText, syncAll } = useNexusStore();
 
   const mainNav = [
     { label: "Command Center", href: "/", icon: Compass },
@@ -33,8 +28,7 @@ export function Sidebar() {
     { label: "Analytics", href: "/analytics", icon: BarChart3 },
   ];
 
-  const focusNav = [
-    { label: "Focus", href: "/focus", icon: Target },
+  const systemNav = [
     { label: "Settings", href: "/settings", icon: Settings },
   ];
 
@@ -52,13 +46,6 @@ export function Sidebar() {
               <span className="text-[10px] text-zinc-500 uppercase tracking-widest font-mono -mt-1">COMMAND</span>
             </div>
           </Link>
-
-          {/* Mode Pill in Sidebar */}
-          {mode !== "default" && (
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-mono uppercase font-semibold border border-zinc-700 bg-zinc-900 text-white">
-              {mode}
-            </span>
-          )}
         </div>
 
         {/* Navigation Sections */}
@@ -89,9 +76,9 @@ export function Sidebar() {
           <div className="pt-4 pb-1">
             <div className="h-px bg-zinc-800 mb-3" />
             <div className="px-2 py-1 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider font-mono">
-              Productivity
+              System
             </div>
-            {focusNav.map((item) => {
+            {systemNav.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href;
               return (

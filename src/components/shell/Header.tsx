@@ -6,15 +6,9 @@ import {
   Search, 
   Sun, 
   Moon, 
-  Sparkles, 
-  BookOpen, 
-  Hammer, 
-  SlidersHorizontal,
-  Plus
+  Sparkles
 } from "lucide-react";
-import { useNexusStore } from "@/lib/data/store";
 import { Button } from "@/components/ui/button";
-import { Badge, cn } from "@/components/ui/badge";
 
 interface HeaderProps {
   onOpenCommand: () => void;
@@ -22,7 +16,6 @@ interface HeaderProps {
 }
 
 export function Header({ onOpenCommand, onOpenBrainDump }: HeaderProps) {
-  const { mode, setMode } = useNexusStore();
   const [isLightMode, setIsLightMode] = useState(false);
 
   const toggleTheme = () => {
@@ -61,46 +54,8 @@ export function Header({ onOpenCommand, onOpenBrainDump }: HeaderProps) {
         </Button>
       </div>
 
-      {/* Center / Right controls: Mode Switcher, Audio, Theme, Avatar */}
+      {/* Center / Right controls: Theme, Avatar */}
       <div className="flex items-center gap-3">
-        {/* Global Mode Switcher */}
-        <div className="hidden md:flex items-center bg-zinc-950 border border-zinc-800 rounded-lg p-0.5 text-xs">
-          <button
-            onClick={() => setMode("default")}
-            className={cn(
-              "px-2.5 py-1 rounded text-xs font-medium transition-all",
-              mode === "default"
-                ? "bg-white text-black font-semibold shadow-sm"
-                : "text-zinc-400 hover:text-white"
-            )}
-          >
-            Default
-          </button>
-          <button
-            onClick={() => setMode("exam")}
-            className={cn(
-              "px-2.5 py-1 rounded text-xs font-medium transition-all flex items-center gap-1.5",
-              mode === "exam"
-                ? "bg-white text-black font-semibold shadow-sm"
-                : "text-zinc-400 hover:text-white"
-            )}
-          >
-            <BookOpen className="w-3 h-3" />
-            <span>Exam Mode</span>
-          </button>
-          <button
-            onClick={() => setMode("build")}
-            className={cn(
-              "px-2.5 py-1 rounded text-xs font-medium transition-all flex items-center gap-1.5",
-              mode === "build"
-                ? "bg-white text-black font-semibold shadow-sm"
-                : "text-zinc-400 hover:text-white"
-            )}
-          >
-            <Hammer className="w-3 h-3" />
-            <span>Build Mode</span>
-          </button>
-        </div>
 
 
         {/* Theme Toggle */}

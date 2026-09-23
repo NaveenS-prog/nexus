@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { 
   CheckCircle2, 
   Circle, 
@@ -11,9 +10,7 @@ import {
   Layers, 
   CheckSquare, 
   ExternalLink,
-  ChevronRight,
-  Play,
-  Timer
+  ChevronRight
 } from "lucide-react";
 import { UnifiedItem } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
@@ -28,8 +25,6 @@ interface TodayFocusTimelineProps {
 }
 
 export function TodayFocusTimeline({ items, onToggleStatus, onSelectItem }: TodayFocusTimelineProps) {
-  const router = useRouter();
-
   // Strictly filter to actionable tasks and assignments using NLP classifier (excludes classes/lectures)
   const actionableTasks = items.filter(isActionableTaskOrAssignment);
 
@@ -154,29 +149,17 @@ export function TodayFocusTimeline({ items, onToggleStatus, onSelectItem }: Toda
 
   return (
     <div className="space-y-3">
-      {/* Header with Title, Progress, and Launch Focus Mode button */}
+      {/* Header with Title and Progress */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Clock className="w-4 h-4 text-white" />
           <h2 className="text-sm font-semibold tracking-tight text-zinc-100 uppercase font-mono">
-            Today's Focus
+            Today's Tasks & Reminders
           </h2>
           <span className="text-xs text-zinc-500 font-mono">
             {completedCount}/{actionableTasks.length} Completed
           </span>
         </div>
-
-        {/* Global Focus Mode Action */}
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={() => router.push("/focus")}
-          className="h-8 text-xs border-zinc-800 bg-zinc-950 text-zinc-200 hover:text-white hover:border-zinc-700 flex items-center gap-1.5"
-          title="Launch Focus Mode Session"
-        >
-          <Timer className="w-3.5 h-3.5 text-white" />
-          <span>Launch Focus</span>
-        </Button>
       </div>
 
       <div className="rounded-xl border border-zinc-800 bg-zinc-950 divide-y divide-zinc-800/80 overflow-hidden">
@@ -266,22 +249,6 @@ export function TodayFocusTimeline({ items, onToggleStatus, onSelectItem }: Toda
                   )}
                   {item.status === "in_progress" && (
                     <Badge variant="cyan" className="text-[10px] px-1.5 py-0">In Progress</Badge>
-                  )}
-
-                  {/* Launch Focus Mode on this specific task */}
-                  {!isCompleted && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        router.push(`/focus?taskId=${item.id}`);
-                      }}
-                      className="px-2.5 py-1 rounded-md bg-white text-black hover:bg-zinc-200 transition-all flex items-center gap-1.5 text-xs font-semibold shadow-sm cursor-pointer group/focus"
-                      title={`Launch Focus session for "${item.title}"`}
-                    >
-                      <Play className="w-3 h-3 fill-current group-hover/focus:scale-110 transition-transform" />
-                      <span className="hidden sm:inline text-[11px]">Focus</span>
-                    </button>
                   )}
 
                   <ChevronRight className="w-4 h-4 text-zinc-600 group-hover:text-zinc-400 transition-colors" />
