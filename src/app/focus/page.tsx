@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import { 
   Play, 
   Pause, 
@@ -12,16 +13,37 @@ import { useNexusStore } from "@/lib/data/store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
-export default function FocusPage() {
-  const { items, addFocusSession } = useNexusStore();
+function FocusChamber() {
+  const { items, addFocusSession, toggleItemCompletion } = useNexusStore();
+  const searchParams = useSearchParams();
+  const paramTaskId = searchParams.get("taskId");
+
+  // Only actionable tasks (exclude calendar classes/events)
+  const taskItems = items.filter(
+    (i) => i.category !== "calendar" && i.source !== "google_calendar"
+  );
   
   // Timer state
   const [selectedDuration, setSelectedDuration] = useState<number>(45); // in minutes
   const [timeLeft, setTimeLeft] = useState<number>(45 * 60);
   const [isRunning, setIsRunning] = useState<boolean>(false);
-  const [selectedTaskId, setSelectedTaskId] = useState<string>(items[1]?.id || "");
+  const [selectedTaskId, setSelectedTaskId] = useState<string>(
+    paramTaskId || taskItems[0]?.id || ""
+  );
 
-  const selectedTask = items.find((i) => i.id === selectedTaskId) || items[1] || items[0];
+  // Sync taskId and estimated duration from URL if present
+  useEffect(() => {
+    if (paramTaskId) {
+      setSelectedTaskId(paramTaskId);
+      const target = items.find((i) => i.id === paramTaskId);
+      if (target?.estimatedMinutes) {
+        setSelectedDuration(target.estimatedMinutes);
+        setTimeLeft(target.estimatedMinutes * 60);
+      }
+    }
+  }, [paramTaskId, items]);
+
+  const selectedTask = items.find((i) => i.id === selectedTaskId) || taskItems[0];
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -68,7 +90,12 @@ export default function FocusPage() {
       completed: true,
     });
 
-    alert("🎉 Focus session logged successfully!");
+    // Automatically mark the task as complete if an active task was selected
+    if (selectedTask?.id && selectedTask.status !== "completed") {
+      toggleItemCompletion(selectedTask.id);
+    }
+
+    alert("🎉 Focus session logged and task completed!");
     setTimeLeft(selectedDuration * 60);
   };
 
@@ -93,10 +120,18 @@ export default function FocusPage() {
           <span>Task target:</span>
           <select
             value={selectedTaskId}
-            onChange={(e) => setSelectedTaskId(e.target.value)}
-            className="bg-zinc-950 border border-zinc-800 rounded px-2 py-0.5 text-xs text-zinc-200 outline-none"
+            onChange={(e) => {
+              const newId = e.target.value;
+              setSelectedTaskId(newId);
+              const target = items.find((i) => i.id === newId);
+              if (target?.estimatedMinutes) {
+                setSelectedDuration(target.estimatedMinutes);
+                setTimeLeft(target.estimatedMinutes * 60);
+              }
+            }}
+            className="bg-zinc-950 border border-zinc-800 rounded px-2 py-0.5 text-xs text-zinc-200 outline-none max-w-xs truncate"
           >
-            {items
+            {taskItems
               .filter((i) => i.status !== "completed")
               .map((i) => (
                 <option key={i.id} value={i.id}>
@@ -178,5 +213,13 @@ export default function FocusPage() {
         </Button>
       </div>
     </div>
+  );
+}
+
+export default function FocusPage() {
+  return (
+    <Suspense fallback={<div className="max-w-4xl mx-auto px-6 py-20 text-center text-xs text-zinc-500">Loading Focus Chamber...</div>}>
+      <FocusChamber />
+    </Suspense>
   );
 }

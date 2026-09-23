@@ -13,7 +13,7 @@ import { ExamModeBanner } from "@/components/dashboard/ExamModeBanner";
 import { BuildModeBanner } from "@/components/dashboard/BuildModeBanner";
 import { ItemDetailDrawer } from "@/components/dashboard/ItemDetailDrawer";
 import { UnifiedItem } from "@/lib/types";
-import { format, isSameDay, parseISO } from "date-fns";
+import { format, isSameDay, parseISO, isBefore } from "date-fns";
 
 export default function CommandCenterDashboard() {
   const {
@@ -50,22 +50,37 @@ export default function CommandCenterDashboard() {
     return recommendNextTask(items, mode, new Date());
   }, [items, mode, recommendTick]);
 
-  // Today items for timeline: strictly filter items scheduled or due today
+  // Today items for timeline: strictly filter actionable tasks (exclude calendar classes/events)
   const todayItems = useMemo(() => {
     const today = new Date();
-    return items.filter((item) => {
+
+    // Strictly exclude calendar events / university classes
+    const tasksOnly = items.filter(
+      (item) => item.category !== "calendar" && item.source !== "google_calendar"
+    );
+
+    const datedTasks = tasksOnly.filter((item) => {
+      if (item.dueAt) {
+        try {
+          const d = parseISO(item.dueAt);
+          if (isSameDay(d, today) || (item.status !== "completed" && isBefore(d, today))) {
+            return true;
+          }
+        } catch {}
+      }
       if (item.startAt) {
         try {
           if (isSameDay(parseISO(item.startAt), today)) return true;
         } catch {}
       }
-      if (item.dueAt) {
-        try {
-          if (isSameDay(parseISO(item.dueAt), today)) return true;
-        } catch {}
-      }
-      return false;
+      return item.status === "in_progress";
     });
+
+    if (datedTasks.length === 0) {
+      return tasksOnly.filter((i) => i.status !== "completed").slice(0, 6);
+    }
+
+    return datedTasks;
   }, [items]);
 
   const handleOpenItem = (item: UnifiedItem) => {
