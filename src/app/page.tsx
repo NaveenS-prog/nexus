@@ -2,10 +2,9 @@
 
 import { useState, useMemo } from "react";
 import { useNexusStore } from "@/lib/data/store";
-import { compute14DayWorkload, getPeakWorkloadDay } from "@/lib/engines/workloadRadar";
 import { recommendNextTask } from "@/lib/engines/recommendation";
 import { TodayFocusTimeline } from "@/components/dashboard/TodayFocusTimeline";
-import { WorkloadRadar } from "@/components/dashboard/WorkloadRadar";
+import { UpcomingExamsAndAssignments } from "@/components/dashboard/UpcomingExamsAndAssignments";
 import { NextMoveCard } from "@/components/dashboard/NextMoveCard";
 import { AiBriefingCard } from "@/components/dashboard/AiBriefingCard";
 import { ActiveProjectsCard } from "@/components/dashboard/ActiveProjectsCard";
@@ -43,9 +42,6 @@ export default function CommandCenterDashboard() {
     return format(new Date(), "MMMM d, yyyy");
   }, []);
 
-  // Compute 14-day workload
-  const workloadDays = useMemo(() => compute14DayWorkload(items), [items]);
-  const peakDay = useMemo(() => getPeakWorkloadDay(workloadDays), [workloadDays]);
 
   // Compute next recommended task
   const nextMove = useMemo(() => {
@@ -171,11 +167,11 @@ export default function CommandCenterDashboard() {
             onSelectItem={handleOpenItem}
           />
 
-          {/* 14-Day Workload Radar */}
-          <WorkloadRadar
-            days={workloadDays}
-            peakDay={peakDay}
-            onSelectDayItem={handleOpenItem}
+          {/* Upcoming Exams & Assignment Dues Tabs */}
+          <UpcomingExamsAndAssignments
+            items={items}
+            onToggleStatus={toggleItemCompletion}
+            onSelectItem={handleOpenItem}
           />
         </div>
 
@@ -184,7 +180,6 @@ export default function CommandCenterDashboard() {
           {/* AI Daily Brief */}
           <AiBriefingCard
             items={todayItems}
-            heaviestDayName={peakDay ? peakDay.dayLabel : "Thursday"}
             onSelectItem={handleOpenItem}
           />
 
