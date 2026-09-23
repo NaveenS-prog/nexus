@@ -20,7 +20,12 @@ import { UnifiedItem, Priority, Category, Source } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ItemDetailDrawer } from "@/components/dashboard/ItemDetailDrawer";
-import { isActionableTaskOrAssignment } from "@/lib/nlp/itemClassifier";
+import { 
+  isActionableTaskOrAssignment, 
+  smartTriageItem, 
+  getDomainBadgeProps, 
+  isExamItem 
+} from "@/lib/nlp/itemClassifier";
 
 export default function TasksPage() {
   const { items, addItem, toggleItemCompletion, deleteItem } = useNexusStore();
@@ -35,8 +40,8 @@ export default function TasksPage() {
   // Filter items
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
-      // Don't show timetable classes/lectures in tasks view unless in calendar filter
-      if (!isActionableTaskOrAssignment(item) && selectedFilter !== "calendar") {
+      // Don't show timetable classes/lectures in tasks view unless in class or calendar filter
+      if (!isActionableTaskOrAssignment(item) && selectedFilter !== "calendar" && selectedFilter !== "class_lecture") {
         return false;
       }
 
@@ -49,11 +54,21 @@ export default function TasksPage() {
       }
 
       if (selectedFilter === "all") return true;
+      if (selectedFilter === "exam") return isExamItem(item);
+      if (selectedFilter === "assignment") {
+        return smartTriageItem(item).domain === "assignment";
+      }
+      if (selectedFilter === "personal") {
+        return smartTriageItem(item).domain === "personal";
+      }
+      if (selectedFilter === "project_dev") {
+        return smartTriageItem(item).domain === "project_dev";
+      }
+      if (selectedFilter === "class_lecture") {
+        return smartTriageItem(item).domain === "class_lecture";
+      }
       if (selectedFilter === "pending") return item.status !== "completed";
       if (selectedFilter === "completed") return item.status === "completed";
-      if (selectedFilter === "academic") return item.category === "academic";
-      if (selectedFilter === "project") return item.category === "project";
-      if (selectedFilter === "personal") return item.category === "personal";
       if (selectedFilter === "critical") return item.priority === "critical";
       return true;
     });
@@ -161,11 +176,12 @@ export default function TasksPage() {
       <div className="flex items-center gap-1.5 border-b border-zinc-800 pb-2 overflow-x-auto text-xs">
         {[
           { id: "all", label: "All Items" },
-          { id: "pending", label: "Pending" },
-          { id: "academic", label: "Academics" },
-          { id: "project", label: "Projects" },
+          { id: "exam", label: "Exams" },
+          { id: "assignment", label: "Assignments" },
           { id: "personal", label: "Personal" },
-          { id: "critical", label: "Critical" },
+          { id: "project_dev", label: "Projects & Dev" },
+          { id: "class_lecture", label: "Classes" },
+          { id: "pending", label: "Pending" },
           { id: "completed", label: "Completed" },
         ].map((tab) => (
           <button
@@ -191,6 +207,9 @@ export default function TasksPage() {
         ) : (
           filteredItems.map((item) => {
             const isCompleted = item.status === "completed";
+            const triage = smartTriageItem(item);
+            const domainBadge = getDomainBadgeProps(triage.domain);
+
             return (
               <div
                 key={item.id}
@@ -209,7 +228,7 @@ export default function TasksPage() {
                     className="flex-shrink-0 text-zinc-500 hover:text-white transition-colors"
                   >
                     {isCompleted ? (
-                      <CheckCircle2 className="w-4 h-4 text-white" />
+                      <CheckCircle2 className="w-4 h-4 text-emerald-400 fill-emerald-950/40" />
                     ) : (
                       <Circle className="w-4 h-4" />
                     )}
@@ -243,11 +262,11 @@ export default function TasksPage() {
                 </div>
 
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className={`text-[9px] font-mono px-1.5 py-0.5 rounded border font-bold uppercase ${domainBadge.bgClass} ${domainBadge.colorClass} ${domainBadge.borderClass}`}>
+                    {domainBadge.shortLabel}
+                  </span>
                   {item.priority === "critical" && <Badge variant="destructive">Critical</Badge>}
                   {item.priority === "high" && <Badge variant="warning">High</Badge>}
-                  <Badge variant="outline" className="capitalize text-[10px]">
-                    {item.category}
-                  </Badge>
                 </div>
               </div>
             );

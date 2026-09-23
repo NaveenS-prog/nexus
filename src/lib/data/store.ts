@@ -18,6 +18,7 @@ import {
   MOCK_GITHUB_STATS,
   MOCK_FOCUS_SESSIONS
 } from "./mockData";
+import { smartTriageItem } from "../nlp/itemClassifier";
 
 const STORAGE_KEY_ITEMS = "nexus_items_v1";
 const STORAGE_KEY_PROJECTS = "nexus_projects_v1";
@@ -34,10 +35,11 @@ export const DEFAULT_PYTHON_EXAM: UnifiedItem = {
   category: "academic",
   priority: "critical",
   status: "pending",
+  smartDomain: "exam",
   startAt: "2026-10-09T00:00:00",
   dueAt: "2026-10-09T23:59:59",
   estimatedMinutes: 90,
-  tags: ["Exam", "Calendar", "All Day"],
+  tags: ["Exam", "Calendar", "All Day", "Academic"],
   metadata: { isAllDay: true },
   createdAt: "2026-09-24T00:00:00.000Z",
   updatedAt: "2026-09-24T00:00:00.000Z",
@@ -177,8 +179,33 @@ export function useNexusStore() {
   }, []);
 
   const addItem = useCallback((item: Omit<UnifiedItem, "id" | "createdAt" | "updatedAt">) => {
+    // Run autonomous smart triage across life & academic domains
+    const triage = smartTriageItem({
+      title: item.title,
+      description: item.description,
+      source: item.source,
+      category: item.category,
+      dueAt: item.dueAt,
+      startAt: item.startAt,
+    });
+
+    let autoCategory = item.category;
+    if (!autoCategory || autoCategory === "personal" || autoCategory === "calendar") {
+      if (triage.domain === "exam" || triage.domain === "assignment") {
+        autoCategory = "academic";
+      } else if (triage.domain === "project_dev") {
+        autoCategory = "project";
+      }
+    }
+
+    const mergedTags = Array.from(new Set([...(item.tags || []), ...triage.tags]));
+
     const newItem: UnifiedItem = {
       ...item,
+      category: autoCategory,
+      priority: item.priority === "medium" && triage.priority !== "medium" ? triage.priority : item.priority,
+      smartDomain: triage.domain,
+      tags: mergedTags,
       id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -248,7 +275,25 @@ export function useNexusStore() {
             return true;
           });
 
-          const merged = [...data.items, ...nonLiveItems];
+          const triagedLiveItems = data.items.map((item: any) => {
+            const triage = smartTriageItem({
+              title: item.title,
+              description: item.description,
+              source: item.source,
+              category: item.category,
+              dueAt: item.dueAt,
+              startAt: item.startAt,
+            });
+            const mergedTags = Array.from(new Set([...(item.tags || []), ...triage.tags]));
+            return {
+              ...item,
+              smartDomain: triage.domain,
+              priority: item.priority === "medium" && triage.priority !== "medium" ? triage.priority : item.priority,
+              tags: mergedTags,
+            };
+          });
+
+          const merged = [...triagedLiveItems, ...nonLiveItems];
           memoryState.items = merged;
           memoryState.isLiveSynced = true;
           if (typeof window !== "undefined") {

@@ -23,6 +23,14 @@ export type ItemStatus = "pending" | "in_progress" | "completed";
 
 export type DashboardMode = "default" | "exam" | "build";
 
+export type SmartDomain =
+  | "exam"
+  | "assignment"
+  | "class_lecture"
+  | "personal"
+  | "project_dev"
+  | "meeting";
+
 export interface UnifiedItem {
   id: string;
   externalId?: string;
@@ -32,6 +40,7 @@ export interface UnifiedItem {
   category: Category;
   priority: Priority;
   status: ItemStatus;
+  smartDomain?: SmartDomain;
   startAt?: string; // ISO 8601
   dueAt?: string;   // ISO 8601
   estimatedMinutes?: number;

@@ -10,12 +10,14 @@ import {
   Calendar, 
   Clock, 
   Tag, 
-  Folder 
+  Folder,
+  Sparkles
 } from "lucide-react";
 import { SlideOver } from "@/components/ui/drawer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { UnifiedItem } from "@/lib/types";
+import { smartTriageItem, getDomainBadgeProps } from "@/lib/nlp/itemClassifier";
 
 interface ItemDetailDrawerProps {
   item: UnifiedItem | null;
@@ -58,6 +60,48 @@ export function ItemDetailDrawer({
             {isCompleted ? "Completed" : item.status === "in_progress" ? "In Progress" : "Pending"}
           </Badge>
         </div>
+
+        {/* Autonomous AI Smart Triage Analysis */}
+        {(() => {
+          const triage = smartTriageItem({
+            title: item.title,
+            description: item.description,
+            source: item.source,
+            category: item.category,
+            dueAt: item.dueAt,
+            startAt: item.startAt,
+            location: item.metadata?.location,
+          });
+          const badgeProps = getDomainBadgeProps(triage.domain);
+
+          return (
+            <div className="p-3.5 rounded-xl border border-zinc-800 bg-zinc-900/60 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-bold flex items-center gap-1.5">
+                  <Sparkles className="w-3.5 h-3.5 text-emerald-400" />
+                  NEXUS Smart Triage
+                </span>
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
+                  {Math.round(triage.confidence * 100)}% Confidence
+                </span>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <span className={`text-[10px] font-mono px-2 py-0.5 rounded border font-bold uppercase ${badgeProps.bgClass} ${badgeProps.colorClass} ${badgeProps.borderClass}`}>
+                  {badgeProps.label}
+                </span>
+                <span className="text-[11px] text-zinc-400 truncate">
+                  {triage.reason}
+                </span>
+              </div>
+
+              <div className="p-2.5 rounded-lg bg-zinc-950/80 border border-zinc-800/80 text-xs text-zinc-300 flex items-start gap-2">
+                <span className="text-zinc-500 font-mono text-[10px] shrink-0 mt-0.5">SUGGESTED ACTION:</span>
+                <span className="text-zinc-200 font-medium">{triage.suggestedAction}</span>
+              </div>
+            </div>
+          );
+        })()}
 
         {/* Description */}
         {item.description && (

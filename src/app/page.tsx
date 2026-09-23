@@ -7,6 +7,7 @@ import { TodayFocusTimeline } from "@/components/dashboard/TodayFocusTimeline";
 import { UpcomingExamsAndAssignments } from "@/components/dashboard/UpcomingExamsAndAssignments";
 import { NextMoveCard } from "@/components/dashboard/NextMoveCard";
 import { AiBriefingCard } from "@/components/dashboard/AiBriefingCard";
+import { SmartLifeTriageCard } from "@/components/dashboard/SmartLifeTriageCard";
 import { ActiveProjectsCard } from "@/components/dashboard/ActiveProjectsCard";
 import { ExamModeBanner } from "@/components/dashboard/ExamModeBanner";
 import { BuildModeBanner } from "@/components/dashboard/BuildModeBanner";
@@ -175,11 +176,18 @@ export default function CommandCenterDashboard() {
           />
         </div>
 
-        {/* Right Secondary Column (5 cols): AI Daily Brief + Active Projects + Momentum */}
+        {/* Right Secondary Column (5 cols): AI Daily Brief + Autonomous Life Triage + Active Projects */}
         <div className="lg:col-span-5 space-y-8">
           {/* AI Daily Brief */}
           <AiBriefingCard
             items={todayItems}
+            onSelectItem={handleOpenItem}
+          />
+
+          {/* Autonomous Life Triage: Personal, Classes, Assignments, Exams, Projects */}
+          <SmartLifeTriageCard
+            items={items}
+            onToggleStatus={toggleItemCompletion}
             onSelectItem={handleOpenItem}
           />
 
