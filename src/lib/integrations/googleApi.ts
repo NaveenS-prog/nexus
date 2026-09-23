@@ -134,21 +134,24 @@ export async function fetchLiveGoogleCalendarEvents(overrideCreds?: Partial<Inte
     }
 
     const isAllDay = Boolean(event.start?.date && !event.start?.dateTime);
+    const summary = event.summary || "Calendar Event";
+    const desc = event.description || (event.location ? `Location: ${event.location}` : undefined);
+    const isExam = /\b(?:ia|i\.a\.|cia|cat|internals?|exam|test|quiz|midterm|viva)\b/i.test(`${summary} ${desc || ""}`);
 
     return {
       id: `gcal-${event.id}`,
       externalId: event.id,
       source: "google_calendar",
-      title: event.summary || "Calendar Event",
-      description: event.description || (event.location ? `Location: ${event.location}` : undefined),
-      category: "calendar",
-      priority: "medium",
+      title: summary,
+      description: desc,
+      category: isExam ? "academic" : "calendar",
+      priority: isExam ? "critical" : "medium",
       status: "pending",
       startAt: startStr ? (isAllDay ? `${event.start.date}T00:00:00` : new Date(startStr).toISOString()) : undefined,
       dueAt: endStr ? (isAllDay ? `${event.end.date}T23:59:59` : new Date(endStr).toISOString()) : undefined,
-      estimatedMinutes: isAllDay ? 480 : estimatedMinutes,
+      estimatedMinutes: isAllDay ? (isExam ? 90 : 480) : estimatedMinutes,
       url: event.htmlLink,
-      tags: isAllDay ? ["Calendar", "All Day"] : ["Calendar"],
+      tags: isExam ? ["Exam", "Calendar"] : (isAllDay ? ["Calendar", "All Day"] : ["Calendar"]),
       metadata: { isAllDay, location: event.location, hangoutLink: event.hangoutLink },
       createdAt: event.created || new Date().toISOString(),
       updatedAt: event.updated || new Date().toISOString(),

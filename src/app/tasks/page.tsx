@@ -20,6 +20,7 @@ import { UnifiedItem, Priority, Category, Source } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ItemDetailDrawer } from "@/components/dashboard/ItemDetailDrawer";
+import { isActionableTaskOrAssignment } from "@/lib/nlp/itemClassifier";
 
 export default function TasksPage() {
   const { items, addItem, toggleItemCompletion, deleteItem } = useNexusStore();
@@ -34,8 +35,8 @@ export default function TasksPage() {
   // Filter items
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
-      // Don't show calendar classes/events in tasks view unless in calendar filter
-      if ((item.category === "calendar" || item.source === "google_calendar") && selectedFilter !== "calendar") {
+      // Don't show timetable classes/lectures in tasks view unless in calendar filter
+      if (!isActionableTaskOrAssignment(item) && selectedFilter !== "calendar") {
         return false;
       }
 
@@ -84,6 +85,7 @@ export default function TasksPage() {
   const getSourceIcon = (source: Source) => {
     switch (source) {
       case "google_classroom": return <GraduationCap className="w-3.5 h-3.5 text-zinc-300" />;
+      case "google_calendar": return <Calendar className="w-3.5 h-3.5 text-blue-400" />;
       case "notion": return <Layers className="w-3.5 h-3.5 text-zinc-300" />;
       case "google_tasks": return <CheckSquare className="w-3.5 h-3.5 text-zinc-300" />;
       default: return <CheckSquare className="w-3.5 h-3.5 text-zinc-300" />;

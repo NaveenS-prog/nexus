@@ -18,8 +18,8 @@ import {
 import { UnifiedItem } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { format, parseISO } from "date-fns";
-import { isActionableTaskOrAssignment } from "@/lib/nlp/itemClassifier";
+import { format, parseISO, differenceInMinutes, isSameDay, isTomorrow } from "date-fns";
+import { isActionableTaskOrAssignment, isExamItem } from "@/lib/nlp/itemClassifier";
 
 interface TodayFocusTimelineProps {
   items: UnifiedItem[];
@@ -53,6 +53,8 @@ export function TodayFocusTimeline({ items, onToggleStatus, onSelectItem }: Toda
     switch (source) {
       case "google_classroom":
         return <GraduationCap className="w-3.5 h-3.5 text-zinc-300" />;
+      case "google_calendar":
+        return <CalendarIcon className="w-3.5 h-3.5 text-blue-400" />;
       case "notion":
         return <Layers className="w-3.5 h-3.5 text-zinc-300" />;
       case "google_tasks":
@@ -65,6 +67,7 @@ export function TodayFocusTimeline({ items, onToggleStatus, onSelectItem }: Toda
   const getSourceLabel = (source: string) => {
     switch (source) {
       case "google_classroom": return "Coursework";
+      case "google_calendar": return "Google Calendar";
       case "notion": return "Notion";
       case "google_tasks": return "Google Tasks";
       default: return "NEXUS Task";
@@ -72,21 +75,79 @@ export function TodayFocusTimeline({ items, onToggleStatus, onSelectItem }: Toda
   };
 
   const formatTimeSlot = (item: UnifiedItem) => {
+    const isAllDay = Boolean(item.metadata?.isAllDay || item.tags?.includes("All Day"));
+    const dateStr = item.startAt || item.dueAt;
+    let dayPrefix = "Today";
+
+    if (dateStr) {
+      try {
+        const d = parseISO(dateStr);
+        const today = new Date();
+        if (isSameDay(d, today)) {
+          dayPrefix = "Today";
+        } else if (isTomorrow(d)) {
+          dayPrefix = "Tomorrow";
+        } else {
+          dayPrefix = format(d, "EEE, MMM d");
+        }
+      } catch {
+        dayPrefix = "Today";
+      }
+    }
+
+    if (isAllDay) {
+      return `${dayPrefix} • All Day`;
+    }
+
+    if (item.startAt && item.dueAt) {
+      try {
+        const start = parseISO(item.startAt);
+        const end = parseISO(item.dueAt);
+        const startFormatted = format(start, "h:mm a");
+        const endFormatted = format(end, "h:mm a");
+        return `${dayPrefix} • ${startFormatted} – ${endFormatted}`;
+      } catch {}
+    }
+
     if (item.startAt) {
       try {
-        return format(parseISO(item.startAt), "hh:mm a");
+        return `${dayPrefix} • ${format(parseISO(item.startAt), "h:mm a")}`;
       } catch {
-        return "--:--";
+        return `${dayPrefix} • --:--`;
       }
     }
+
     if (item.dueAt) {
       try {
-        return format(parseISO(item.dueAt), "hh:mm a");
+        return `${dayPrefix} • Due ${format(parseISO(item.dueAt), "h:mm a")}`;
       } catch {
-        return "Today";
+        return dayPrefix;
       }
     }
-    return "Today";
+
+    return dayPrefix;
+  };
+
+  const getDurationLabel = (item: UnifiedItem) => {
+    const isAllDay = Boolean(item.metadata?.isAllDay || item.tags?.includes("All Day"));
+    if (isAllDay) return null;
+
+    if (item.startAt && item.dueAt) {
+      try {
+        const start = parseISO(item.startAt);
+        const end = parseISO(item.dueAt);
+        const diff = differenceInMinutes(end, start);
+        if (diff > 0 && diff < 1440) {
+          return `${diff}m`;
+        }
+      } catch {}
+    }
+
+    if (item.estimatedMinutes && item.estimatedMinutes > 0 && item.estimatedMinutes < 480) {
+      return `${item.estimatedMinutes}m`;
+    }
+
+    return null;
   };
 
   const completedCount = actionableTasks.filter((i) => i.status === "completed").length;
@@ -128,6 +189,8 @@ export function TodayFocusTimeline({ items, onToggleStatus, onSelectItem }: Toda
           sortedItems.map((item) => {
             const isCompleted = item.status === "completed";
             const timeLabel = formatTimeSlot(item);
+            const durationLabel = getDurationLabel(item);
+            const isExam = isExamItem(item);
 
             return (
               <div
@@ -178,10 +241,10 @@ export function TodayFocusTimeline({ items, onToggleStatus, onSelectItem }: Toda
                         </>
                       )}
 
-                      {item.estimatedMinutes && (
+                      {durationLabel && (
                         <>
                           <span>•</span>
-                          <span>{item.estimatedMinutes}m</span>
+                          <span>{durationLabel}</span>
                         </>
                       )}
                     </div>
@@ -190,10 +253,15 @@ export function TodayFocusTimeline({ items, onToggleStatus, onSelectItem }: Toda
 
                 {/* Right Section: Badges & Launch Focus Button */}
                 <div className="flex items-center gap-2.5 flex-shrink-0">
-                  {item.priority === "critical" && (
+                  {isExam && (
+                    <Badge variant="destructive" className="text-[10px] px-1.5 py-0 font-bold tracking-wider uppercase bg-rose-500/20 text-rose-300 border border-rose-500/40">
+                      EXAM
+                    </Badge>
+                  )}
+                  {item.priority === "critical" && !isExam && (
                     <Badge variant="destructive" className="text-[10px] px-1.5 py-0">Critical</Badge>
                   )}
-                  {item.priority === "high" && (
+                  {item.priority === "high" && !isExam && (
                     <Badge variant="warning" className="text-[10px] px-1.5 py-0">High</Badge>
                   )}
                   {item.status === "in_progress" && (

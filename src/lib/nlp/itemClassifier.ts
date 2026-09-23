@@ -15,6 +15,14 @@ export interface ClassificationResult {
   isActionableTask: boolean;
 }
 
+// Specific Indian & Global College Exam & Internal Assessment patterns
+const EXAM_PATTERNS = [
+  /\b(?:ia|i\.a\.|cia|cat|internals?)(?:[-\s]*\d+)?\b/i, // IA, IA-1, IA 1, IA1, CIA, CAT-1, Internal Assessment
+  /\b(?:internal\s+assessment|continuous\s+assessment)\b/i,
+  /\b(?:exam|examination|test|quiz|midterm|midsem|mid\s+sem|endsem|end\s+sem|semester\s+exam|model\s+exam|board\s+exam)\b/i,
+  /\b(?:lab\s+exam|practical\s+exam|lab\s+ia|viva|viva\s+voce|lab\s+internal|lab\s+assessment)\b/i,
+];
+
 // Keywords identifying scheduled classes, lab sessions, and academic timetable lectures
 const CLASS_PATTERNS = [
   /\b(?:lecture|lab(?:\s+session|\s+period)?|tutorial|class|course|seminar|workshop|training|placement|theory|practical)\b/i,
@@ -27,12 +35,11 @@ const CLASS_PATTERNS = [
 
 // Keywords identifying assignments, homework, and academic deliverables
 const ASSIGNMENT_PATTERNS = [
-  /\b(?:assignment|homework|hw|problem set|pset|exercise)\b/i,
-  /\b(?:lab report|lab record|observation note|record submission)\b/i,
-  /\b(?:submission|submit|turn in|hand in|due date|deadline)\b/i,
-  /\b(?:quiz|exam|test|midterm|final exam|viva|assessment|evaluation)\b/i,
-  /\b(?:essay|paper|thesis|dissertation|synopsis|abstract|case study)\b/i,
-  /\b(?:project milestone|presentation|slides submission)\b/i,
+  /\b(?:assignment|homework|hw|problem\s+set|pset|exercise)\b/i,
+  /\b(?:lab\s+report|lab\s+record|observation\s+note|record\s+submission)\b/i,
+  /\b(?:submission|submit|turn\s+in|hand\s+in|due\s+date|deadline)\b/i,
+  /\b(?:essay|paper|thesis|dissertation|synopsis|abstract|case\s+study)\b/i,
+  /\b(?:project\s+milestone|presentation|slides\s+submission)\b/i,
 ];
 
 // Action verbs indicating a personal or development task
@@ -56,9 +63,21 @@ export function classifyItemNLP(input: {
   const location = (input.location || "").trim();
   const fullText = `${title} ${desc} ${location}`;
 
-  // 1. Google Classroom assignments are natively assignments
+  // 1. HIGHEST PRIORITY: Check for IA, Exams, and Internal Assessments
+  // Even if title contains "Lab" or "Python Programming Lab", an IA/Exam is an assessment!
+  for (const pattern of EXAM_PATTERNS) {
+    if (pattern.test(title) || pattern.test(desc)) {
+      return {
+        type: "assignment",
+        confidence: 0.98,
+        reason: `Matched exam / internal assessment indicator (${pattern.source})`,
+        isActionableTask: true,
+      };
+    }
+  }
+
+  // 2. Google Classroom assignments are natively assignments
   if (input.source === "google_classroom" || input.category === "academic") {
-    // If it mentions assignment, test, or submission
     return {
       type: "assignment",
       confidence: 0.95,
@@ -67,12 +86,12 @@ export function classifyItemNLP(input: {
     };
   }
 
-  // 2. Check for explicit assignment / deliverable signals
+  // 3. Check for explicit assignment / deliverable signals
   for (const pattern of ASSIGNMENT_PATTERNS) {
     if (pattern.test(title) || pattern.test(desc)) {
       return {
         type: "assignment",
-        confidence: 0.9,
+        confidence: 0.92,
         reason: `Matched academic deliverable indicator (${pattern.source})`,
         isActionableTask: true,
       };
@@ -136,19 +155,6 @@ export function isActionableTaskOrAssignment(item: {
   source?: string;
   category?: string;
 }): boolean {
-  // Direct category/source check
-  if (item.category === "calendar" || item.source === "google_calendar") {
-    // If it's a calendar event, check if NLP detects an assignment
-    const result = classifyItemNLP({
-      title: item.title,
-      description: item.description,
-      location: item.metadata?.location,
-      source: item.source,
-      category: item.category,
-    });
-    return result.type === "assignment"; // only keep if it's an assignment that was placed on calendar
-  }
-
   const result = classifyItemNLP({
     title: item.title,
     description: item.description,
@@ -158,4 +164,16 @@ export function isActionableTaskOrAssignment(item: {
   });
 
   return result.isActionableTask;
+}
+
+/**
+ * Utility: Checks if an item represents an Exam, Test, Quiz, or Internal Assessment (IA).
+ */
+export function isExamItem(item: {
+  title: string;
+  description?: string;
+}): boolean {
+  const title = (item.title || "").trim();
+  const desc = (item.description || "").trim();
+  return EXAM_PATTERNS.some((pattern) => pattern.test(title) || pattern.test(desc));
 }

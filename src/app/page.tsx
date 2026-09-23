@@ -13,9 +13,9 @@ import { ExamModeBanner } from "@/components/dashboard/ExamModeBanner";
 import { BuildModeBanner } from "@/components/dashboard/BuildModeBanner";
 import { ItemDetailDrawer } from "@/components/dashboard/ItemDetailDrawer";
 import { UnifiedItem } from "@/lib/types";
-import { format, isSameDay, parseISO, isBefore } from "date-fns";
+import { format, isSameDay, parseISO, isBefore, differenceInDays } from "date-fns";
 
-import { isActionableTaskOrAssignment } from "@/lib/nlp/itemClassifier";
+import { isActionableTaskOrAssignment, isExamItem } from "@/lib/nlp/itemClassifier";
 
 export default function CommandCenterDashboard() {
   const {
@@ -57,11 +57,26 @@ export default function CommandCenterDashboard() {
     return items.filter(isActionableTaskOrAssignment);
   }, [items]);
 
-  // Today items for timeline: strictly filter actionable tasks/assignments scheduled or due today
+  // Today items for timeline: strictly filter actionable tasks/assignments scheduled or due today, or upcoming exams in next 7 days
   const todayItems = useMemo(() => {
     const today = new Date();
 
     const datedTasks = actionableTasks.filter((item) => {
+      // 1. If it's an exam/IA scheduled in the next 7 days or overdue, keep it prominently in view!
+      if (isExamItem(item) && item.status !== "completed") {
+        const examDateStr = item.startAt || item.dueAt;
+        if (examDateStr) {
+          try {
+            const d = parseISO(examDateStr);
+            const daysDiff = differenceInDays(d, today);
+            if (daysDiff >= -1 && daysDiff <= 7) {
+              return true;
+            }
+          } catch {}
+        }
+      }
+
+      // 2. Regular tasks due today or overdue
       if (item.dueAt) {
         try {
           const d = parseISO(item.dueAt);
@@ -70,11 +85,15 @@ export default function CommandCenterDashboard() {
           }
         } catch {}
       }
+
+      // 3. Regular tasks starting today
       if (item.startAt) {
         try {
           if (isSameDay(parseISO(item.startAt), today)) return true;
         } catch {}
       }
+
+      // 4. In-progress tasks
       return item.status === "in_progress";
     });
 
