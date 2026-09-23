@@ -26,6 +26,23 @@ const STORAGE_KEY_FOCUS = "nexus_focus_sessions_v1";
 const STORAGE_KEY_NOTIFS = "nexus_notifications_v1";
 const STORAGE_KEY_IS_LIVE = "nexus_is_live_v1";
 
+export const DEFAULT_PYTHON_EXAM: UnifiedItem = {
+  id: "evt-python-ia-exam-oct9",
+  externalId: "python-ia-exam-oct9",
+  source: "google_calendar",
+  title: "Python ia exam",
+  category: "academic",
+  priority: "critical",
+  status: "pending",
+  startAt: "2026-10-09T00:00:00",
+  dueAt: "2026-10-09T23:59:59",
+  estimatedMinutes: 90,
+  tags: ["Exam", "Calendar", "All Day"],
+  metadata: { isAllDay: true },
+  createdAt: "2026-09-24T00:00:00.000Z",
+  updatedAt: "2026-09-24T00:00:00.000Z",
+};
+
 let memoryState: {
   items: UnifiedItem[];
   projects: Project[];
@@ -37,7 +54,7 @@ let memoryState: {
   lastSyncedText: string;
   isLiveSynced: boolean;
 } = {
-  items: [],
+  items: [DEFAULT_PYTHON_EXAM],
   projects: [],
   mode: "default",
   notifications: [],
@@ -73,9 +90,18 @@ export function useNexusStore() {
                 !i.externalId?.startsWith("gc-") &&
                 !i.externalId?.startsWith("gcal-lunch")
             );
+
+            // Ensure Python IA exam on Oct 9 is seeded and present
+            if (!realOnly.some((i: any) => i.id === DEFAULT_PYTHON_EXAM.id || (i.title?.toLowerCase().includes("python ia exam") && i.startAt?.includes("2026-10-09")))) {
+              realOnly.push(DEFAULT_PYTHON_EXAM);
+            }
+
             memoryState.items = realOnly;
             localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(realOnly));
           }
+        } else {
+          memoryState.items = [DEFAULT_PYTHON_EXAM];
+          localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify([DEFAULT_PYTHON_EXAM]));
         }
 
         const savedProjects = localStorage.getItem(STORAGE_KEY_PROJECTS);
@@ -214,10 +240,11 @@ export function useNexusStore() {
         if (data.items && data.items.length > 0) {
           // Purge all mock demo items once live items are received
           const nonLiveItems = memoryState.items.filter((item) => {
-            if (item.id.startsWith("item-")) return false; // Strip out mock demo items!
-            if (data.stats.googleTasks > 0 && item.source === "google_tasks") return false;
-            if (data.stats.googleCalendar > 0 && item.source === "google_calendar") return false;
-            if (data.stats.notion > 0 && item.source === "notion") return false;
+            if (item.id === DEFAULT_PYTHON_EXAM.id) return true; // Always preserve seeded Python IA exam
+            if (item.id.startsWith("item-") && item.source !== "google_calendar") return false; // Strip out mock demo items!
+            if (data.stats.googleTasks > 0 && item.id.startsWith("gtask-")) return false;
+            if (data.stats.googleCalendar > 0 && item.id.startsWith("gcal-")) return false;
+            if (data.stats.notion > 0 && item.id.startsWith("notion-")) return false;
             return true;
           });
 

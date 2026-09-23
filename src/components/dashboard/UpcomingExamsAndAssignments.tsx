@@ -15,11 +15,13 @@ import {
   Layers, 
   CheckSquare,
   Sparkles,
-  BookOpen
+  BookOpen,
+  Plus
 } from "lucide-react";
 import { UnifiedItem } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { CreateEventModal } from "@/components/calendar/CreateEventModal";
 import { 
   format, 
   parseISO, 
@@ -44,6 +46,7 @@ export function UpcomingExamsAndAssignments({
 }: UpcomingExamsAndAssignmentsProps) {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabType>("exams");
+  const [isCreateEventOpen, setIsCreateEventOpen] = useState(false);
 
   // 1. Filter and sort upcoming exams
   const examItems = useMemo(() => {
@@ -210,51 +213,65 @@ export function UpcomingExamsAndAssignments({
           </h2>
         </div>
 
-        {/* Tab Toggle Switcher */}
-        <div className="flex items-center p-0.5 rounded-lg bg-zinc-900 border border-zinc-800 text-xs">
-          <button
-            type="button"
-            onClick={() => setActiveTab("exams")}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-all font-medium ${
-              activeTab === "exams"
-                ? "bg-zinc-800 text-white shadow-sm"
-                : "text-zinc-400 hover:text-zinc-200"
-            }`}
-          >
-            <GraduationCap className="w-3.5 h-3.5" />
-            <span>Upcoming Exams</span>
-            <span
-              className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Tab Toggle Switcher */}
+          <div className="flex items-center p-0.5 rounded-lg bg-zinc-900 border border-zinc-800 text-xs">
+            <button
+              type="button"
+              onClick={() => setActiveTab("exams")}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-all font-medium ${
                 activeTab === "exams"
-                  ? "bg-rose-500/20 text-rose-300 border border-rose-500/40"
-                  : "bg-zinc-800 text-zinc-400"
+                  ? "bg-zinc-800 text-white shadow-sm"
+                  : "text-zinc-400 hover:text-zinc-200"
               }`}
             >
-              {examItems.length}
-            </span>
-          </button>
+              <GraduationCap className="w-3.5 h-3.5" />
+              <span>Upcoming Exams</span>
+              <span
+                className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
+                  activeTab === "exams"
+                    ? "bg-rose-500/20 text-rose-300 border border-rose-500/40"
+                    : "bg-zinc-800 text-zinc-400"
+                }`}
+              >
+                {examItems.length}
+              </span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => setActiveTab("assignments")}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-all font-medium ${
-              activeTab === "assignments"
-                ? "bg-zinc-800 text-white shadow-sm"
-                : "text-zinc-400 hover:text-zinc-200"
-            }`}
-          >
-            <FileText className="w-3.5 h-3.5" />
-            <span>Assignment Dues</span>
-            <span
-              className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
+            <button
+              type="button"
+              onClick={() => setActiveTab("assignments")}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md transition-all font-medium ${
                 activeTab === "assignments"
-                  ? "bg-blue-500/20 text-blue-300 border border-blue-500/40"
-                  : "bg-zinc-800 text-zinc-400"
+                  ? "bg-zinc-800 text-white shadow-sm"
+                  : "text-zinc-400 hover:text-zinc-200"
               }`}
             >
-              {assignmentItems.length}
-            </span>
-          </button>
+              <FileText className="w-3.5 h-3.5" />
+              <span>Assignment Dues</span>
+              <span
+                className={`text-[10px] font-mono px-1.5 py-0.2 rounded-full ${
+                  activeTab === "assignments"
+                    ? "bg-blue-500/20 text-blue-300 border border-blue-500/40"
+                    : "bg-zinc-800 text-zinc-400"
+                }`}
+              >
+                {assignmentItems.length}
+              </span>
+            </button>
+          </div>
+
+          {/* Quick Add All-Day Event or Exam */}
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setIsCreateEventOpen(true)}
+            className="h-8 text-xs border-zinc-800 bg-zinc-900 text-zinc-300 hover:text-white hover:border-zinc-700 flex items-center gap-1.5 shadow-sm"
+            title="Add an upcoming exam or all-day event"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Event</span>
+          </Button>
         </div>
       </div>
 
@@ -405,6 +422,13 @@ export function UpcomingExamsAndAssignments({
           })
         )}
       </div>
+
+      {/* Create Event / All-Day Event Modal */}
+      <CreateEventModal
+        isOpen={isCreateEventOpen}
+        onClose={() => setIsCreateEventOpen(false)}
+        defaultIsAllDay={true}
+      />
     </div>
   );
 }

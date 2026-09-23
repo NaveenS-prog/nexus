@@ -15,12 +15,14 @@ import {
   AlertCircle,
   Trash2,
   RefreshCw,
-  Filter
+  Filter,
+  Plus
 } from "lucide-react";
 import { useNexusStore } from "@/lib/data/store";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ItemDetailDrawer } from "@/components/dashboard/ItemDetailDrawer";
+import { CreateEventModal } from "@/components/calendar/CreateEventModal";
 import { UnifiedItem } from "@/lib/types";
 import { findAllFreeSlots } from "@/lib/calendar/slotFinder";
 import { 
@@ -46,6 +48,7 @@ export default function CalendarPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [slotFeedback, setSlotFeedback] = useState<string | null>(null);
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
+  const [isCreateEventOpen, setIsCreateEventOpen] = useState(false);
   const timelineContainerRef = useRef<HTMLDivElement>(null);
 
   // Update current time every minute for live "now" indicator
@@ -384,6 +387,17 @@ export default function CalendarPage() {
             </button>
           </div>
 
+          {/* Add All-Day / Event Button */}
+          <Button
+            size="sm"
+            onClick={() => setIsCreateEventOpen(true)}
+            className="h-7 text-xs bg-white text-black hover:bg-zinc-200 font-semibold flex items-center gap-1.5 shadow-sm cursor-pointer"
+            title="Create an event or all-day milestone"
+          >
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Event</span>
+          </Button>
+
           {/* Sync Calendar Button */}
           <Button
             size="sm"
@@ -454,26 +468,56 @@ export default function CalendarPage() {
       {viewMode === "day" && (
         <div className="space-y-4">
           {/* All-Day Events Banner */}
-          {allDayEvents.length > 0 && (
-            <div className="p-3 rounded-xl border border-zinc-800 bg-zinc-950 space-y-2">
+          <div className="p-3.5 rounded-xl border border-zinc-800 bg-zinc-950 space-y-2.5">
+            <div className="flex items-center justify-between">
               <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold flex items-center gap-1.5">
                 <CalendarDays className="w-3.5 h-3.5 text-white" />
-                All-Day Events
+                All-Day Events {allDayEvents.length > 0 ? `(${allDayEvents.length})` : ""}
               </span>
+              <button
+                type="button"
+                onClick={() => setIsCreateEventOpen(true)}
+                className="text-[11px] font-mono text-zinc-400 hover:text-white flex items-center gap-1 transition-colors cursor-pointer"
+                title="Create an all-day event for this day"
+              >
+                <Plus className="w-3 h-3 text-white" />
+                <span>Add All-Day Event</span>
+              </button>
+            </div>
+
+            {allDayEvents.length > 0 ? (
               <div className="flex flex-wrap gap-2">
                 {allDayEvents.map((event) => (
                   <div
                     key={event.id}
                     onClick={() => handleOpenItem(event)}
-                    className="px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 hover:border-white cursor-pointer transition-colors flex items-center gap-2"
+                    className="px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 hover:border-white cursor-pointer transition-colors flex items-center gap-2 group"
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-white group-hover:scale-125 transition-transform" />
                     <span className="font-medium">{event.title}</span>
+                    {event.tags?.includes("Exam") && (
+                      <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold uppercase">
+                        EXAM
+                      </span>
+                    )}
                   </div>
                 ))}
               </div>
-            </div>
-          )}
+            ) : (
+              <div className="flex items-center justify-between text-xs text-zinc-500 py-0.5">
+                <span>No all-day events scheduled for this day.</span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => setIsCreateEventOpen(true)}
+                  className="h-6 text-[11px] border-zinc-800 bg-zinc-900 hover:border-zinc-700 text-zinc-300 flex items-center gap-1"
+                >
+                  <Plus className="w-3 h-3" />
+                  <span>Add All-Day Event</span>
+                </Button>
+              </div>
+            )}
+          </div>
 
           {/* Available Free Slots Banner (9:00 AM – 4:00 PM) */}
           <div className="p-3.5 rounded-xl border border-zinc-800 bg-zinc-950 space-y-2.5">
@@ -824,6 +868,19 @@ export default function CalendarPage() {
         onClose={() => setDrawerOpen(false)}
         onToggleStatus={toggleItemCompletion}
         onDelete={deleteItem}
+      />
+
+      {/* Create Event / All-Day Modal */}
+      <CreateEventModal
+        isOpen={isCreateEventOpen}
+        onClose={() => setIsCreateEventOpen(false)}
+        defaultDate={selectedDate}
+        defaultIsAllDay={true}
+        onCreated={(createdTitle, createdDate) => {
+          try {
+            setSelectedDate(parseISO(`${createdDate}T00:00:00`));
+          } catch {}
+        }}
       />
     </div>
   );

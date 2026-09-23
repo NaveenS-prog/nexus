@@ -26,6 +26,8 @@ import { useNexusStore } from "@/lib/data/store";
 import { DashboardMode, FreeSlotResult } from "@/lib/types";
 import { parseSlotCommand } from "@/lib/parser";
 import { findFirstFreeSlot, findAllFreeSlots } from "@/lib/calendar/slotFinder";
+import { format } from "date-fns";
+import { isExamItem } from "@/lib/nlp/itemClassifier";
 
 interface CommandPaletteProps {
   isOpen: boolean;
@@ -155,6 +157,28 @@ export function CommandPalette({ isOpen, onClose, onOpenBrainDump }: CommandPale
         });
         showToast(`✓ Idea logged: "${ideaTitle}"`);
       }
+    } else if (trimmed.startsWith("/allday ") || trimmed.startsWith("/event ")) {
+      const commandBody = trimmed.replace(/^\/(?:allday|event)\s+/i, "").trim();
+      const parsed = parseSlotCommand(commandBody);
+      const eventTitle = parsed.taskTitle || commandBody;
+      const targetDate = parsed.targetDate || new Date();
+      const dateStr = format(targetDate, "yyyy-MM-dd");
+      const isExam = isExamItem({ title: eventTitle });
+
+      addItem({
+        source: "google_calendar",
+        title: eventTitle,
+        category: isExam ? "academic" : "calendar",
+        priority: isExam ? "critical" : "medium",
+        status: "pending",
+        startAt: `${dateStr}T00:00:00`,
+        dueAt: `${dateStr}T23:59:59`,
+        estimatedMinutes: isExam ? 90 : 480,
+        tags: isExam ? ["Exam", "Calendar", "All Day"] : ["Calendar", "All Day"],
+        metadata: { isAllDay: true },
+        description: `All-day event scheduled via Command Palette`,
+      });
+      showToast(`✓ All-day event created: "${eventTitle}" for ${format(targetDate, "MMM d, yyyy")}`);
     } else if (trimmed.startsWith("/focus")) {
       router.push("/focus");
       onClose();
