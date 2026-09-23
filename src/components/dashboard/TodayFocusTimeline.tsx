@@ -19,6 +19,7 @@ import { UnifiedItem } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { format, parseISO } from "date-fns";
+import { isActionableTaskOrAssignment } from "@/lib/nlp/itemClassifier";
 
 interface TodayFocusTimelineProps {
   items: UnifiedItem[];
@@ -29,10 +30,8 @@ interface TodayFocusTimelineProps {
 export function TodayFocusTimeline({ items, onToggleStatus, onSelectItem }: TodayFocusTimelineProps) {
   const router = useRouter();
 
-  // Strictly exclude all calendar events / university classes from Today's Focus
-  const actionableTasks = items.filter(
-    (item) => item.category !== "calendar" && item.source !== "google_calendar"
-  );
+  // Strictly filter to actionable tasks and assignments using NLP classifier (excludes classes/lectures)
+  const actionableTasks = items.filter(isActionableTaskOrAssignment);
 
   // Sort tasks: pending first (critical -> high -> medium -> low), then completed
   const sortedItems = [...actionableTasks].sort((a, b) => {

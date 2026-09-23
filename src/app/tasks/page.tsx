@@ -34,8 +34,8 @@ export default function TasksPage() {
   // Filter items
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
-      // Don't show pure calendar events in tasks view unless in all
-      if (item.category === "calendar" && selectedFilter !== "calendar") {
+      // Don't show calendar classes/events in tasks view unless in calendar filter
+      if ((item.category === "calendar" || item.source === "google_calendar") && selectedFilter !== "calendar") {
         return false;
       }
 

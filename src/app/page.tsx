@@ -15,6 +15,8 @@ import { ItemDetailDrawer } from "@/components/dashboard/ItemDetailDrawer";
 import { UnifiedItem } from "@/lib/types";
 import { format, isSameDay, parseISO, isBefore } from "date-fns";
 
+import { isActionableTaskOrAssignment } from "@/lib/nlp/itemClassifier";
+
 export default function CommandCenterDashboard() {
   const {
     items,
@@ -50,16 +52,16 @@ export default function CommandCenterDashboard() {
     return recommendNextTask(items, mode, new Date());
   }, [items, mode, recommendTick]);
 
-  // Today items for timeline: strictly filter actionable tasks (exclude calendar classes/events)
+  // All actionable tasks and academic assignments identified by NLP (excluding calendar class lectures)
+  const actionableTasks = useMemo(() => {
+    return items.filter(isActionableTaskOrAssignment);
+  }, [items]);
+
+  // Today items for timeline: strictly filter actionable tasks/assignments scheduled or due today
   const todayItems = useMemo(() => {
     const today = new Date();
 
-    // Strictly exclude calendar events / university classes
-    const tasksOnly = items.filter(
-      (item) => item.category !== "calendar" && item.source !== "google_calendar"
-    );
-
-    const datedTasks = tasksOnly.filter((item) => {
+    const datedTasks = actionableTasks.filter((item) => {
       if (item.dueAt) {
         try {
           const d = parseISO(item.dueAt);
@@ -77,21 +79,28 @@ export default function CommandCenterDashboard() {
     });
 
     if (datedTasks.length === 0) {
-      return tasksOnly.filter((i) => i.status !== "completed").slice(0, 6);
+      return actionableTasks.filter((i) => i.status !== "completed").slice(0, 6);
     }
 
     return datedTasks;
-  }, [items]);
+  }, [actionableTasks]);
 
   const handleOpenItem = (item: UnifiedItem) => {
     setSelectedItem(item);
     setDrawerOpen(true);
   };
 
-  const pendingCount = items.filter((i) => i.status !== "completed").length;
-  const deadlineCount = items.filter(
-    (i) => (i.priority === "critical" || i.category === "academic") && i.status !== "completed"
-  ).length;
+  const pendingCount = actionableTasks.filter((i) => i.status !== "completed").length;
+  const deadlineCount = actionableTasks.filter((i) => {
+    if (i.status === "completed") return false;
+    if (i.dueAt) {
+      try {
+        const d = parseISO(i.dueAt);
+        return isSameDay(d, new Date()) || isBefore(d, new Date());
+      } catch {}
+    }
+    return i.priority === "critical";
+  }).length;
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-8 space-y-8 animate-fade-in">
