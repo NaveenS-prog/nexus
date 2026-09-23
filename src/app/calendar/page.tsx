@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { 
   Calendar as CalendarIcon, 
   Clock, 
@@ -30,8 +30,12 @@ import {
   isSameDay, 
   parseISO, 
   startOfWeek, 
-  isToday 
+  isToday,
+  addMinutes,
+  subMinutes
 } from "date-fns";
+
+const HOUR_HEIGHT = 80; // pixels per hour in timeline grid (1 min = 1.33px)
 
 export default function CalendarPage() {
   const { items, addItem, toggleItemCompletion, deleteItem, syncAll, isSyncing, purgeDemoData } = useNexusStore();
@@ -41,14 +45,19 @@ export default function CalendarPage() {
   const [selectedItem, setSelectedItem] = useState<UnifiedItem | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [slotFeedback, setSlotFeedback] = useState<string | null>(null);
+  const [currentTime, setCurrentTime] = useState<Date>(new Date());
+  const timelineContainerRef = useRef<HTMLDivElement>(null);
+
+  // Update current time every minute for live "now" indicator
+  useEffect(() => {
+    const timer = setInterval(() => setCurrentTime(new Date()), 60000);
+    return () => clearInterval(timer);
+  }, []);
 
   // Compute all free slots between 9:00 AM and 4:00 PM (down to 5m and 10m gaps)
   const availableSlots = useMemo(() => {
     return findAllFreeSlots(items, selectedDate, 5, "Focus Block");
   }, [items, selectedDate]);
-
-  // Hours to show in day view: 07:00 to 23:00
-  const hours = Array.from({ length: 17 }, (_, i) => i + 7);
 
   // Detect live synced items vs mock demo items
   const hasLiveItems = useMemo(() => {
@@ -96,6 +105,182 @@ export default function CalendarPage() {
   const timedEvents = useMemo(() => {
     return dayItems.filter((i) => !allDayEvents.some((ad) => ad.id === i.id));
   }, [dayItems, allDayEvents]);
+
+  // Determine timeline hours range (defaults to 07:00 to 23:00, or expands if events are earlier/later)
+  const startHour = useMemo(() => {
+    let min = 7;
+    for (const item of timedEvents) {
+      if (item.startAt) {
+        try {
+          const h = parseISO(item.startAt).getHours();
+          if (h < min) min = h;
+        } catch {}
+      } else if (item.dueAt) {
+        try {
+          const h = parseISO(item.dueAt).getHours();
+          if (h < min) min = h;
+        } catch {}
+      }
+    }
+    return Math.max(0, min);
+  }, [timedEvents]);
+
+  const endHour = useMemo(() => {
+    let max = 23;
+    for (const item of timedEvents) {
+      const target = item.dueAt || item.startAt;
+      if (target) {
+        try {
+          const h = parseISO(target).getHours();
+          if (h > max) max = Math.min(23, h + 1);
+        } catch {}
+      }
+    }
+    return max;
+  }, [timedEvents]);
+
+  const hours = useMemo(() => {
+    return Array.from({ length: endHour - startHour + 1 }, (_, i) => i + startHour);
+  }, [startHour, endHour]);
+
+  // Compute positioned events with exact top, height, and side-by-side columns for overlaps
+  const positionedEvents = useMemo(() => {
+    if (timedEvents.length === 0) return [];
+
+    const eventsWithTimes = timedEvents.map((item) => {
+      let startD: Date;
+      let endD: Date;
+
+      try {
+        if (item.startAt) {
+          startD = parseISO(item.startAt);
+          endD = item.dueAt ? parseISO(item.dueAt) : addMinutes(startD, item.estimatedMinutes || 60);
+        } else if (item.dueAt) {
+          endD = parseISO(item.dueAt);
+          startD = subMinutes(endD, item.estimatedMinutes || 60);
+        } else {
+          startD = new Date(selectedDate);
+          startD.setHours(9, 0, 0, 0);
+          endD = addMinutes(startD, 60);
+        }
+      } catch {
+        startD = new Date(selectedDate);
+        startD.setHours(9, 0, 0, 0);
+        endD = addMinutes(startD, 60);
+      }
+
+      let startMins = startD.getHours() * 60 + startD.getMinutes();
+      let endMins = endD.getHours() * 60 + endD.getMinutes();
+
+      // If end time is before or equal to start time (e.g. overnight or invalid), enforce default duration
+      if (endMins <= startMins) {
+        endMins = startMins + Math.max(item.estimatedMinutes || 60, 30);
+      }
+
+      return {
+        item,
+        startMins,
+        endMins,
+        duration: endMins - startMins,
+      };
+    });
+
+    // Sort: earlier start first, longer duration first
+    eventsWithTimes.sort((a, b) => {
+      if (a.startMins !== b.startMins) return a.startMins - b.startMins;
+      return b.duration - a.duration;
+    });
+
+    // Group into clusters of overlapping events
+    const clusters: (typeof eventsWithTimes)[] = [];
+    let currentCluster: typeof eventsWithTimes = [];
+    let clusterEnd = -1;
+
+    for (const ev of eventsWithTimes) {
+      if (currentCluster.length === 0) {
+        currentCluster.push(ev);
+        clusterEnd = ev.endMins;
+      } else if (ev.startMins < clusterEnd) {
+        currentCluster.push(ev);
+        clusterEnd = Math.max(clusterEnd, ev.endMins);
+      } else {
+        clusters.push(currentCluster);
+        currentCluster = [ev];
+        clusterEnd = ev.endMins;
+      }
+    }
+    if (currentCluster.length > 0) {
+      clusters.push(currentCluster);
+    }
+
+    interface PositionedResult {
+      item: UnifiedItem;
+      top: number;
+      height: number;
+      startMinutes: number;
+      endMinutes: number;
+      column: number;
+      totalColumns: number;
+    }
+
+    const result: PositionedResult[] = [];
+    const gridStartMins = startHour * 60;
+
+    for (const cluster of clusters) {
+      const columns: number[] = [];
+      const clusterPositions: { ev: (typeof eventsWithTimes)[0]; col: number }[] = [];
+
+      for (const ev of cluster) {
+        let placedCol = -1;
+        for (let i = 0; i < columns.length; i++) {
+          if (ev.startMins >= columns[i]) {
+            placedCol = i;
+            columns[i] = ev.endMins;
+            break;
+          }
+        }
+        if (placedCol === -1) {
+          placedCol = columns.length;
+          columns.push(ev.endMins);
+        }
+        clusterPositions.push({ ev, col: placedCol });
+      }
+
+      const totalColumns = Math.max(1, columns.length);
+
+      for (const cp of clusterPositions) {
+        const top = Math.max(0, (cp.ev.startMins - gridStartMins) * (HOUR_HEIGHT / 60));
+        const height = Math.max(30, (cp.ev.endMins - cp.ev.startMins) * (HOUR_HEIGHT / 60));
+
+        result.push({
+          item: cp.ev.item,
+          top,
+          height,
+          startMinutes: cp.ev.startMins,
+          endMinutes: cp.ev.endMins,
+          column: cp.col,
+          totalColumns,
+        });
+      }
+    }
+
+    return result;
+  }, [timedEvents, selectedDate, startHour]);
+
+  // Auto-scroll timeline to current time or earliest event
+  useEffect(() => {
+    if (!timelineContainerRef.current) return;
+    if (isToday(selectedDate)) {
+      const now = new Date();
+      const currentMins = now.getHours() * 60 + now.getMinutes();
+      const targetScroll = Math.max(0, (currentMins - startHour * 60 - 45) * (HOUR_HEIGHT / 60));
+      timelineContainerRef.current.scrollTop = targetScroll;
+    } else if (positionedEvents.length > 0) {
+      const firstStart = positionedEvents[0].startMinutes;
+      const targetScroll = Math.max(0, (firstStart - startHour * 60 - 30) * (HOUR_HEIGHT / 60));
+      timelineContainerRef.current.scrollTop = targetScroll;
+    }
+  }, [selectedDate, startHour, positionedEvents.length]);
 
   // Week days for week view
   const weekDays = useMemo(() => {
@@ -359,7 +544,7 @@ export default function CalendarPage() {
             )}
           </div>
 
-          {/* Timed Grid */}
+          {/* Proportional Google Calendar Day Timeline Grid */}
           <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4 space-y-3">
             <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
               <div className="flex items-center gap-2">
@@ -373,103 +558,180 @@ export default function CalendarPage() {
               </span>
             </div>
 
-            <div className="divide-y divide-zinc-800/80 max-h-[700px] overflow-y-auto">
-              {hours.map((hour) => {
-                const hourLabel = `${hour.toString().padStart(2, "0")}:00`;
-                
-                // Match events whose start hour is this hour
-                const matching = timedEvents.filter((item) => {
-                  if (item.startAt) {
-                    try {
-                      return parseISO(item.startAt).getHours() === hour;
-                    } catch {
-                      return false;
-                    }
-                  }
-                  if (item.dueAt) {
-                    try {
-                      return parseISO(item.dueAt).getHours() === hour;
-                    } catch {
-                      return false;
-                    }
-                  }
-                  return false;
-                });
+            {/* Scrollable Timeline Grid Container */}
+            <div
+              ref={timelineContainerRef}
+              className="relative max-h-[720px] overflow-y-auto select-none rounded-lg border border-zinc-800/80 bg-zinc-950/70"
+            >
+              <div
+                className="relative min-w-[500px]"
+                style={{ height: `${hours.length * HOUR_HEIGHT}px` }}
+              >
+                {/* Background Grid Lines (1 row per hour, with 30-min dashed line) */}
+                {hours.map((hour) => {
+                  const hourLabel = `${hour.toString().padStart(2, "0")}:00`;
+                  return (
+                    <div
+                      key={hour}
+                      className="absolute left-0 right-0 border-t border-zinc-800/80 flex items-start"
+                      style={{
+                        top: `${(hour - startHour) * HOUR_HEIGHT}px`,
+                        height: `${HOUR_HEIGHT}px`,
+                      }}
+                    >
+                      {/* Left Hour Label */}
+                      <span className="w-14 sm:w-16 font-mono text-xs text-zinc-500 pr-3 text-right flex-shrink-0 -translate-y-2.5 select-none">
+                        {hourLabel}
+                      </span>
 
-                return (
-                  <div key={hour} className="py-2.5 flex items-start gap-4 min-h-[52px] group">
-                    <span className="w-12 font-mono text-xs text-zinc-500 flex-shrink-0 pt-1">
-                      {hourLabel}
-                    </span>
+                      {/* Right Grid Slot with Half-Hour Guide Line */}
+                      <div className="flex-1 h-full border-l border-zinc-850/60 relative">
+                        <div className="absolute left-0 right-0 top-1/2 border-t border-zinc-850/30 border-dashed pointer-events-none" />
+                      </div>
+                    </div>
+                  );
+                })}
 
-                    <div className="flex-1 space-y-1.5">
-                      {matching.length > 0 ? (
-                        matching.map((item) => {
-                          const timeStr = formatEventTime(item);
-                          const isCalendar = item.category === "calendar";
-                          return (
-                            <div
-                              key={item.id}
-                              onClick={() => handleOpenItem(item)}
-                              className="p-3 rounded-lg border border-zinc-800 bg-zinc-900 hover:border-white text-zinc-100 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs transition-all cursor-pointer group shadow-sm"
-                            >
-                              <div className="space-y-1 min-w-0 pr-2">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-semibold text-zinc-100 group-hover:text-white truncate">
-                                    {item.title}
+                {/* Google Calendar Current Time "Now" Red Line Indicator */}
+                {isToday(selectedDate) && (() => {
+                  const currentMins = currentTime.getHours() * 60 + currentTime.getMinutes();
+                  const gridStartMins = startHour * 60;
+                  const gridEndMins = (endHour + 1) * 60;
+                  if (currentMins >= gridStartMins && currentMins <= gridEndMins) {
+                    const redLineTop = (currentMins - gridStartMins) * (HOUR_HEIGHT / 60);
+                    return (
+                      <div
+                        className="absolute left-14 sm:left-16 right-0 pointer-events-none z-20 flex items-center"
+                        style={{ top: `${redLineTop}px` }}
+                      >
+                        <div className="w-2.5 h-2.5 rounded-full bg-red-500 -ml-1.5 shadow-[0_0_8px_rgba(239,68,68,0.9)]" />
+                        <div className="flex-1 h-[2px] bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]" />
+                      </div>
+                    );
+                  }
+                  return null;
+                })()}
+
+                {/* Absolutely Positioned Events Overlay */}
+                <div className="absolute top-0 right-3 left-14 sm:left-16 bottom-0 pointer-events-none">
+                  {positionedEvents.map((ev) => {
+                    const timeStr = formatEventTime(ev.item);
+                    const isCalendar = ev.item.category === "calendar" || ev.item.source === "google_calendar";
+                    const isFocusBlock = ev.item.title === "Focus Block" || ev.item.description?.includes("Focus Block");
+                    const isCritical = ev.item.priority === "critical" || ev.item.priority === "high";
+
+                    // Color scheme matching Google Calendar / Linear style
+                    let colorStyle = "bg-sky-950/80 border-sky-800 hover:border-sky-400 text-sky-100 border-l-sky-500";
+                    if (isFocusBlock) {
+                      colorStyle = "bg-emerald-950/80 border-emerald-800 hover:border-emerald-400 text-emerald-100 border-l-emerald-500";
+                    } else if (isCritical) {
+                      colorStyle = "bg-rose-950/80 border-rose-800 hover:border-rose-400 text-rose-100 border-l-rose-500";
+                    } else if (!isCalendar) {
+                      colorStyle = "bg-indigo-950/80 border-indigo-800 hover:border-indigo-400 text-indigo-100 border-l-indigo-500";
+                    }
+
+                    const isTall = ev.height >= 64;
+
+                    return (
+                      <div
+                        key={ev.item.id}
+                        onClick={() => handleOpenItem(ev.item)}
+                        style={{
+                          top: `${ev.top}px`,
+                          height: `${ev.height}px`,
+                          left: `calc(${ev.column * (100 / ev.totalColumns)}% + 2px)`,
+                          width: `calc(${100 / ev.totalColumns}% - 4px)`,
+                        }}
+                        className={`absolute pointer-events-auto rounded-lg border border-l-4 p-2 sm:p-2.5 transition-all duration-150 cursor-pointer group shadow-sm hover:shadow-md z-10 hover:z-30 overflow-hidden flex flex-col justify-between ${colorStyle}`}
+                        title={`${ev.item.title} (${timeStr})`}
+                      >
+                        {isTall ? (
+                          <>
+                            <div className="space-y-1 min-w-0 pr-1">
+                              <div className="flex items-center justify-between gap-1.5">
+                                <div className="flex items-center gap-1.5 min-w-0">
+                                  <span className="font-semibold text-xs text-white truncate group-hover:underline">
+                                    {ev.item.title}
                                   </span>
-                                  <Badge variant={isCalendar ? "default" : "secondary"}>
+                                  <Badge
+                                    variant={isCalendar ? "default" : "secondary"}
+                                    className="text-[10px] px-1.5 py-0 h-4 hidden sm:inline-flex"
+                                  >
                                     {isCalendar ? "Calendar" : "Task"}
                                   </Badge>
                                 </div>
 
-                                {item.description && (
-                                  <p className="text-[11px] text-zinc-400 line-clamp-1">
-                                    {item.description}
-                                  </p>
-                                )}
-
-                                <div className="flex items-center gap-3 text-[10px] text-zinc-400 font-mono">
-                                  {timeStr && <span>⏱ {timeStr}</span>}
-                                  {item.metadata?.location && (
-                                    <span className="flex items-center gap-1">
-                                      <MapPin className="w-3 h-3 text-white" />
-                                      <span className="truncate max-w-[200px]">{item.metadata.location}</span>
-                                    </span>
-                                  )}
-                                  {item.metadata?.hangoutLink && (
-                                    <span className="flex items-center gap-1 text-white">
-                                      <Video className="w-3 h-3" />
-                                      <span>Google Meet</span>
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-
-                              <div className="flex items-center gap-2 flex-shrink-0 self-end sm:self-center">
-                                {item.url && (
+                                {ev.item.url && (
                                   <a
-                                    href={item.url}
+                                    href={ev.item.url}
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     onClick={(e) => e.stopPropagation()}
-                                    className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+                                    className="p-1 rounded hover:bg-white/10 text-zinc-300 hover:text-white transition-colors flex-shrink-0"
                                     title="Open in Google Calendar"
                                   >
-                                    <ExternalLink className="w-3.5 h-3.5" />
+                                    <ExternalLink className="w-3 h-3" />
                                   </a>
                                 )}
                               </div>
+
+                              {ev.item.description && ev.height >= 85 && (
+                                <p className="text-[11px] text-zinc-300 line-clamp-1">
+                                  {ev.item.description}
+                                </p>
+                              )}
                             </div>
-                          );
-                        })
-                      ) : (
-                        <div className="h-4 w-full group-hover:bg-zinc-900/50 transition-colors rounded" />
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
+
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-zinc-300 font-mono pt-1">
+                              {timeStr && (
+                                <span className="flex items-center gap-1 font-semibold text-white">
+                                  <Clock className="w-3 h-3 text-zinc-400" />
+                                  <span>{timeStr}</span>
+                                </span>
+                              )}
+                              {ev.item.metadata?.location && (
+                                <span className="flex items-center gap-1 text-zinc-300">
+                                  <MapPin className="w-3 h-3 text-zinc-400" />
+                                  <span className="truncate max-w-[140px]">{ev.item.metadata.location}</span>
+                                </span>
+                              )}
+                              {ev.item.metadata?.hangoutLink && (
+                                <span className="flex items-center gap-1 text-emerald-300 font-sans">
+                                  <Video className="w-3 h-3" />
+                                  <span>Meet</span>
+                                </span>
+                              )}
+                            </div>
+                          </>
+                        ) : (
+                          <div className="flex items-center justify-between h-full w-full gap-2">
+                            <div className="flex items-center gap-2 truncate">
+                              <span className="font-semibold text-xs text-white truncate">
+                                {ev.item.title}
+                              </span>
+                              <span className="text-[10px] text-zinc-300 font-mono truncate">
+                                {timeStr}
+                              </span>
+                            </div>
+                            {ev.item.url && (
+                              <a
+                                href={ev.item.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="p-0.5 rounded hover:bg-white/10 text-zinc-300 hover:text-white flex-shrink-0"
+                                title="Open in Google Calendar"
+                              >
+                                <ExternalLink className="w-3 h-3" />
+                              </a>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -528,7 +790,11 @@ export default function CalendarPage() {
                     >
                       <span className="truncate block font-medium">{item.title}</span>
                       <span className="text-[10px] text-zinc-500 font-mono">
-                        {item.startAt ? format(parseISO(item.startAt), "hh:mm a") : "All Day"}
+                        {item.startAt && item.dueAt 
+                          ? `${format(parseISO(item.startAt), "hh:mm a")} - ${format(parseISO(item.dueAt), "hh:mm a")}`
+                          : item.startAt 
+                            ? format(parseISO(item.startAt), "hh:mm a") 
+                            : "All Day"}
                       </span>
                     </div>
                   ))}
