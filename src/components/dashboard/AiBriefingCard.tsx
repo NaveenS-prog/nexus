@@ -5,7 +5,15 @@ import { Sparkles } from "lucide-react";
 import { UnifiedItem } from "@/lib/types";
 import { Badge } from "@/components/ui/badge";
 import { isExamItem } from "@/lib/nlp/itemClassifier";
-import { format, parseISO, isSameDay, isBefore, startOfDay, differenceInCalendarDays } from "date-fns";
+import { format, parseISO, isSameDay, isBefore, startOfDay, differenceInCalendarDays, addDays } from "date-fns";
+
+export interface PeakDay {
+  dayName: string;
+  dateStr: string;
+  minutes: number;
+  count: number;
+  examTitles: string[];
+}
 
 interface AiBriefingCardProps {
   todayItems?: UnifiedItem[];
@@ -134,6 +142,51 @@ export function AiBriefingCard({
     return list.slice(0, 4);
   }, [activeTodayItems, upcomingExams]);
 
+  // 4. Calculate true heaviest workload day over the upcoming 14 days
+  const peakWorkload = useMemo<PeakDay | null>(() => {
+    const dayMap = new Map<string, { dayName: string; dateStr: string; minutes: number; count: number; examTitles: string[] }>();
+
+    for (let i = 1; i <= 14; i++) {
+      const d = addDays(today, i);
+      const dateKey = format(d, "yyyy-MM-dd");
+      dayMap.set(dateKey, {
+        dayName: format(d, "EEEE"),
+        dateStr: format(d, "MMM d"),
+        minutes: 0,
+        count: 0,
+        examTitles: [],
+      });
+    }
+
+    const pool = allItems.length > 0 ? allItems : (items || []);
+    pool.forEach((item) => {
+      if (item.status === "completed") return;
+      const targetStr = item.startAt || item.dueAt;
+      if (!targetStr) return;
+      const dateKey = targetStr.slice(0, 10);
+      if (dayMap.has(dateKey)) {
+        const entry = dayMap.get(dateKey)!;
+        entry.count += 1;
+        entry.minutes += item.estimatedMinutes || 60;
+        if (isExamItem(item)) {
+          entry.examTitles.push(item.title);
+          entry.minutes += 60; // Weight exams higher for stress/effort calculation
+        }
+      }
+    });
+
+    let maxDay: PeakDay | null = null;
+    dayMap.forEach((val) => {
+      if (val.count > 0) {
+        if (!maxDay || val.minutes > maxDay.minutes) {
+          maxDay = val;
+        }
+      }
+    });
+
+    return maxDay;
+  }, [allItems, items, today]);
+
   return (
     <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4 space-y-4">
       {/* Header */}
@@ -206,7 +259,23 @@ export function AiBriefingCard({
 
         <p className="flex items-center gap-2">
           <span className="w-1.5 h-1.5 rounded-full bg-zinc-600" />
-          <span>Your heaviest upcoming workload collides on <strong className="text-white font-mono">{heaviestDayName}</strong>.</span>
+          <span>
+            {peakWorkload ? (
+              <>
+                Your heaviest upcoming workload collides on{" "}
+                <strong className="text-white font-mono">
+                  {peakWorkload.dayName}, {peakWorkload.dateStr}
+                </strong>
+                {peakWorkload.examTitles.length > 0 ? (
+                  <> ({peakWorkload.examTitles.join(", ")})</>
+                ) : (
+                  <> ({peakWorkload.count} task{peakWorkload.count !== 1 ? "s" : ""})</>
+                )}.
+              </>
+            ) : (
+              <>Upcoming 14-day schedule has a balanced, normal workload distribution.</>
+            )}
+          </span>
         </p>
       </div>
 
