@@ -40,11 +40,6 @@ export default function TasksPage() {
   // Filter items
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
-      // If an assigned reminder task exists for this calendar event, display the reminder task instead of duplicate raw event
-      if (item.source === "google_calendar" && items.some((other) => other.metadata?.linkedEventId === item.id)) {
-        return false;
-      }
-
       // Don't show timetable classes/lectures in tasks view unless in class or calendar filter
       if (!isActionableTaskOrAssignment(item) && selectedFilter !== "calendar" && selectedFilter !== "class_lecture") {
         return false;

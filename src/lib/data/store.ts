@@ -19,7 +19,7 @@ import {
   MOCK_FOCUS_SESSIONS
 } from "./mockData";
 import { smartTriageItem } from "../nlp/itemClassifier";
-import { scanAndAutoAssignExamTasks } from "../calendar/examScanner";
+import { scanAndAutoAssignExamTasks, normalizeExamOrTaskTitle } from "../calendar/examScanner";
 
 const STORAGE_KEY_ITEMS = "nexus_items_v1";
 const STORAGE_KEY_PROJECTS = "nexus_projects_v1";
@@ -128,26 +128,29 @@ export function useNexusStore() {
             // Strip out ANY item that is a mock/demo item
             const realOnly = parsed.filter(
               (i: any) =>
-                !i.id?.startsWith("item-") &&
+                !/^item-[0-9]{1,3}$/.test(i.id || "") &&
+                !i.id?.startsWith("mock-") &&
                 !i.externalId?.startsWith("gcal-os-class") &&
                 !i.externalId?.startsWith("gc-") &&
                 !i.externalId?.startsWith("gcal-lunch")
             );
 
-            // Ensure all default exams (OS, COA, Python) are present
+            // Ensure all default exams (OS, COA, Python) are present if not already added
             DEFAULT_EXAMS.forEach((defExam) => {
+              const defNorm = normalizeExamOrTaskTitle(defExam.title);
+              const defDate = defExam.startAt?.slice(0, 10);
               if (
                 !realOnly.some(
                   (i: any) =>
                     i.id === defExam.id ||
-                    (i.title?.toLowerCase() === defExam.title.toLowerCase() && i.startAt?.slice(0, 10) === defExam.startAt?.slice(0, 10))
+                    (normalizeExamOrTaskTitle(i.title) === defNorm && (!defDate || i.startAt?.slice(0, 10) === defDate))
                 )
               ) {
                 realOnly.push(defExam);
               }
             });
 
-            // Automatically scan all events and assign exam reminder tasks
+            // Automatically scan all events, deduplicate items and purge duplicate nexus tasks
             const { items: scannedItems } = scanAndAutoAssignExamTasks(realOnly);
 
             memoryState.items = scannedItems;
@@ -193,9 +196,10 @@ export function useNexusStore() {
   }, []);
 
   const saveItems = (newItems: UnifiedItem[]) => {
-    memoryState.items = newItems;
+    const { items: cleanItems } = scanAndAutoAssignExamTasks(newItems);
+    memoryState.items = cleanItems;
     if (typeof window !== "undefined") {
-      localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(newItems));
+      localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(cleanItems));
     }
     notifyListeners();
   };
@@ -253,19 +257,19 @@ export function useNexusStore() {
 
     const mergedTags = Array.from(new Set([...(item.tags || []), ...triage.tags]));
 
+    const idPrefix = item.source === "google_calendar" ? "evt" : "nexus-task";
     const newItem: UnifiedItem = {
       ...item,
       category: autoCategory,
       priority: item.priority === "medium" && triage.priority !== "medium" ? triage.priority : item.priority,
       smartDomain: triage.domain,
       tags: mergedTags,
-      id: `item-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      id: `${idPrefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
     const updated = [newItem, ...memoryState.items];
-    const { items: scannedUpdated } = scanAndAutoAssignExamTasks(updated);
-    saveItems(scannedUpdated);
+    saveItems(updated);
     return newItem;
   }, []);
 
