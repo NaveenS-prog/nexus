@@ -114,11 +114,35 @@ export function ItemDetailDrawer({
         <div className="space-y-3">
           <span className="text-[11px] font-mono uppercase text-zinc-500 font-semibold">Details</span>
           <div className="grid grid-cols-2 gap-3 text-xs">
-            {item.dueAt && (
+            {item.startAt && (
               <div className="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
                 <div className="flex items-center gap-1.5 text-zinc-500 text-[10px] font-mono uppercase">
                   <Calendar className="w-3 h-3 text-white" />
-                  <span>Due Date</span>
+                  <span>{item.metadata?.isAllDay ? "Event Date" : "Start Time"}</span>
+                </div>
+                <span className="font-mono text-zinc-200 mt-1 block">
+                  {item.metadata?.isAllDay
+                    ? new Date(item.startAt).toLocaleDateString(undefined, {
+                        weekday: "short",
+                        month: "short",
+                        day: "numeric",
+                        year: "numeric",
+                      }) + " (All Day)"
+                    : new Date(item.startAt).toLocaleDateString(undefined, {
+                        month: "short",
+                        day: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
+                </span>
+              </div>
+            )}
+
+            {item.dueAt && !item.metadata?.isAllDay && (
+              <div className="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
+                <div className="flex items-center gap-1.5 text-zinc-500 text-[10px] font-mono uppercase">
+                  <Calendar className="w-3 h-3 text-white" />
+                  <span>{item.startAt ? "End Time" : "Due Date"}</span>
                 </div>
                 <span className="font-mono text-zinc-200 mt-1 block">
                   {new Date(item.dueAt).toLocaleDateString(undefined, {

@@ -11,7 +11,7 @@ import { SmartLifeTriageCard } from "@/components/dashboard/SmartLifeTriageCard"
 import { ActiveProjectsCard } from "@/components/dashboard/ActiveProjectsCard";
 import { ItemDetailDrawer } from "@/components/dashboard/ItemDetailDrawer";
 import { UnifiedItem } from "@/lib/types";
-import { format, isSameDay, parseISO, isBefore, differenceInDays } from "date-fns";
+import { format, isSameDay, parseISO, isBefore, startOfDay } from "date-fns";
 
 import { isActionableTaskOrAssignment, isExamItem } from "@/lib/nlp/itemClassifier";
 
@@ -40,7 +40,6 @@ export default function CommandCenterDashboard() {
     return format(new Date(), "MMMM d, yyyy");
   }, []);
 
-
   // Compute next recommended task
   const nextMove = useMemo(() => {
     return recommendNextTask(items, "default", new Date());
@@ -51,51 +50,36 @@ export default function CommandCenterDashboard() {
     return items.filter(isActionableTaskOrAssignment);
   }, [items]);
 
-  // Today items for timeline: strictly filter actionable tasks/assignments scheduled or due today, or upcoming exams in next 7 days
+  // Today items: strictly filter actionable tasks/assignments actually scheduled or due today (or overdue)
   const todayItems = useMemo(() => {
     const today = new Date();
+    const startOfToday = startOfDay(today);
 
-    const datedTasks = actionableTasks.filter((item) => {
-      // 1. If it's an exam/IA scheduled in the next 7 days or overdue, keep it prominently in view!
-      if (isExamItem(item) && item.status !== "completed") {
-        const examDateStr = item.startAt || item.dueAt;
-        if (examDateStr) {
-          try {
-            const d = parseISO(examDateStr);
-            const daysDiff = differenceInDays(d, today);
-            if (daysDiff >= -1 && daysDiff <= 7) {
-              return true;
-            }
-          } catch {}
-        }
-      }
+    return actionableTasks.filter((item) => {
+      if (item.status === "completed") return false;
+
+      // 1. In-progress tasks
+      if (item.status === "in_progress") return true;
 
       // 2. Regular tasks due today or overdue
       if (item.dueAt) {
         try {
           const d = parseISO(item.dueAt);
-          if (isSameDay(d, today) || (item.status !== "completed" && isBefore(d, today))) {
+          if (isSameDay(d, today) || isBefore(d, startOfToday)) {
             return true;
           }
         } catch {}
       }
 
-      // 3. Regular tasks starting today
+      // 3. Regular tasks/events starting today
       if (item.startAt) {
         try {
           if (isSameDay(parseISO(item.startAt), today)) return true;
         } catch {}
       }
 
-      // 4. In-progress tasks
-      return item.status === "in_progress";
+      return false;
     });
-
-    if (datedTasks.length === 0) {
-      return actionableTasks.filter((i) => i.status !== "completed").slice(0, 6);
-    }
-
-    return datedTasks;
   }, [actionableTasks]);
 
   const handleOpenItem = (item: UnifiedItem) => {
@@ -104,15 +88,16 @@ export default function CommandCenterDashboard() {
   };
 
   const pendingCount = actionableTasks.filter((i) => i.status !== "completed").length;
+  // Strictly count deadlines that fall on today or are overdue (NOT future exams!)
   const deadlineCount = actionableTasks.filter((i) => {
     if (i.status === "completed") return false;
     if (i.dueAt) {
       try {
         const d = parseISO(i.dueAt);
-        return isSameDay(d, new Date()) || isBefore(d, new Date());
+        return isSameDay(d, new Date()) || isBefore(d, startOfDay(new Date()));
       } catch {}
     }
-    return i.priority === "critical";
+    return false;
   }).length;
 
   return (
@@ -168,7 +153,8 @@ export default function CommandCenterDashboard() {
         <div className="lg:col-span-5 space-y-8">
           {/* AI Daily Brief */}
           <AiBriefingCard
-            items={todayItems}
+            todayItems={todayItems}
+            allItems={items}
             onSelectItem={handleOpenItem}
           />
 

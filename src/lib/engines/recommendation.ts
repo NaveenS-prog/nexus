@@ -42,29 +42,34 @@ export function recommendNextTask(
     let reasons: string[] = [];
 
     // Priority weighting
-    if (item.priority === "critical") score += 50;
-    else if (item.priority === "high") score += 35;
-    else if (item.priority === "medium") score += 20;
-    else score += 10;
+    if (item.priority === "critical") score += 30;
+    else if (item.priority === "high") score += 20;
+    else if (item.priority === "medium") score += 10;
+    else score += 5;
 
-    // Deadline proximity
-    if (item.dueAt) {
+    // Deadline & schedule proximity
+    const targetDateStr = item.dueAt || item.startAt;
+    if (targetDateStr) {
       try {
-        const dueDate = parseISO(item.dueAt);
+        const dueDate = parseISO(targetDateStr);
         const hoursUntilDue = differenceInHours(dueDate, now);
 
         if (hoursUntilDue < 0) {
-          score += 45;
+          score += 60;
           reasons.push("Overdue - requires immediate completion");
-        } else if (hoursUntilDue <= 12) {
-          score += 40;
-          reasons.push("Due today");
+        } else if (hoursUntilDue <= 14) {
+          score += 50;
+          reasons.push("Scheduled for today");
         } else if (hoursUntilDue <= 36) {
-          score += 30;
+          score += 35;
           reasons.push("Due tomorrow");
         } else if (hoursUntilDue <= 72) {
-          score += 15;
+          score += 20;
           reasons.push("Due in the next 3 days");
+        } else {
+          // Distant future item (> 3 days away):
+          score -= 25;
+          reasons.push("Upcoming assessment");
         }
       } catch {
         // ignore date parse errors
