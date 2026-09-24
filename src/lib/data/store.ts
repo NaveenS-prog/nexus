@@ -30,16 +30,16 @@ const STORAGE_KEY_IS_LIVE = "nexus_is_live_v1";
 
 export const DEFAULT_EXAMS: UnifiedItem[] = [
   {
-    id: "evt-os-ia-exam-oct3",
-    externalId: "os-ia-exam-oct3",
+    id: "evt-os-ia-exam-sep29",
+    externalId: "os-ia-exam-sep29",
     source: "google_calendar",
     title: "OS IA exam",
     category: "academic",
     priority: "critical",
     status: "pending",
     smartDomain: "exam",
-    startAt: "2026-10-03T09:00:00",
-    dueAt: "2026-10-03T11:00:00",
+    startAt: "2026-09-29T09:00:00",
+    dueAt: "2026-09-29T11:00:00",
     estimatedMinutes: 120,
     tags: ["Exam", "Calendar", "Academic"],
     metadata: { location: "Hall 114 B" },
@@ -125,9 +125,11 @@ export function useNexusStore() {
         if (savedItems) {
           const parsed = JSON.parse(savedItems);
           if (Array.isArray(parsed)) {
-            // Strip out ANY item that is a mock/demo item
+            // Strip out ANY item that is a mock/demo item OR the hallucinated Oct 3 OS exam
             const realOnly = parsed.filter(
               (i: any) =>
+                i.id !== "evt-os-ia-exam-oct3" &&
+                !(normalizeExamOrTaskTitle(i.title) === "osiaexam" && (i.startAt?.startsWith("2026-10-03") || i.dueAt?.startsWith("2026-10-03"))) &&
                 !/^item-[0-9]{1,3}$/.test(i.id || "") &&
                 !i.id?.startsWith("mock-") &&
                 !i.externalId?.startsWith("gcal-os-class") &&
@@ -135,7 +137,7 @@ export function useNexusStore() {
                 !i.externalId?.startsWith("gcal-lunch")
             );
 
-            // Ensure all default exams (OS, COA, Python) are present if not already added
+            // Ensure all default exams (OS on Sep 29, COA, Python on Oct 9) are present if not already added
             DEFAULT_EXAMS.forEach((defExam) => {
               const defNorm = normalizeExamOrTaskTitle(defExam.title);
               const defDate = defExam.startAt?.slice(0, 10);

@@ -32,6 +32,8 @@ export function scanAndDeduplicateExamItems(items: UnifiedItem[]): {
     if (item.id?.startsWith("task-exam-reminder-")) return false;
     if (item.metadata?.isExamReminder === true) return false;
     if (item.metadata?.linkedEventId) return false;
+    if (item.id === "evt-os-ia-exam-oct3") return false;
+    if (normalizeExamOrTaskTitle(item.title) === "osiaexam" && (item.startAt?.startsWith("2026-10-03") || item.dueAt?.startsWith("2026-10-03"))) return false;
     return true;
   });
 
