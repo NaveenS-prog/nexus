@@ -54,11 +54,18 @@ export function scanAndDeduplicateExamItems(items: UnifiedItem[]): {
   });
 
   // 3. Filter out any nexus/custom tasks that duplicate Google Calendar events
+  // Prioritize live Google Calendar API items (gcal-*) over any seeded fallback items (evt-*)
+  const sortedItems = [...rawCleaned].sort((a, b) => {
+    const aIsLive = a.id?.startsWith("gcal-") ? 2 : (a.source === "google_calendar" && !a.id?.startsWith("evt-") ? 1 : 0);
+    const bIsLive = b.id?.startsWith("gcal-") ? 2 : (b.source === "google_calendar" && !b.id?.startsWith("evt-") ? 1 : 0);
+    return bIsLive - aIsLive; // Real Google API items processed first!
+  });
+
   const deduplicated: UnifiedItem[] = [];
   const seenGcalSignatures = new Set<string>();
   const seenNexusSignatures = new Set<string>();
 
-  for (const item of rawCleaned) {
+  for (const item of sortedItems) {
     const normTitle = normalizeExamOrTaskTitle(item.title);
     const dateKey = (item.startAt || item.dueAt || "").slice(0, 10);
     const isGcal = item.source === "google_calendar" || item.category === "calendar";

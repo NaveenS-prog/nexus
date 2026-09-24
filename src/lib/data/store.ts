@@ -67,7 +67,7 @@ export const DEFAULT_EXAMS: UnifiedItem[] = [
     id: "evt-python-ia-exam-oct9",
     externalId: "python-ia-exam-oct9",
     source: "google_calendar",
-    title: "Python ia exam",
+    title: "Python IA exam",
     category: "academic",
     priority: "critical",
     status: "pending",
@@ -126,7 +126,7 @@ export function useNexusStore() {
           const parsed = JSON.parse(savedItems);
           if (Array.isArray(parsed)) {
             // Strip out ANY item that is a mock/demo item OR the hallucinated Oct 3 OS exam
-            const realOnly = parsed.filter(
+            let realOnly = parsed.filter(
               (i: any) =>
                 i.id !== "evt-os-ia-exam-oct3" &&
                 !(normalizeExamOrTaskTitle(i.title) === "osiaexam" && (i.startAt?.startsWith("2026-10-03") || i.dueAt?.startsWith("2026-10-03"))) &&
@@ -137,20 +137,44 @@ export function useNexusStore() {
                 !i.externalId?.startsWith("gcal-lunch")
             );
 
-            // Ensure all default exams (OS on Sep 29, COA, Python on Oct 9) are present if not already added
-            DEFAULT_EXAMS.forEach((defExam) => {
-              const defNorm = normalizeExamOrTaskTitle(defExam.title);
-              const defDate = defExam.startAt?.slice(0, 10);
-              if (
-                !realOnly.some(
-                  (i: any) =>
-                    i.id === defExam.id ||
-                    (normalizeExamOrTaskTitle(i.title) === defNorm && (!defDate || i.startAt?.slice(0, 10) === defDate))
-                )
-              ) {
-                realOnly.push(defExam);
+            // 1. Cleanse any stale lowercase "Python ia exam" cached in localStorage
+            realOnly = realOnly.map((i: any) => {
+              if (i.title === "Python ia exam") {
+                return { ...i, title: "Python IA exam" };
               }
+              return i;
             });
+
+            // 2. Prioritize live Google Calendar API items:
+            // If live Google Calendar events (gcal-*) are present, PURGE any seeded fallback evt-* items that duplicate them
+            const liveGcalEvents = realOnly.filter((i: any) => i.id?.startsWith("gcal-"));
+            if (liveGcalEvents.length > 0) {
+              const liveNormSignatures = new Set(
+                liveGcalEvents.map((i: any) => normalizeExamOrTaskTitle(i.title))
+              );
+              realOnly = realOnly.filter((i: any) => {
+                if (i.id?.startsWith("evt-")) {
+                  const norm = normalizeExamOrTaskTitle(i.title);
+                  if (liveNormSignatures.has(norm)) return false; // Google API event is source of truth!
+                }
+                return true;
+              });
+            } else {
+              // Only inject default fallback exams if NO live Google Calendar events are present yet
+              DEFAULT_EXAMS.forEach((defExam) => {
+                const defNorm = normalizeExamOrTaskTitle(defExam.title);
+                const defDate = defExam.startAt?.slice(0, 10);
+                if (
+                  !realOnly.some(
+                    (i: any) =>
+                      i.id === defExam.id ||
+                      (normalizeExamOrTaskTitle(i.title) === defNorm && (!defDate || i.startAt?.slice(0, 10) === defDate))
+                  )
+                ) {
+                  realOnly.push(defExam);
+                }
+              });
+            }
 
             // Automatically scan all events, deduplicate items and purge duplicate nexus tasks
             const { items: scannedItems } = scanAndAutoAssignExamTasks(realOnly);
@@ -326,11 +350,17 @@ export function useNexusStore() {
         const data = await res.json();
         if (data.items && data.items.length > 0) {
           // Purge all mock demo items once live items are received
+          const liveExamNorms = new Set(
+            data.items.filter((d: any) => d.id?.startsWith("gcal-")).map((d: any) => normalizeExamOrTaskTitle(d.title))
+          );
+
           const nonLiveItems = memoryState.items.filter((item) => {
-            if (item.id === DEFAULT_PYTHON_EXAM.id) return true; // Always preserve seeded Python IA exam
             if (item.id.startsWith("item-") && item.source !== "google_calendar") return false; // Strip out mock demo items!
             if (data.stats.googleTasks > 0 && item.id.startsWith("gtask-")) return false;
             if (data.stats.googleCalendar > 0 && item.id.startsWith("gcal-")) return false;
+            if (data.stats.googleCalendar > 0 && item.id.startsWith("evt-") && liveExamNorms.has(normalizeExamOrTaskTitle(item.title))) {
+              return false; // Google Calendar API event supersedes seeded fallback!
+            }
             if (data.stats.notion > 0 && item.id.startsWith("notion-")) return false;
             return true;
           });
