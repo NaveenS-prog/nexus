@@ -435,19 +435,40 @@ export function CommandPalette({ isOpen, onClose, onOpenBrainDump }: CommandPale
               </Command.Item>
             </Command.Group>
 
-            {/* Tasks search */}
-            <Command.Group heading="Active Items">
-              {items.slice(0, 5).map((item) => (
+            {/* Scheduled Examinations */}
+            {items.some(isExamItem) && (
+              <Command.Group heading="Scheduled Examinations">
+                {items.filter(isExamItem).slice(0, 4).map((item) => (
+                  <Command.Item
+                    key={item.id}
+                    onSelect={() => handleSelect(() => router.push("/academics"))}
+                    className="flex items-center justify-between px-3 py-2 rounded-md text-xs text-zinc-300 hover:bg-zinc-900 hover:text-white cursor-pointer transition-colors"
+                  >
+                    <div className="flex items-center gap-2 truncate">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                      <span className="truncate font-medium">{item.title}</span>
+                    </div>
+                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 uppercase font-bold shrink-0">
+                      EXAM
+                    </span>
+                  </Command.Item>
+                ))}
+              </Command.Group>
+            )}
+
+            {/* Active Tasks search */}
+            <Command.Group heading="Active Tasks & Deliverables">
+              {items.filter((i) => !isExamItem(i)).slice(0, 5).map((item) => (
                 <Command.Item
                   key={item.id}
                   onSelect={() => handleSelect(() => router.push("/tasks"))}
                   className="flex items-center justify-between px-3 py-2 rounded-md text-xs text-zinc-300 hover:bg-zinc-900 hover:text-white cursor-pointer transition-colors"
                 >
                   <div className="flex items-center gap-2 truncate">
-                    <span className="w-1.5 h-1.5 rounded-full bg-white" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-white shrink-0" />
                     <span className="truncate">{item.title}</span>
                   </div>
-                  <span className="text-[10px] text-zinc-500 uppercase">{item.source.replace("_", " ")}</span>
+                  <span className="text-[10px] text-zinc-500 uppercase shrink-0">{item.source.replace("_", " ")}</span>
                 </Command.Item>
               ))}
             </Command.Group>

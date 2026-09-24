@@ -331,6 +331,44 @@ export function isExamItem(item: {
 }
 
 /**
+ * Intelligent Course Inference:
+ * Extracts or infers standardized course names and codes from titles, descriptions, or existing fields.
+ */
+export function inferCourseFromItem(item: {
+  title: string;
+  description?: string;
+  courseName?: string;
+}): string | undefined {
+  if (item.courseName?.trim()) return item.courseName.trim();
+  const text = `${item.title} ${item.description || ""}`.toLowerCase();
+
+  if (/\b(?:os|operating\s+systems?)\b/i.test(text)) return "Operating Systems (OS)";
+  if (/\b(?:coa|computer\s+org(?:anization)?|computer\s+architecture)\b/i.test(text)) return "Computer Org & Architecture (COA)";
+  if (/\b(?:python|py\b|python\s+programming)\b/i.test(text)) return "Python Programming";
+  if (/\b(?:cn|networks?|computer\s+networks?)\b/i.test(text)) return "Computer Networks (CN)";
+  if (/\b(?:dbms|database|sql)\b/i.test(text)) return "Database Management Systems (DBMS)";
+  if (/\b(?:dsa|data\s+structures?|algorithms?)\b/i.test(text)) return "Data Structures & Algorithms (DSA)";
+  if (/\b(?:bfe|biology\s+for\s+engineers?)\b/i.test(text)) return "Biology for Engineers (BFE)";
+  if (/\b(?:se|software\s+eng(?:ineering)?)\b/i.test(text)) return "Software Engineering (SE)";
+  if (/\b(?:math|calculus|discrete\s+math)\b/i.test(text)) return "Engineering Mathematics";
+
+  return undefined;
+}
+
+/**
+ * Categorizes the type of examination (IA, Semester, Practical, Viva, Quiz).
+ */
+export function getExamTypeLabel(title: string): string {
+  const lower = title.toLowerCase();
+  if (/\b(?:ia|cia|cat|internals?)\b/i.test(lower)) return "Internal Assessment (IA)";
+  if (/\b(?:viva|oral)\b/i.test(lower)) return "Viva Voce Examination";
+  if (/\b(?:practical|lab)\b/i.test(lower)) return "Practical / Lab Exam";
+  if (/\b(?:semester|endsem|finals?)\b/i.test(lower)) return "Final Semester Exam";
+  if (/\b(?:quiz|test)\b/i.test(lower)) return "Course Quiz / Test";
+  return "Academic Examination";
+}
+
+/**
  * Helper to get the SmartDomain of any item.
  */
 export function getSmartDomain(item: {

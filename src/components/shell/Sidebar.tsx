@@ -14,16 +14,38 @@ import {
 } from "lucide-react";
 import { useNexusStore } from "@/lib/data/store";
 import { cn } from "@/components/ui/badge";
+import { useMemo } from "react";
+import { isExamItem, isActionableTaskOrAssignment } from "@/lib/nlp/itemClassifier";
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { isSyncing, lastSyncedText, syncAll } = useNexusStore();
+  const { isSyncing, lastSyncedText, syncAll, items } = useNexusStore();
+
+  const examsCount = useMemo(() => {
+    return items.filter((i) => isExamItem(i) && i.status !== "completed").length;
+  }, [items]);
+
+  const tasksCount = useMemo(() => {
+    return items.filter((i) => isActionableTaskOrAssignment(i) && i.status !== "completed").length;
+  }, [items]);
 
   const mainNav = [
     { label: "Command Center", href: "/", icon: Compass },
-    { label: "Tasks", href: "/tasks", icon: CheckSquare },
+    { 
+      label: "Tasks", 
+      href: "/tasks", 
+      icon: CheckSquare,
+      badge: tasksCount > 0 ? String(tasksCount) : undefined,
+      badgeType: "neutral" as const,
+    },
     { label: "Calendar", href: "/calendar", icon: CalendarIcon },
-    { label: "Academics", href: "/academics", icon: GraduationCap },
+    { 
+      label: "Academics", 
+      href: "/academics", 
+      icon: GraduationCap,
+      badge: examsCount > 0 ? `${examsCount} exams` : undefined,
+      badgeType: "exam" as const,
+    },
     { label: "Projects", href: "/projects", icon: Rocket },
     { label: "Analytics", href: "/analytics", icon: BarChart3 },
   ];
@@ -69,6 +91,23 @@ export function Sidebar() {
               >
                 <Icon className={cn("w-4 h-4 transition-colors", isActive ? "text-black" : "text-zinc-400 group-hover:text-white")} />
                 <span>{item.label}</span>
+
+                {item.badge && (
+                  <span
+                    className={cn(
+                      "ml-auto text-[9px] font-mono px-1.5 py-0.5 rounded-full font-bold",
+                      item.badgeType === "exam"
+                        ? isActive
+                          ? "bg-rose-900 text-rose-100"
+                          : "bg-rose-950 text-rose-300 border border-rose-800/80"
+                        : isActive
+                        ? "bg-black text-white"
+                        : "bg-zinc-800 text-zinc-400"
+                    )}
+                  >
+                    {item.badge}
+                  </span>
+                )}
               </Link>
             );
           })}

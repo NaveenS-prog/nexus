@@ -25,6 +25,7 @@ import { ItemDetailDrawer } from "@/components/dashboard/ItemDetailDrawer";
 import { CreateEventModal } from "@/components/calendar/CreateEventModal";
 import { UnifiedItem } from "@/lib/types";
 import { findAllFreeSlots } from "@/lib/calendar/slotFinder";
+import { smartTriageItem, isExamItem, getDomainBadgeProps } from "@/lib/nlp/itemClassifier";
 import { 
   format, 
   addDays, 
@@ -32,7 +33,7 @@ import {
   isSameDay, 
   parseISO, 
   startOfWeek, 
-  isToday,
+  isToday, 
   addMinutes,
   subMinutes
 } from "date-fns";
@@ -43,7 +44,7 @@ export default function CalendarPage() {
   const { items, addItem, toggleItemCompletion, deleteItem, syncAll, isSyncing, purgeDemoData } = useNexusStore();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [viewMode, setViewMode] = useState<"day" | "week">("day");
-  const [filterType, setFilterType] = useState<"events" | "all">("events");
+  const [filterType, setFilterType] = useState<"events" | "exams" | "classes" | "personal" | "all">("events");
   const [selectedItem, setSelectedItem] = useState<UnifiedItem | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [slotFeedback, setSlotFeedback] = useState<string | null>(null);
@@ -71,18 +72,29 @@ export default function CalendarPage() {
     return items.some((i) => i.id.startsWith("item-"));
   }, [items]);
 
-  // Filter items for calendar display: hides mock demo items when live data exists, and filters by event vs all
+  // Autonomous Filter items for calendar display
   const calendarItems = useMemo(() => {
     return items.filter((item) => {
       // If live items exist, strip out mock demo items
       if (hasLiveItems && item.id.startsWith("item-")) {
         return false;
       }
-      // If "Events Only" mode is active (default), only show calendar events
-      if (filterType === "events") {
-        return item.category === "calendar" || item.source === "google_calendar";
+      const triage = smartTriageItem(item);
+      const isExam = isExamItem(item) || triage.domain === "exam" || item.tags?.includes("Exam");
+
+      if (filterType === "exams") {
+        return isExam;
       }
-      return true;
+      if (filterType === "classes") {
+        return triage.domain === "class_lecture";
+      }
+      if (filterType === "personal") {
+        return triage.domain === "personal";
+      }
+      if (filterType === "events") {
+        return item.category === "calendar" || item.source === "google_calendar" || isExam;
+      }
+      return true; // "all"
     });
   }, [items, hasLiveItems, filterType]);
 
@@ -341,29 +353,62 @@ export default function CalendarPage() {
 
         {/* Date Navigation & View Toggle */}
         <div className="flex flex-wrap items-center gap-2">
-          {/* Filter Toggle: Events Only vs All */}
-          <div className="flex items-center bg-zinc-950 border border-zinc-800 rounded-lg p-0.5 text-xs">
+          {/* Filter Toggle: Events, Exams, Classes, Personal, All */}
+          <div className="flex items-center bg-zinc-950 border border-zinc-800 rounded-lg p-0.5 text-xs overflow-x-auto">
             <button
               onClick={() => setFilterType("events")}
-              className={`px-3 py-1 rounded text-xs font-medium transition-all ${
+              className={`px-2.5 py-1 rounded text-xs font-medium transition-all ${
                 filterType === "events" 
                   ? "bg-white text-black font-semibold shadow-sm" 
                   : "text-zinc-400 hover:text-white"
               }`}
-              title="Show only Google Calendar events"
+              title="Show all calendar events"
             >
-              Events Only
+              Events
+            </button>
+            <button
+              onClick={() => setFilterType("exams")}
+              className={`px-2.5 py-1 rounded text-xs font-medium transition-all ${
+                filterType === "exams" 
+                  ? "bg-rose-500 text-white font-semibold shadow-sm" 
+                  : "text-zinc-400 hover:text-rose-300"
+              }`}
+              title="Filter to Examinations and Tests"
+            >
+              Exams
+            </button>
+            <button
+              onClick={() => setFilterType("classes")}
+              className={`px-2.5 py-1 rounded text-xs font-medium transition-all ${
+                filterType === "classes" 
+                  ? "bg-purple-600 text-white font-semibold shadow-sm" 
+                  : "text-zinc-400 hover:text-purple-300"
+              }`}
+              title="Filter to Timetable Lectures & Classes"
+            >
+              Classes
+            </button>
+            <button
+              onClick={() => setFilterType("personal")}
+              className={`px-2.5 py-1 rounded text-xs font-medium transition-all ${
+                filterType === "personal" 
+                  ? "bg-emerald-600 text-white font-semibold shadow-sm" 
+                  : "text-zinc-400 hover:text-emerald-300"
+              }`}
+              title="Filter to Personal Life and Errands"
+            >
+              Personal
             </button>
             <button
               onClick={() => setFilterType("all")}
-              className={`px-3 py-1 rounded text-xs font-medium transition-all ${
+              className={`px-2.5 py-1 rounded text-xs font-medium transition-all ${
                 filterType === "all" 
                   ? "bg-white text-black font-semibold shadow-sm" 
                   : "text-zinc-400 hover:text-white"
               }`}
-              title="Show events and tasks with due dates"
+              title="Show all events, exams, and tasks"
             >
-              All (Events + Tasks)
+              All
             </button>
           </div>
 
@@ -661,17 +706,36 @@ export default function CalendarPage() {
                   {positionedEvents.map((ev) => {
                     const timeStr = formatEventTime(ev.item);
                     const isCalendar = ev.item.category === "calendar" || ev.item.source === "google_calendar";
+                    const triage = smartTriageItem(ev.item);
+                    const isExam = isExamItem(ev.item) || triage.domain === "exam" || ev.item.tags?.includes("Exam");
+                    const isClass = triage.domain === "class_lecture";
                     const isStudyBlock = ev.item.title === "Study Block" || ev.item.title === "Focus Block" || ev.item.description?.includes("Study Block") || ev.item.description?.includes("Focus Block");
-                    const isCritical = ev.item.priority === "critical" || ev.item.priority === "high";
 
-                    // Color scheme matching Google Calendar / Linear style
+                    // Autonomous Domain Color Scheme & Glow
                     let colorStyle = "bg-sky-950/80 border-sky-800 hover:border-sky-400 text-sky-100 border-l-sky-500";
-                    if (isStudyBlock) {
+                    let domainBadgeLabel = isCalendar ? "CALENDAR" : "TASK";
+                    let domainBadgeClass = "bg-zinc-800/80 text-zinc-300 border-zinc-700";
+
+                    if (isExam) {
+                      colorStyle = "bg-rose-950/90 border-rose-800 hover:border-rose-400 text-rose-100 border-l-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.15)]";
+                      domainBadgeLabel = "EXAM";
+                      domainBadgeClass = "bg-rose-500/20 text-rose-300 border-rose-500/50 font-bold";
+                    } else if (isClass) {
+                      colorStyle = "bg-purple-950/80 border-purple-800 hover:border-purple-400 text-purple-100 border-l-purple-500";
+                      domainBadgeLabel = "CLASS";
+                      domainBadgeClass = "bg-purple-900/60 text-purple-300 border-purple-700 font-bold";
+                    } else if (isStudyBlock) {
                       colorStyle = "bg-emerald-950/80 border-emerald-800 hover:border-emerald-400 text-emerald-100 border-l-emerald-500";
-                    } else if (isCritical) {
-                      colorStyle = "bg-rose-950/80 border-rose-800 hover:border-rose-400 text-rose-100 border-l-rose-500";
-                    } else if (!isCalendar) {
-                      colorStyle = "bg-indigo-950/80 border-indigo-800 hover:border-indigo-400 text-indigo-100 border-l-indigo-500";
+                      domainBadgeLabel = "STUDY";
+                      domainBadgeClass = "bg-emerald-900/60 text-emerald-300 border-emerald-700 font-bold";
+                    } else if (triage.domain === "personal") {
+                      colorStyle = "bg-teal-950/80 border-teal-800 hover:border-teal-400 text-teal-100 border-l-teal-500";
+                      domainBadgeLabel = "PERSONAL";
+                      domainBadgeClass = "bg-teal-900/60 text-teal-300 border-teal-700 font-bold";
+                    } else if (triage.domain === "project_dev") {
+                      colorStyle = "bg-amber-950/80 border-amber-800 hover:border-amber-400 text-amber-100 border-l-amber-500";
+                      domainBadgeLabel = "DEV";
+                      domainBadgeClass = "bg-amber-900/60 text-amber-300 border-amber-700 font-bold";
                     }
 
                     const isTall = ev.height >= 64;
@@ -697,12 +761,9 @@ export default function CalendarPage() {
                                   <span className="font-semibold text-xs text-white truncate group-hover:underline">
                                     {ev.item.title}
                                   </span>
-                                  <Badge
-                                    variant={isCalendar ? "default" : "secondary"}
-                                    className="text-[10px] px-1.5 py-0 h-4 hidden sm:inline-flex"
-                                  >
-                                    {isCalendar ? "Calendar" : "Task"}
-                                  </Badge>
+                                  <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded border uppercase hidden sm:inline-flex ${domainBadgeClass}`}>
+                                    {domainBadgeLabel}
+                                  </span>
                                 </div>
 
                                 {ev.item.url && (
@@ -827,21 +888,35 @@ export default function CalendarPage() {
 
                 {/* Day Events Count & Mini List */}
                 <div className="flex-1 space-y-1.5 min-h-[120px]">
-                  {itemsForDay.slice(0, 4).map((item) => (
-                    <div
-                      key={item.id}
-                      className="p-1.5 rounded bg-zinc-900 border border-zinc-800 text-[11px] truncate text-zinc-300 hover:text-white"
-                    >
-                      <span className="truncate block font-medium">{item.title}</span>
-                      <span className="text-[10px] text-zinc-500 font-mono">
-                        {item.startAt && item.dueAt 
-                          ? `${format(parseISO(item.startAt), "hh:mm a")} - ${format(parseISO(item.dueAt), "hh:mm a")}`
-                          : item.startAt 
-                            ? format(parseISO(item.startAt), "hh:mm a") 
-                            : "All Day"}
-                      </span>
-                    </div>
-                  ))}
+                  {itemsForDay.slice(0, 4).map((item) => {
+                    const isExam = isExamItem(item) || smartTriageItem(item).domain === "exam" || item.tags?.includes("Exam");
+                    return (
+                      <div
+                        key={item.id}
+                        className={`p-1.5 rounded text-[11px] truncate transition-colors ${
+                          isExam
+                            ? "bg-rose-950/70 border border-rose-800/80 text-rose-200 hover:text-white shadow-sm"
+                            : "bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white"
+                        }`}
+                      >
+                        <div className="flex items-center gap-1 min-w-0">
+                          {isExam && (
+                            <span className="text-[8px] font-mono px-1 py-0 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold shrink-0">
+                              EXAM
+                            </span>
+                          )}
+                          <span className="truncate block font-medium">{item.title}</span>
+                        </div>
+                        <span className="text-[10px] text-zinc-500 font-mono">
+                          {item.startAt && item.dueAt 
+                            ? `${format(parseISO(item.startAt), "hh:mm a")} - ${format(parseISO(item.dueAt), "hh:mm a")}`
+                            : item.startAt 
+                              ? format(parseISO(item.startAt), "hh:mm a") 
+                              : "All Day"}
+                        </span>
+                      </div>
+                    );
+                  })}
 
                   {itemsForDay.length > 4 && (
                     <span className="text-[10px] text-zinc-500 font-mono block pt-1">
