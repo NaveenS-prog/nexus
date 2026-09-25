@@ -40,8 +40,8 @@ export default function TasksPage() {
   // Filter items
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
-      // Don't show timetable classes/lectures in tasks view unless in class or calendar filter
-      if (!isActionableTaskOrAssignment(item) && selectedFilter !== "calendar" && selectedFilter !== "class_lecture") {
+      // Don't show timetable classes/lectures in tasks view
+      if (!isActionableTaskOrAssignment(item) || smartTriageItem(item).domain === "class_lecture") {
         return false;
       }
 
@@ -63,9 +63,6 @@ export default function TasksPage() {
       }
       if (selectedFilter === "project_dev") {
         return smartTriageItem(item).domain === "project_dev";
-      }
-      if (selectedFilter === "class_lecture") {
-        return smartTriageItem(item).domain === "class_lecture";
       }
       if (selectedFilter === "pending") return item.status !== "completed";
       if (selectedFilter === "completed") return item.status === "completed";
@@ -180,7 +177,6 @@ export default function TasksPage() {
           { id: "assignment", label: "Assignments" },
           { id: "personal", label: "Personal" },
           { id: "project_dev", label: "Projects & Dev" },
-          { id: "class_lecture", label: "Classes" },
           { id: "pending", label: "Pending" },
           { id: "completed", label: "Completed" },
         ].map((tab) => (

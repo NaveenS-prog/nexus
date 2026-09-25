@@ -43,24 +43,26 @@ export function SmartLifeTriageCard({
 }: SmartLifeTriageCardProps) {
   const [selectedDomain, setSelectedDomain] = useState<FilterDomain>("all");
 
-  // Run autonomous smart triage on all items
+  // Run autonomous smart triage on all items (excluding timetable class lectures)
   const triagedList = useMemo(() => {
-    return items.map((item) => {
-      const triage = smartTriageItem({
-        title: item.title,
-        description: item.description,
-        source: item.source,
-        category: item.category,
-        location: item.metadata?.location,
-        dueAt: item.dueAt,
-        startAt: item.startAt,
-      });
+    return items
+      .map((item) => {
+        const triage = smartTriageItem({
+          title: item.title,
+          description: item.description,
+          source: item.source,
+          category: item.category,
+          location: item.metadata?.location,
+          dueAt: item.dueAt,
+          startAt: item.startAt,
+        });
 
-      return {
-        item,
-        triage,
-      };
-    });
+        return {
+          item,
+          triage,
+        };
+      })
+      .filter(({ triage }) => triage.domain !== "class_lecture");
   }, [items]);
 
   // Aggregate counts by domain for pending/active items
@@ -69,7 +71,6 @@ export function SmartLifeTriageCard({
       all: 0,
       exam: 0,
       assignment: 0,
-      class_lecture: 0,
       personal: 0,
       project_dev: 0,
       meeting: 0,
@@ -78,7 +79,9 @@ export function SmartLifeTriageCard({
     for (const { item, triage } of triagedList) {
       if (item.status !== "completed") {
         counts.all += 1;
-        counts[triage.domain] += 1;
+        if (triage.domain in counts) {
+          counts[triage.domain as keyof typeof counts] += 1;
+        }
       }
     }
 
@@ -114,7 +117,7 @@ export function SmartLifeTriageCard({
               </span>
             </div>
             <p className="text-[11px] text-zinc-400 mt-0.5">
-              Zero manual organizing. NEXUS automatically sorts exams, assignments, classes, personal tasks, and projects.
+              Zero manual organizing. NEXUS automatically sorts exams, assignments, personal tasks, and projects.
             </p>
           </div>
         </div>
@@ -175,23 +178,6 @@ export function SmartLifeTriageCard({
           <span>Assignments</span>
           <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-blue-500/20 text-blue-300 border border-blue-500/40">
             {domainCounts.assignment}
-          </span>
-        </button>
-
-        {/* Classes Pill */}
-        <button
-          type="button"
-          onClick={() => setSelectedDomain("class_lecture")}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all shrink-0 cursor-pointer ${
-            selectedDomain === "class_lecture"
-              ? "bg-purple-500/30 text-purple-200 border border-purple-500/60 font-semibold shadow-sm"
-              : "bg-zinc-900 border border-zinc-800 text-zinc-400 hover:text-purple-300 hover:border-purple-900"
-          }`}
-        >
-          <CalendarIcon className="w-3.5 h-3.5 text-purple-400" />
-          <span>Classes</span>
-          <span className="text-[10px] font-mono px-1.5 py-0.2 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/40">
-            {domainCounts.class_lecture}
           </span>
         </button>
 
