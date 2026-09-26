@@ -238,7 +238,7 @@ export default function AcademicsPage() {
 
         {exams.length === 0 ? (
           <div className="p-8 rounded-xl border border-zinc-800 bg-zinc-950 text-center text-xs text-zinc-500">
-            No examinations scheduled. Use the Quick Add or Calendar to add an exam.
+            No examinations detected. Connect and sync your Google Calendar in Settings to automatically populate your exam radar.
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

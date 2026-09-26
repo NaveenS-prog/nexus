@@ -24,13 +24,14 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
 export default function SettingsPage() {
-  const { integrations, syncAll, isSyncing, purgeDemoData, resetToDemo, mode, setMode, isLiveSynced } = useNexusStore();
+  const { integrations, syncAll, isSyncing, purgeDemoData, resetToDemo, disconnectGoogle, mode, setMode, isLiveSynced } = useNexusStore();
   
   // Credentials state
   const [googleClientId, setGoogleClientId] = useState("");
   const [googleClientSecret, setGoogleClientSecret] = useState("");
   const [googleRefreshToken, setGoogleRefreshToken] = useState("");
   const [googleAccessToken, setGoogleAccessToken] = useState("");
+  const [serverGoogleConfigured, setServerGoogleConfigured] = useState(false);
   
   const [notionApiKey, setNotionApiKey] = useState("");
   const [notionDatabaseId, setNotionDatabaseId] = useState("");
@@ -90,7 +91,9 @@ export default function SettingsPage() {
     fetch("/api/integrations/status")
       .then((res) => res.json())
       .then((data) => {
-        // Can be used to set status flags
+        if (data.google?.hasClientId) {
+          setServerGoogleConfigured(true);
+        }
       })
       .catch((err) => console.error("Error fetching status:", err));
   }, []);
@@ -357,6 +360,15 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="flex items-center gap-2.5 self-end sm:self-center">
+                  {(googleClientId || serverGoogleConfigured) && (
+                    <a
+                      href={googleClientId ? `/api/auth/google?client_id=${encodeURIComponent(googleClientId.trim())}&client_secret=${encodeURIComponent(googleClientSecret.trim())}` : `/api/auth/google`}
+                      className="px-3 py-1.5 rounded-md bg-white text-black font-semibold hover:bg-zinc-200 transition-colors flex items-center gap-1.5 text-xs shadow-sm"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5" />
+                      <span>{googleRefreshToken || googleAccessToken ? "Switch Account" : "Connect Google"}</span>
+                    </a>
+                  )}
                   <Button
                     onClick={() => setActiveConfigTab("google")}
                     variant="outline"
@@ -364,7 +376,7 @@ export default function SettingsPage() {
                     className="text-xs h-8 border-zinc-700 hover:border-white"
                   >
                     <Key className="w-3.5 h-3.5 mr-1.5" />
-                    Enter Tokens / OAuth
+                    {googleRefreshToken || googleAccessToken ? "Manage Keys" : "Manual Keys"}
                   </Button>
                 </div>
               </div>
@@ -480,15 +492,38 @@ export default function SettingsPage() {
             </div>
 
             <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-zinc-800">
-              {googleClientId && (
-                <a
-                  href={`/api/auth/google?client_id=${encodeURIComponent(googleClientId.trim())}&client_secret=${encodeURIComponent(googleClientSecret.trim())}`}
-                  className="px-4 py-2 rounded-md bg-white text-black font-semibold hover:bg-zinc-200 transition-colors flex items-center gap-2 text-xs shadow-md"
-                >
-                  <ExternalLink className="w-3.5 h-3.5" />
-                  <span>Connect with Google Account (OAuth)</span>
-                </a>
-              )}
+              <div className="flex flex-wrap items-center gap-2">
+                {(googleClientId || serverGoogleConfigured) && (
+                  <a
+                    href={googleClientId ? `/api/auth/google?client_id=${encodeURIComponent(googleClientId.trim())}&client_secret=${encodeURIComponent(googleClientSecret.trim())}` : `/api/auth/google`}
+                    className="px-4 py-2 rounded-md bg-white text-black font-semibold hover:bg-zinc-200 transition-colors flex items-center gap-2 text-xs shadow-md"
+                  >
+                    <ExternalLink className="w-3.5 h-3.5" />
+                    <span>{googleRefreshToken || googleAccessToken ? "Switch / Reconnect Google (OAuth)" : "Connect with Google Account (OAuth)"}</span>
+                  </a>
+                )}
+
+                {(googleRefreshToken || googleAccessToken) && (
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    onClick={async () => {
+                      if (confirm("Disconnect Google Account and remove all synced calendar items from this device?")) {
+                        await disconnectGoogle();
+                        setGoogleAccessToken("");
+                        setGoogleRefreshToken("");
+                        setStatusMsg("Google Account disconnected and calendar events cleared.");
+                        setTimeout(() => setStatusMsg(""), 4000);
+                      }
+                    }}
+                    className="text-xs h-8"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                    <span>Disconnect Google</span>
+                  </Button>
+                )}
+              </div>
 
               <div className="flex items-center gap-2 ml-auto">
                 <Button variant="ghost" size="sm" type="button" onClick={() => setActiveConfigTab("overview")}>

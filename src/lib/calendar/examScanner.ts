@@ -27,13 +27,12 @@ export function scanAndDeduplicateExamItems(items: UnifiedItem[]): {
   items: UnifiedItem[];
   createdCount: number;
 } {
-  // 1. Purge any auto-spawned duplicate reminder tasks
+  // 1. Purge any auto-spawned duplicate reminder tasks and legacy fallback items
   const rawCleaned = items.filter((item) => {
     if (item.id?.startsWith("task-exam-reminder-")) return false;
     if (item.metadata?.isExamReminder === true) return false;
     if (item.metadata?.linkedEventId) return false;
-    if (item.id === "evt-os-ia-exam-oct3") return false;
-    if (normalizeExamOrTaskTitle(item.title) === "osiaexam" && (item.startAt?.startsWith("2026-10-03") || item.dueAt?.startsWith("2026-10-03"))) return false;
+    if (item.id?.startsWith("evt-")) return false; // Purge all legacy hardcoded fallback events
     return true;
   });
 
@@ -54,10 +53,10 @@ export function scanAndDeduplicateExamItems(items: UnifiedItem[]): {
   });
 
   // 3. Filter out any nexus/custom tasks that duplicate Google Calendar events
-  // Prioritize live Google Calendar API items (gcal-*) over any seeded fallback items (evt-*)
+  // Prioritize live Google Calendar API items (gcal-*)
   const sortedItems = [...rawCleaned].sort((a, b) => {
-    const aIsLive = a.id?.startsWith("gcal-") ? 2 : (a.source === "google_calendar" && !a.id?.startsWith("evt-") ? 1 : 0);
-    const bIsLive = b.id?.startsWith("gcal-") ? 2 : (b.source === "google_calendar" && !b.id?.startsWith("evt-") ? 1 : 0);
+    const aIsLive = a.id?.startsWith("gcal-") ? 2 : (a.source === "google_calendar" ? 1 : 0);
+    const bIsLive = b.id?.startsWith("gcal-") ? 2 : (b.source === "google_calendar" ? 1 : 0);
     return bIsLive - aIsLive; // Real Google API items processed first!
   });
 

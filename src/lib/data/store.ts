@@ -28,64 +28,6 @@ const STORAGE_KEY_FOCUS = "nexus_focus_sessions_v1";
 const STORAGE_KEY_NOTIFS = "nexus_notifications_v1";
 const STORAGE_KEY_IS_LIVE = "nexus_is_live_v1";
 
-export const DEFAULT_EXAMS: UnifiedItem[] = [
-  {
-    id: "evt-os-ia-exam-sep29",
-    externalId: "os-ia-exam-sep29",
-    source: "google_calendar",
-    title: "OS IA exam",
-    category: "academic",
-    priority: "critical",
-    status: "pending",
-    smartDomain: "exam",
-    startAt: "2026-09-29T09:00:00",
-    dueAt: "2026-09-29T11:00:00",
-    estimatedMinutes: 120,
-    tags: ["Exam", "Calendar", "Academic"],
-    metadata: { location: "Hall 114 B" },
-    createdAt: "2026-09-24T00:00:00.000Z",
-    updatedAt: "2026-09-24T00:00:00.000Z",
-  },
-  {
-    id: "evt-coa-ia-exam-oct6",
-    externalId: "coa-ia-exam-oct6",
-    source: "google_calendar",
-    title: "COA IA exam",
-    category: "academic",
-    priority: "critical",
-    status: "pending",
-    smartDomain: "exam",
-    startAt: "2026-10-06T09:00:00",
-    dueAt: "2026-10-06T11:00:00",
-    estimatedMinutes: 120,
-    tags: ["Exam", "Calendar", "Academic"],
-    metadata: { location: "Hall 125B" },
-    createdAt: "2026-09-24T00:00:00.000Z",
-    updatedAt: "2026-09-24T00:00:00.000Z",
-  },
-  {
-    id: "evt-python-ia-exam-oct9",
-    externalId: "python-ia-exam-oct9",
-    source: "google_calendar",
-    title: "Python IA exam",
-    category: "academic",
-    priority: "critical",
-    status: "pending",
-    smartDomain: "exam",
-    startAt: "2026-10-09T00:00:00",
-    dueAt: "2026-10-09T23:59:59",
-    estimatedMinutes: 90,
-    tags: ["Exam", "Calendar", "All Day", "Academic"],
-    metadata: { isAllDay: true },
-    createdAt: "2026-09-24T00:00:00.000Z",
-    updatedAt: "2026-09-24T00:00:00.000Z",
-  },
-];
-
-export const DEFAULT_PYTHON_EXAM = DEFAULT_EXAMS[2];
-
-const initialScannedItems = scanAndAutoAssignExamTasks(DEFAULT_EXAMS).items;
-
 let memoryState: {
   items: UnifiedItem[];
   projects: Project[];
@@ -99,7 +41,7 @@ let memoryState: {
   syncError?: string;
   needsReauth?: boolean;
 } = {
-  items: initialScannedItems,
+  items: [],
   projects: [],
   mode: "default",
   notifications: [],
@@ -107,7 +49,7 @@ let memoryState: {
   integrations: MOCK_INTEGRATIONS,
   isSyncing: false,
   lastSyncedText: "Never",
-  isLiveSynced: true,
+  isLiveSynced: false,
   syncError: undefined,
   needsReauth: false,
 };
@@ -129,11 +71,10 @@ export function useNexusStore() {
         if (savedItems) {
           const parsed = JSON.parse(savedItems);
           if (Array.isArray(parsed)) {
-            // Strip out ANY item that is a mock/demo item OR the hallucinated Oct 3 OS exam
-            let realOnly = parsed.filter(
+            // Strip out ANY legacy hardcoded fallback items (evt-*), demo items, or mock items
+            const realOnly = parsed.filter(
               (i: any) =>
-                i.id !== "evt-os-ia-exam-oct3" &&
-                !(normalizeExamOrTaskTitle(i.title) === "osiaexam" && (i.startAt?.startsWith("2026-10-03") || i.dueAt?.startsWith("2026-10-03"))) &&
+                !i.id?.startsWith("evt-") &&
                 !/^item-[0-9]{1,3}$/.test(i.id || "") &&
                 !i.id?.startsWith("mock-") &&
                 !i.externalId?.startsWith("gcal-os-class") &&
@@ -141,55 +82,15 @@ export function useNexusStore() {
                 !i.externalId?.startsWith("gcal-lunch")
             );
 
-            // 1. Cleanse any stale lowercase "Python ia exam" cached in localStorage
-            realOnly = realOnly.map((i: any) => {
-              if (i.title === "Python ia exam") {
-                return { ...i, title: "Python IA exam" };
-              }
-              return i;
-            });
-
-            // 2. Prioritize live Google Calendar API items:
-            // If live Google Calendar events (gcal-*) are present, PURGE any seeded fallback evt-* items that duplicate them
-            const liveGcalEvents = realOnly.filter((i: any) => i.id?.startsWith("gcal-"));
-            if (liveGcalEvents.length > 0) {
-              const liveNormSignatures = new Set(
-                liveGcalEvents.map((i: any) => normalizeExamOrTaskTitle(i.title))
-              );
-              realOnly = realOnly.filter((i: any) => {
-                if (i.id?.startsWith("evt-")) {
-                  const norm = normalizeExamOrTaskTitle(i.title);
-                  if (liveNormSignatures.has(norm)) return false; // Google API event is source of truth!
-                }
-                return true;
-              });
-            } else {
-              // Only inject default fallback exams if NO live Google Calendar events are present yet
-              DEFAULT_EXAMS.forEach((defExam) => {
-                const defNorm = normalizeExamOrTaskTitle(defExam.title);
-                const defDate = defExam.startAt?.slice(0, 10);
-                if (
-                  !realOnly.some(
-                    (i: any) =>
-                      i.id === defExam.id ||
-                      (normalizeExamOrTaskTitle(i.title) === defNorm && (!defDate || i.startAt?.slice(0, 10) === defDate))
-                  )
-                ) {
-                  realOnly.push(defExam);
-                }
-              });
-            }
-
-            // Automatically scan all events, deduplicate items and purge duplicate nexus tasks
+            // Automatically scan all real events, deduplicate items and purge duplicate tasks
             const { items: scannedItems } = scanAndAutoAssignExamTasks(realOnly);
 
             memoryState.items = scannedItems;
             localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(scannedItems));
           }
         } else {
-          const { items: scannedDefaults } = scanAndAutoAssignExamTasks(DEFAULT_EXAMS);
-          memoryState.items = scannedDefaults;
-          localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(scannedDefaults));
+          // Zero hardcoded items: start completely empty for clean/new accounts
+          memoryState.items = [];
         }
 
         const savedProjects = localStorage.getItem(STORAGE_KEY_PROJECTS);
@@ -287,7 +188,7 @@ export function useNexusStore() {
 
     const mergedTags = Array.from(new Set([...(item.tags || []), ...triage.tags]));
 
-    const idPrefix = item.source === "google_calendar" ? "evt" : "nexus-task";
+    const idPrefix = item.source === "google_calendar" ? "manual-calendar" : "nexus-task";
     const newItem: UnifiedItem = {
       ...item,
       category: autoCategory,
@@ -382,19 +283,28 @@ export function useNexusStore() {
 
         // 3. Process live items from Google Calendar / Tasks / Notion
         if (data.items && Array.isArray(data.items)) {
-          // Purge all mock demo items once live items are received
-          const liveExamNorms = new Set(
-            data.items.filter((d: any) => d.id?.startsWith("gcal-")).map((d: any) => normalizeExamOrTaskTitle(d.title))
-          );
+          const gcalSynced = !data.errors?.some((e: string) => e.toLowerCase().includes("calendar"));
+          const gtasksSynced = !data.errors?.some((e: string) => e.toLowerCase().includes("tasks"));
+          const notionSynced = !data.errors?.some((e: string) => e.toLowerCase().includes("notion"));
 
           const nonLiveItems = memoryState.items.filter((item) => {
-            if (item.id.startsWith("item-") && item.source !== "google_calendar") return false; // Strip out mock demo items!
-            if (data.stats.googleTasks > 0 && item.id.startsWith("gtask-")) return false;
-            if (data.stats.googleCalendar > 0 && item.id.startsWith("gcal-")) return false;
-            if (data.stats.googleCalendar > 0 && item.id.startsWith("evt-") && liveExamNorms.has(normalizeExamOrTaskTitle(item.title))) {
-              return false; // Google Calendar API event supersedes seeded fallback!
+            // Strictly remove any legacy hardcoded fallback or mock items
+            if (item.id.startsWith("evt-")) return false;
+            if (item.id.startsWith("mock-")) return false;
+            if (/^item-[0-9]{1,3}$/.test(item.id)) return false;
+
+            // If Google Calendar was synced, purge all previous calendar events so deleted or switched account events disappear
+            if (gcalSynced && (item.source === "google_calendar" || item.id.startsWith("gcal-"))) {
+              return false;
             }
-            if (data.stats.notion > 0 && item.id.startsWith("notion-")) return false;
+            // If Google Tasks was synced, purge previous tasks
+            if (gtasksSynced && (item.source === "google_tasks" || item.id.startsWith("gtask-"))) {
+              return false;
+            }
+            // If Notion was synced, purge previous notion items
+            if (notionSynced && (item.source === "notion" || item.id.startsWith("notion-"))) {
+              return false;
+            }
             return true;
           });
 
@@ -478,10 +388,55 @@ export function useNexusStore() {
     }
   }, []);
 
+  const disconnectGoogle = useCallback(async () => {
+    if (typeof window !== "undefined") {
+      const curCredsStr = localStorage.getItem("nexus_credentials_v1");
+      if (curCredsStr) {
+        try {
+          const curCreds = JSON.parse(curCredsStr);
+          delete curCreds.googleAccessToken;
+          delete curCreds.googleRefreshToken;
+          delete curCreds.googleTokenExpiry;
+          localStorage.setItem("nexus_credentials_v1", JSON.stringify(curCreds));
+        } catch {}
+      }
+    }
+    try {
+      await fetch("/api/integrations/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          googleAccessToken: "",
+          googleRefreshToken: "",
+          googleTokenExpiry: 0,
+        }),
+      });
+    } catch {}
+
+    const remaining = memoryState.items.filter(
+      (item) => item.source !== "google_calendar" && item.source !== "google_tasks" && !item.id.startsWith("gcal-") && !item.id.startsWith("gtask-")
+    );
+    memoryState.items = remaining;
+    memoryState.lastSyncedText = "Never";
+    memoryState.needsReauth = false;
+    memoryState.syncError = undefined;
+    memoryState.integrations = memoryState.integrations.map((integ) =>
+      integ.provider === "google_calendar" || integ.provider === "google_tasks"
+        ? { ...integ, isConnected: false, itemCount: 0, lastSyncedAt: "Never" }
+        : integ
+    );
+    if (typeof window !== "undefined") {
+      localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(remaining));
+    }
+    notifyListeners();
+  }, []);
+
   const purgeDemoData = useCallback(() => {
     const realOnly = memoryState.items.filter(
       (item) =>
-        !item.id.startsWith("item-") &&
+        !item.id.startsWith("evt-") &&
+        !item.id.startsWith("mock-") &&
+        !/^item-[0-9]{1,3}$/.test(item.id || "") &&
         !item.externalId?.startsWith("gcal-os-class") &&
         !item.externalId?.startsWith("gc-")
     );
@@ -489,13 +444,11 @@ export function useNexusStore() {
     memoryState.projects = memoryState.projects.filter((p) => !p.id.startsWith("proj-"));
     memoryState.notifications = [];
     memoryState.focusSessions = [];
-    memoryState.isLiveSynced = true;
     if (typeof window !== "undefined") {
       localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(realOnly));
       localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(memoryState.projects));
       localStorage.removeItem(STORAGE_KEY_NOTIFS);
       localStorage.removeItem(STORAGE_KEY_FOCUS);
-      localStorage.setItem(STORAGE_KEY_IS_LIVE, "true");
     }
     notifyListeners();
   }, []);
@@ -506,14 +459,17 @@ export function useNexusStore() {
     memoryState.notifications = [];
     memoryState.focusSessions = [];
     memoryState.mode = "default";
-    memoryState.isLiveSynced = true;
+    memoryState.isLiveSynced = false;
+    memoryState.lastSyncedText = "Never";
+    memoryState.syncError = undefined;
+    memoryState.needsReauth = false;
     if (typeof window !== "undefined") {
       localStorage.removeItem(STORAGE_KEY_ITEMS);
       localStorage.removeItem(STORAGE_KEY_PROJECTS);
       localStorage.removeItem(STORAGE_KEY_MODE);
       localStorage.removeItem(STORAGE_KEY_FOCUS);
       localStorage.removeItem(STORAGE_KEY_NOTIFS);
-      localStorage.setItem(STORAGE_KEY_IS_LIVE, "true");
+      localStorage.removeItem(STORAGE_KEY_IS_LIVE);
     }
     notifyListeners();
   }, []);
@@ -541,5 +497,6 @@ export function useNexusStore() {
     syncAll,
     purgeDemoData,
     resetToDemo,
+    disconnectGoogle,
   };
 }

@@ -38,7 +38,7 @@ export async function GET(req: Request) {
     response_type: "code",
     scope: scopes,
     access_type: "offline",
-    prompt: "consent",
+    prompt: "select_account consent",
     state: encodedState,
   });
 
