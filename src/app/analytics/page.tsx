@@ -37,96 +37,97 @@ export default function AnalyticsPage() {
   ];
 
   const categoryBreakdown = [
-    { category: "Academic Coursework", count: 8, color: "bg-white" },
-    { category: "Software Projects", count: 6, color: "bg-zinc-400" },
-    { category: "Personal & DSA", count: 4, color: "bg-zinc-600" },
-    { category: "Calendar Sessions", count: 5, color: "bg-zinc-300" },
+    { category: "Academic Coursework", count: 8, color: "bg-olive" },
+    { category: "Software Projects", count: 6, color: "bg-stone-500" },
+    { category: "Personal & DSA", count: 4, color: "bg-stone-400" },
+    { category: "Calendar Sessions", count: 5, color: "bg-olive-light" },
   ];
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-8 space-y-8 animate-fade-in">
+    <div className="max-w-6xl mx-auto px-6 py-8 space-y-8 animate-fade-in text-ink">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-hairline pb-6">
         <div>
           <div className="flex items-center gap-2">
-            <BarChart3 className="w-5 h-5 text-white" />
-            <h1 className="text-2xl font-bold tracking-tight text-white">Activity & Focus Analytics</h1>
+            <BarChart3 className="w-5 h-5 text-olive" />
+            <h1 className="text-2xl font-serif font-semibold tracking-tight text-ink">Activity & Focus Analytics</h1>
           </div>
-          <p className="text-xs text-zinc-400 mt-1">
-            Tracking execution throughput, focus sessions, and sprint momentum (Activity Metrics)
+          <p className="text-xs text-ink-muted mt-1">
+            Tracking execution throughput, focus sessions, and sprint momentum
           </p>
         </div>
 
-        <Badge variant="secondary" className="font-mono text-xs">
+        <Badge variant="parchment" className="font-mono text-xs">
           Week of September 20
         </Badge>
       </div>
 
       {/* Top Metrics Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-950 space-y-1">
-          <div className="flex items-center justify-between text-xs text-zinc-400">
+        <div className="p-4 rounded-xl border border-hairline bg-surface space-y-1">
+          <div className="flex items-center justify-between text-xs text-ink-muted">
             <span>Tasks Completed</span>
-            <CheckCircle2 className="w-4 h-4 text-white" />
+            <CheckCircle2 className="w-4 h-4 text-olive" />
           </div>
-          <div className="text-2xl font-bold font-mono text-white">37</div>
-          <span className="text-[11px] text-zinc-400 font-mono">+12% vs last week</span>
+          <div className="text-2xl font-serif font-semibold text-ink">37</div>
+          <span className="text-[11px] text-ink-muted font-mono">+12% vs last week</span>
         </div>
 
-        <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-950 space-y-1">
-          <div className="flex items-center justify-between text-xs text-zinc-400">
+        <div className="p-4 rounded-xl border border-hairline bg-surface space-y-1">
+          <div className="flex items-center justify-between text-xs text-ink-muted">
             <span>Focused Time</span>
-            <Clock className="w-4 h-4 text-white" />
+            <Clock className="w-4 h-4 text-olive" />
           </div>
-          <div className="text-2xl font-bold font-mono text-white">14h 20m</div>
-          <span className="text-[11px] text-zinc-400 font-mono">18 completed sessions</span>
+          <div className="text-2xl font-serif font-semibold text-ink">14h 20m</div>
+          <span className="text-[11px] text-ink-muted font-mono">18 completed sessions</span>
         </div>
 
-        <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-950 space-y-1">
-          <div className="flex items-center justify-between text-xs text-zinc-400">
+        <div className="p-4 rounded-xl border border-hairline bg-surface space-y-1">
+          <div className="flex items-center justify-between text-xs text-ink-muted">
             <span>Active Day Streak</span>
-            <Flame className="w-4 h-4 text-white" />
+            <Flame className="w-4 h-4 text-terracotta" />
           </div>
-          <div className="text-2xl font-bold font-mono text-white">6 Days</div>
-          <span className="text-[11px] text-zinc-400 font-mono">Personal best: 14 days</span>
+          <div className="text-2xl font-serif font-semibold text-ink">6 Days</div>
+          <span className="text-[11px] text-ink-muted font-mono">Personal best: 14 days</span>
         </div>
 
-        <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-950 space-y-1">
-          <div className="flex items-center justify-between text-xs text-zinc-400">
+        <div className="p-4 rounded-xl border border-hairline bg-surface space-y-1">
+          <div className="flex items-center justify-between text-xs text-ink-muted">
             <span>Completion Rate</span>
-            <TrendingUp className="w-4 h-4 text-white" />
+            <TrendingUp className="w-4 h-4 text-olive" />
           </div>
-          <div className="text-2xl font-bold font-mono text-white">82%</div>
-          <span className="text-[11px] text-zinc-400 font-mono">High execution score</span>
+          <div className="text-2xl font-serif font-semibold text-ink">82%</div>
+          <span className="text-[11px] text-ink-muted font-mono">High execution score</span>
         </div>
       </div>
 
       {/* Weekly Chart */}
-      <div className="p-5 rounded-xl border border-zinc-800 bg-zinc-950 space-y-4">
+      <div className="p-5 rounded-xl border border-hairline bg-surface space-y-4">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-semibold text-zinc-200">Daily Focus Hours & Tasks Completed</span>
-          <div className="flex items-center gap-4 text-xs font-mono text-zinc-400">
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-white" /> Focus Hours</span>
-            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-zinc-600" /> Tasks</span>
+          <span className="text-xs font-serif font-semibold text-ink">Daily Focus Hours & Tasks Completed</span>
+          <div className="flex items-center gap-4 text-xs font-mono text-ink-muted">
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-olive" /> Focus Hours</span>
+            <span className="flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded bg-stone-300" /> Tasks</span>
           </div>
         </div>
 
         <div className="h-64 w-full pt-4">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={weeklyActivityData}>
-              <XAxis dataKey="day" stroke="#71717A" fontSize={12} tickLine={false} />
-              <YAxis stroke="#71717A" fontSize={12} tickLine={false} />
+              <XAxis dataKey="day" stroke="#9A958B" fontSize={12} tickLine={false} />
+              <YAxis stroke="#9A958B" fontSize={12} tickLine={false} />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "#09090b",
-                  borderColor: "#27272a",
+                  backgroundColor: "#FBFAF7",
+                  borderColor: "#DDD8CF",
                   borderRadius: "8px",
                   fontSize: "12px",
-                  color: "#ffffff"
+                  color: "#171717",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.05)",
                 }}
               />
-              <Bar dataKey="focusHours" fill="#ffffff" radius={[4, 4, 0, 0]} name="Focus Hours" />
-              <Bar dataKey="tasks" fill="#52525b" radius={[4, 4, 0, 0]} name="Tasks Done" />
+              <Bar dataKey="focusHours" fill="#4D5A45" radius={[4, 4, 0, 0]} name="Focus Hours" />
+              <Bar dataKey="tasks" fill="#D4CEBE" radius={[4, 4, 0, 0]} name="Tasks Done" />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -134,16 +135,16 @@ export default function AnalyticsPage() {
 
       {/* Distribution by Category */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-950 space-y-3">
-          <span className="text-xs font-semibold text-zinc-200">Activity Distribution by Domain</span>
-          <div className="space-y-2.5 pt-1">
+        <div className="p-5 rounded-xl border border-hairline bg-surface space-y-3">
+          <span className="text-xs font-serif font-semibold text-ink">Activity Distribution by Domain</span>
+          <div className="space-y-3 pt-1">
             {categoryBreakdown.map((cat) => (
               <div key={cat.category} className="space-y-1">
-                <div className="flex items-center justify-between text-xs text-zinc-300">
+                <div className="flex items-center justify-between text-xs text-ink-secondary">
                   <span>{cat.category}</span>
-                  <span className="font-mono text-zinc-400">{cat.count} items</span>
+                  <span className="font-mono text-ink-muted">{cat.count} items</span>
                 </div>
-                <div className="w-full bg-zinc-800 h-1.5 rounded-full overflow-hidden">
+                <div className="w-full bg-canvas-secondary h-1.5 rounded-full overflow-hidden">
                   <div
                     className={`${cat.color} h-full rounded-full`}
                     style={{ width: `${(cat.count / 23) * 100}%` }}
@@ -154,16 +155,16 @@ export default function AnalyticsPage() {
           </div>
         </div>
 
-        <div className="p-4 rounded-xl border border-zinc-800 bg-zinc-950 flex flex-col justify-between">
+        <div className="p-5 rounded-xl border border-hairline bg-surface flex flex-col justify-between">
           <div>
-            <span className="text-xs font-semibold text-zinc-200">Activity Disclaimer</span>
-            <p className="text-xs text-zinc-400 mt-2 leading-relaxed">
-              These metrics measure quantified interaction and throughput. They represent activity, not intrinsic worth or creative insight. Use them to maintain gentle forward momentum without burnout.
+            <span className="text-xs font-serif font-semibold text-ink">Activity Philosophy</span>
+            <p className="text-xs text-ink-secondary mt-2 leading-relaxed">
+              These metrics measure quantified interaction and throughput. They represent activity, not intrinsic worth or creative depth. Use them to maintain calm forward momentum without burnout.
             </p>
           </div>
 
-          <div className="p-3 rounded-lg bg-zinc-900 border border-zinc-800 text-[11px] font-mono text-zinc-400 mt-4">
-            Total recorded focus time: <strong className="text-zinc-200">14 hours, 20 minutes</strong>
+          <div className="p-3 rounded-lg bg-canvas border border-hairline text-[11px] font-mono text-ink-muted mt-4">
+            Total recorded focus time: <strong className="text-ink font-semibold">14 hours, 20 minutes</strong>
           </div>
         </div>
       </div>

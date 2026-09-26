@@ -1,10 +1,24 @@
 import type { Metadata } from "next";
+import { Newsreader, Inter } from "next/font/google";
 import "./globals.css";
 import { AppShell } from "@/components/shell/AppShell";
 
+const serifFont = Newsreader({
+  subsets: ["latin"],
+  variable: "--font-serif",
+  display: "swap",
+  style: ["normal", "italic"],
+});
+
+const sansFont = Inter({
+  subsets: ["latin"],
+  variable: "--font-sans",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "NEXUS — Unified Personal Command Center",
-  description: "Eliminate context switching. Academic deadlines, tasks, projects, calendar, notes, and focus in one unified operating system.",
+  title: "NEXUS — Personal Command Center",
+  description: "A quiet command center for your commitments, projects, and academic focus.",
 };
 
 export default function RootLayout({
@@ -13,8 +27,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="dark">
-      <body className="bg-nexus-950 text-foreground selection:bg-indigo-500/30 selection:text-indigo-200 antialiased">
+    <html lang="en" className={`${serifFont.variable} ${sansFont.variable}`}>
+      <body className="bg-canvas text-ink antialiased selection:bg-olive-soft selection:text-ink font-sans">
         <AppShell>{children}</AppShell>
       </body>
     </html>

@@ -3,97 +3,88 @@
 @tailwind utilities;
 
 :root {
-  --background: 0 0% 0%;
-  --foreground: 0 0% 98%;
-  --card: 240 10% 4%;
-  --card-foreground: 0 0% 98%;
-  --popover: 240 10% 4%;
-  --popover-foreground: 0 0% 98%;
-  --primary: 0 0% 98%;
-  --primary-foreground: 0 0% 0%;
-  --secondary: 240 3.7% 15.9%;
-  --secondary-foreground: 0 0% 98%;
-  --muted: 240 3.7% 15.9%;
-  --muted-foreground: 240 5% 65%;
-  --accent: 240 3.7% 15.9%;
-  --accent-foreground: 0 0% 98%;
-  --destructive: 0 0% 98%;
-  --destructive-foreground: 0 0% 0%;
-  --border: 240 3.7% 16%;
-  --input: 240 3.7% 16%;
-  --ring: 0 0% 98%;
-  --radius: 0.5rem;
-}
+  /* Warm Neutral Foundation */
+  --bg-primary: #F7F5F0;
+  --bg-secondary: #EFEBE3;
+  --surface: #FBFAF7;
+  --surface-raised: #FFFFFF;
+  
+  --text-primary: #171717;
+  --text-secondary: #6F6B63;
+  --text-muted: #9A958B;
+  
+  --border: #DDD8CF;
+  --divider: #E4E0D8;
+  
+  /* Single Primary Accent: Deep Olive */
+  --accent: #4D5A45;
+  --accent-soft: #EDF0EB;
+  --accent-foreground: #FFFFFF;
+  
+  /* Semantic Terracotta for deadlines */
+  --status-urgent: #B5763A;
+  --status-urgent-soft: #FBF3EC;
 
-.light {
-  --background: 0 0% 100%;
-  --foreground: 0 0% 9%;
-  --card: 0 0% 100%;
-  --card-foreground: 0 0% 9%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 9%;
-  --primary: 0 0% 9%;
-  --primary-foreground: 0 0% 98%;
-  --secondary: 240 4.8% 95.9%;
-  --secondary-foreground: 0 0% 9%;
-  --muted: 240 4.8% 95.9%;
-  --muted-foreground: 240 3.8% 46.1%;
-  --accent: 240 4.8% 95.9%;
-  --accent-foreground: 0 0% 9%;
-  --destructive: 0 0% 9%;
-  --destructive-foreground: 0 0% 98%;
-  --border: 240 5.9% 90%;
-  --input: 240 5.9% 90%;
-  --ring: 0 0% 9%;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
 }
 
 * {
-  border-color: hsl(var(--border));
+  border-color: #DDD8CF;
+}
+
+html {
+  background-color: #F7F5F0;
+  color: #171717;
 }
 
 body {
-  color: hsl(var(--foreground));
-  background: hsl(var(--background));
+  background-color: #F7F5F0;
+  color: #171717;
   font-feature-settings: "rlig" 1, "calt" 1;
   overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Linear & Raycast style dark scrollbars */
+::selection {
+  background: #EDF0EB;
+  color: #171717;
+}
+
+/* Quiet, subtle parchment scrollbars */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--border));
+  background: #DDD8CF;
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground) / 0.4);
+  background: #C7C0B4;
 }
 
-/* Monochromatic crisp border & subtle highlight effects */
-.glow-subtle {
-  box-shadow: 0 0 25px -5px rgba(255, 255, 255, 0.08);
+/* Editorial typography utility classes */
+.font-editorial {
+  font-family: var(--font-serif), "Newsreader", "Cormorant Garamond", "Georgia", serif;
 }
 
-.glow-amber {
-  box-shadow: 0 0 20px -5px rgba(255, 255, 255, 0.12);
+.font-interface {
+  font-family: var(--font-sans), "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
-.glow-rose {
-  box-shadow: 0 0 20px -5px rgba(255, 255, 255, 0.12);
-}
-
-/* Command palette styling */
+/* Restrained Command Palette (Raycast / Spotlight style) */
 [cmdk-root] {
-  max-width: 640px;
+  max-width: 620px;
   width: 100%;
-  background: hsl(var(--card));
+  background: #FBFAF7;
   border-radius: 12px;
-  box-shadow: 0 16px 70px rgba(0, 0, 0, 0.55), 0 0 0 1px hsl(var(--border));
+  box-shadow: 0 16px 50px rgba(0, 0, 0, 0.08), 0 0 0 1px #DDD8CF;
   overflow: hidden;
 }
 
@@ -101,42 +92,45 @@ body {
   font-family: inherit;
   border: none;
   width: 100%;
-  font-size: 15px;
+  font-size: 14px;
   padding: 16px 20px;
   outline: none;
   background: transparent;
-  color: hsl(var(--foreground));
-  border-bottom: 1px solid hsl(var(--border));
+  color: #171717;
+  border-bottom: 1px solid #E4E0D8;
+}
+
+[cmdk-input]::placeholder {
+  color: #9A958B;
 }
 
 [cmdk-item] {
   content-visibility: auto;
   cursor: pointer;
-  height: 42px;
+  height: 40px;
   border-radius: 6px;
-  font-size: 14px;
+  font-size: 13px;
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 0 12px;
-  color: hsl(var(--muted-foreground));
+  color: #6F6B63;
   user-select: none;
-  will-change: background, color;
   transition: all 120ms ease;
   margin: 2px 6px;
 }
 
 [cmdk-item][data-selected="true"] {
-  background: hsl(var(--secondary));
-  color: hsl(var(--foreground));
+  background: #EDF0EB;
+  color: #171717;
 }
 
 [cmdk-group-heading] {
   user-select: none;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 500;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: hsl(var(--muted-foreground));
+  color: #9A958B;
   padding: 8px 16px 4px;
 }

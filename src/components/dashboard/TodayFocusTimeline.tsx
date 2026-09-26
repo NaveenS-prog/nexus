@@ -5,18 +5,12 @@ import {
   CheckCircle2, 
   Circle, 
   Clock, 
-  GraduationCap, 
-  Calendar as CalendarIcon, 
-  Layers, 
-  CheckSquare, 
-  ExternalLink,
   ChevronRight
 } from "lucide-react";
 import { UnifiedItem } from "@/lib/types";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { format, parseISO, differenceInMinutes, isSameDay, isTomorrow } from "date-fns";
-import { isActionableTaskOrAssignment, isExamItem } from "@/lib/nlp/itemClassifier";
+import { format, parseISO, isSameDay, isTomorrow } from "date-fns";
+import { isActionableTaskOrAssignment } from "@/lib/nlp/itemClassifier";
+import { cn } from "@/components/ui/badge";
 
 interface TodayFocusTimelineProps {
   items: UnifiedItem[];
@@ -25,239 +19,116 @@ interface TodayFocusTimelineProps {
 }
 
 export function TodayFocusTimeline({ items, onToggleStatus, onSelectItem }: TodayFocusTimelineProps) {
-  // Strictly filter to actionable tasks and assignments using NLP classifier (excludes classes/lectures)
   const actionableTasks = items.filter(isActionableTaskOrAssignment);
 
-  // Sort tasks: pending first (critical -> high -> medium -> low), then completed
   const sortedItems = [...actionableTasks].sort((a, b) => {
-    // Incomplete items come first
     if (a.status === "completed" && b.status !== "completed") return 1;
     if (a.status !== "completed" && b.status === "completed") return -1;
-
-    // Priority weight
     const pWeight = { critical: 4, high: 3, medium: 2, low: 1 };
     const pDiff = (pWeight[b.priority] || 1) - (pWeight[a.priority] || 1);
     if (pDiff !== 0) return pDiff;
-
     const timeA = a.dueAt || a.startAt || "";
     const timeB = b.dueAt || b.startAt || "";
     return timeA.localeCompare(timeB);
   });
 
-  const getSourceIcon = (source: string) => {
-    switch (source) {
-      case "google_classroom":
-        return <GraduationCap className="w-3.5 h-3.5 text-zinc-300" />;
-      case "google_calendar":
-        return <CalendarIcon className="w-3.5 h-3.5 text-blue-400" />;
-      case "notion":
-        return <Layers className="w-3.5 h-3.5 text-zinc-300" />;
-      case "google_tasks":
-        return <CheckSquare className="w-3.5 h-3.5 text-zinc-300" />;
-      default:
-        return <CheckSquare className="w-3.5 h-3.5 text-zinc-300" />;
-    }
-  };
-
-  const getSourceLabel = (source: string) => {
-    switch (source) {
-      case "google_classroom": return "Coursework";
-      case "google_calendar": return "Google Calendar";
-      case "notion": return "Notion";
-      case "google_tasks": return "Google Tasks";
-      default: return "NEXUS Task";
-    }
-  };
-
-  const formatTimeSlot = (item: UnifiedItem) => {
+  const formatDue = (item: UnifiedItem) => {
     const isAllDay = Boolean(item.metadata?.isAllDay || item.tags?.includes("All Day"));
-    const dateStr = item.startAt || item.dueAt;
-    let dayPrefix = "Today";
-
-    if (dateStr) {
-      try {
-        const d = parseISO(dateStr);
-        const today = new Date();
-        if (isSameDay(d, today)) {
-          dayPrefix = "Today";
-        } else if (isTomorrow(d)) {
-          dayPrefix = "Tomorrow";
-        } else {
-          dayPrefix = format(d, "EEE, MMM d");
-        }
-      } catch {
-        dayPrefix = "Today";
+    const dateStr = item.dueAt || item.startAt;
+    if (!dateStr) return undefined;
+    try {
+      const d = parseISO(dateStr);
+      const today = new Date();
+      if (isSameDay(d, today)) {
+        return isAllDay ? "Today" : `Today at ${format(d, "h:mm a")}`;
       }
-    }
-
-    if (isAllDay) {
-      return `${dayPrefix} • All Day`;
-    }
-
-    if (item.startAt && item.dueAt) {
-      try {
-        const start = parseISO(item.startAt);
-        const end = parseISO(item.dueAt);
-        const startFormatted = format(start, "h:mm a");
-        const endFormatted = format(end, "h:mm a");
-        return `${dayPrefix} • ${startFormatted} – ${endFormatted}`;
-      } catch {}
-    }
-
-    if (item.startAt) {
-      try {
-        return `${dayPrefix} • ${format(parseISO(item.startAt), "h:mm a")}`;
-      } catch {
-        return `${dayPrefix} • --:--`;
+      if (isTomorrow(d)) {
+        return isAllDay ? "Tomorrow" : `Tomorrow at ${format(d, "h:mm a")}`;
       }
+      return format(d, "MMM d");
+    } catch {
+      return undefined;
     }
-
-    if (item.dueAt) {
-      try {
-        return `${dayPrefix} • Due ${format(parseISO(item.dueAt), "h:mm a")}`;
-      } catch {
-        return dayPrefix;
-      }
-    }
-
-    return dayPrefix;
   };
-
-  const getDurationLabel = (item: UnifiedItem) => {
-    const isAllDay = Boolean(item.metadata?.isAllDay || item.tags?.includes("All Day"));
-    if (isAllDay) return null;
-
-    if (item.startAt && item.dueAt) {
-      try {
-        const start = parseISO(item.startAt);
-        const end = parseISO(item.dueAt);
-        const diff = differenceInMinutes(end, start);
-        if (diff > 0 && diff < 1440) {
-          return `${diff}m`;
-        }
-      } catch {}
-    }
-
-    if (item.estimatedMinutes && item.estimatedMinutes > 0 && item.estimatedMinutes < 480) {
-      return `${item.estimatedMinutes}m`;
-    }
-
-    return null;
-  };
-
-  const completedCount = actionableTasks.filter((i) => i.status === "completed").length;
 
   return (
-    <div className="space-y-3">
-      {/* Header with Title and Progress */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <Clock className="w-4 h-4 text-white" />
-          <h2 className="text-sm font-semibold tracking-tight text-zinc-100 uppercase font-mono">
-            Today's Tasks & Reminders
-          </h2>
-          <span className="text-xs text-zinc-500 font-mono">
-            {completedCount}/{actionableTasks.length} Completed
-          </span>
-        </div>
+    <div className="space-y-3 font-sans">
+      {/* Section Header */}
+      <div className="flex items-baseline justify-between border-b border-hairline pb-2">
+        <h3 className="text-xs font-mono uppercase tracking-wider text-ink-secondary font-medium">
+          Your Day · Commitments
+        </h3>
+        <span className="text-[11px] text-ink-muted font-mono">
+          {actionableTasks.filter((i) => i.status !== "completed").length} active
+        </span>
       </div>
 
-      <div className="rounded-xl border border-zinc-800 bg-zinc-950 divide-y divide-zinc-800/80 overflow-hidden">
-        {sortedItems.length === 0 ? (
-          <div className="p-8 text-center text-xs text-zinc-500 space-y-2">
-            <p>No actionable focus tasks for today. Calendar classes are tracked on the Calendar page.</p>
-            <p className="text-[11px] text-zinc-600">Use the Command Palette (Ctrl+K) or Capture to add tasks.</p>
-          </div>
-        ) : (
-          sortedItems.map((item) => {
+      {/* Task List */}
+      {sortedItems.length === 0 ? (
+        <div className="py-8 text-center text-xs text-ink-muted font-sans">
+          Your day is clear. No commitments or tasks scheduled for today.
+        </div>
+      ) : (
+        <div className="divide-y divide-hairline-subtle">
+          {sortedItems.map((item) => {
             const isCompleted = item.status === "completed";
-            const timeLabel = formatTimeSlot(item);
-            const durationLabel = getDurationLabel(item);
-            const isExam = isExamItem(item);
+            const dueLabel = formatDue(item);
 
             return (
               <div
                 key={item.id}
-                className={`flex items-center justify-between p-3.5 hover:bg-zinc-900/80 transition-all group cursor-pointer ${
-                  isCompleted ? "opacity-50 bg-black/40" : ""
-                }`}
                 onClick={() => onSelectItem(item)}
+                className={cn(
+                  "py-3 flex items-start justify-between gap-3 group cursor-pointer transition-colors hover:bg-canvas-secondary/40 px-2 rounded-sm -mx-2",
+                  isCompleted && "opacity-50"
+                )}
               >
-                {/* Left Section: Checkbox, Title, Metadata */}
-                <div className="flex items-center gap-3.5 min-w-0 pr-4">
-                  {/* Completion Toggle Button */}
+                <div className="flex items-start gap-3 min-w-0 flex-1">
                   <button
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation();
                       onToggleStatus(item.id);
                     }}
-                    title={isCompleted ? "Mark task as incomplete" : "Mark task as complete"}
-                    className="flex-shrink-0 transition-transform active:scale-90 p-0.5 cursor-pointer text-zinc-400 hover:text-white"
+                    className="mt-0.5 text-ink-muted hover:text-olive transition-colors shrink-0"
                   >
                     {isCompleted ? (
-                      <CheckCircle2 className="w-5 h-5 text-emerald-400 fill-emerald-950/40" />
+                      <CheckCircle2 className="w-4 h-4 text-olive" />
                     ) : (
-                      <Circle className="w-5 h-5 text-zinc-500 hover:text-white transition-colors" />
+                      <Circle className="w-4 h-4 text-hairline-darker hover:text-olive" />
                     )}
                   </button>
 
-                  {/* Title and metadata */}
-                  <div className="min-w-0 truncate">
-                    <p className={`text-xs font-medium text-zinc-200 truncate ${isCompleted ? "line-through text-zinc-500" : "group-hover:text-white"}`}>
+                  <div className="min-w-0 flex-1">
+                    <span className={cn(
+                      "text-xs font-medium text-ink transition-colors block leading-snug",
+                      isCompleted && "line-through text-ink-muted"
+                    )}>
                       {item.title}
-                    </p>
-                    <div className="flex items-center gap-2 mt-0.5 text-[10px] text-zinc-500 font-mono">
-                      <span className="text-zinc-400 font-semibold">
-                        {timeLabel}
-                      </span>
-                      <span>•</span>
-                      <span className="flex items-center gap-1">
-                        {getSourceIcon(item.source)}
-                        <span>{getSourceLabel(item.source)}</span>
-                      </span>
+                    </span>
 
-                      {item.courseName && (
-                        <>
-                          <span>•</span>
-                          <span className="text-zinc-400 truncate max-w-[120px]">{item.courseName}</span>
-                        </>
+                    <div className="flex items-center gap-2 mt-1 text-[11px] text-ink-muted font-mono">
+                      {dueLabel && (
+                        <span className={item.priority === "critical" && !isCompleted ? "text-terracotta font-medium" : ""}>
+                          {dueLabel}
+                        </span>
                       )}
-
-                      {durationLabel && (
-                        <>
-                          <span>•</span>
-                          <span>{durationLabel}</span>
-                        </>
-                      )}
+                      {dueLabel && item.estimatedMinutes && <span>·</span>}
+                      {item.estimatedMinutes && <span>{item.estimatedMinutes}m</span>}
+                      {item.courseName && <span>·</span>}
+                      {item.courseName && <span className="text-ink-secondary">{item.courseName}</span>}
                     </div>
                   </div>
                 </div>
 
-                {/* Right Section: Badges & Launch Focus Button */}
-                <div className="flex items-center gap-2.5 flex-shrink-0">
-                  {isExam && (
-                    <Badge variant="destructive" className="text-[10px] px-1.5 py-0 font-bold tracking-wider uppercase bg-rose-500/20 text-rose-300 border border-rose-500/40">
-                      EXAM
-                    </Badge>
-                  )}
-                  {item.priority === "critical" && !isExam && (
-                    <Badge variant="destructive" className="text-[10px] px-1.5 py-0">Critical</Badge>
-                  )}
-                  {item.priority === "high" && !isExam && (
-                    <Badge variant="warning" className="text-[10px] px-1.5 py-0">High</Badge>
-                  )}
-                  {item.status === "in_progress" && (
-                    <Badge variant="cyan" className="text-[10px] px-1.5 py-0">In Progress</Badge>
-                  )}
-
-                  <ChevronRight className="w-4 h-4 text-zinc-600 group-hover:text-zinc-400 transition-colors" />
+                <div className="flex items-center text-ink-faint group-hover:text-ink-muted transition-colors shrink-0 self-center">
+                  <ChevronRight className="w-3.5 h-3.5" />
                 </div>
               </div>
             );
-          })
-        )}
-      </div>
+          })}
+        </div>
+      )}
     </div>
   );
 }

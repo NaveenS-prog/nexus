@@ -7,24 +7,27 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export interface BadgeProps extends React.HTMLAttributes<HTMLDivElement> {
-  variant?: "default" | "secondary" | "destructive" | "outline" | "success" | "warning" | "cyan";
+  variant?: "default" | "secondary" | "destructive" | "outline" | "success" | "warning" | "cyan" | "olive" | "parchment" | "terracotta";
 }
 
 export function Badge({ className, variant = "default", ...props }: BadgeProps) {
   const variantStyles = {
-    default: "bg-white text-black font-semibold border border-white",
-    secondary: "bg-zinc-900 text-zinc-200 border border-zinc-700",
-    destructive: "bg-black text-white border border-white font-semibold",
-    outline: "text-zinc-300 border border-zinc-700 bg-zinc-950",
-    success: "bg-zinc-100 text-black border border-white font-medium",
-    warning: "bg-zinc-800 text-zinc-100 border border-zinc-600 font-medium",
-    cyan: "bg-zinc-900 text-zinc-200 border border-zinc-700",
+    default: "bg-canvas-secondary text-ink border border-hairline",
+    secondary: "bg-surface text-ink-secondary border border-hairline-subtle",
+    destructive: "bg-terracotta-soft text-terracotta border border-terracotta-border font-medium",
+    outline: "text-ink-secondary border border-hairline bg-transparent",
+    success: "bg-olive-soft text-olive border border-olive-border font-medium",
+    warning: "bg-terracotta-soft text-terracotta border border-terracotta-border",
+    cyan: "bg-olive-soft text-olive border border-olive-border",
+    olive: "bg-olive-soft text-olive border border-olive-border font-medium",
+    parchment: "bg-canvas-secondary text-ink-secondary border border-hairline",
+    terracotta: "bg-terracotta-soft text-terracotta border border-terracotta-border font-medium",
   };
 
   return (
     <div
       className={cn(
-        "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+        "inline-flex items-center rounded-[4px] px-2 py-0.5 text-[11px] font-normal transition-colors focus:outline-none",
         variantStyles[variant],
         className
       )}

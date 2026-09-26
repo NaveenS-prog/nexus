@@ -32,21 +32,21 @@ export function SlideOver({ isOpen, onClose, title, subtitle, children }: Drawer
   return (
     <div className="fixed inset-0 z-50 overflow-hidden">
       <div 
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" 
+        className="absolute inset-0 bg-ink/25 backdrop-blur-sm transition-opacity" 
         onClick={onClose} 
       />
 
       <div className="fixed inset-y-0 right-0 max-w-full flex pl-10">
-        <div className="w-screen max-w-md bg-zinc-950 border-l border-zinc-800 shadow-2xl flex flex-col animate-fade-in">
+        <div className="w-screen max-w-md bg-surface border-l border-hairline shadow-2xl flex flex-col animate-fade-in text-ink">
           {/* Header */}
-          <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between">
+          <div className="px-5 py-4 border-b border-hairline flex items-center justify-between">
             <div>
-              <h2 className="text-base font-semibold text-zinc-100">{title}</h2>
-              {subtitle && <p className="text-xs text-zinc-400 mt-0.5">{subtitle}</p>}
+              <h2 className="text-base font-serif font-semibold text-ink">{title}</h2>
+              {subtitle && <p className="text-xs text-ink-muted mt-0.5 font-mono">{subtitle}</p>}
             </div>
             <button
               onClick={onClose}
-              className="p-1 rounded-md text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.06] transition-colors"
+              className="p-1 rounded-md text-ink-muted hover:text-ink hover:bg-canvas-secondary transition-colors"
             >
               <X className="w-4 h-4" />
             </button>

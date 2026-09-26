@@ -2,29 +2,30 @@ import * as React from "react";
 import { cn } from "./badge";
 
 export interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: "default" | "secondary" | "outline" | "ghost" | "danger" | "subtle";
+  variant?: "default" | "olive" | "secondary" | "outline" | "ghost" | "danger" | "subtle";
   size?: "default" | "sm" | "lg" | "icon";
 }
 
 export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
   ({ className, variant = "default", size = "default", ...props }, ref) => {
     const baseStyles =
-      "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-medium transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]";
+      "inline-flex items-center justify-center whitespace-nowrap rounded-sm text-xs font-medium transition-all focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-olive disabled:pointer-events-none disabled:opacity-50 active:scale-[0.99]";
 
     const variantStyles = {
-      default: "bg-white text-black font-semibold shadow hover:bg-zinc-200 transition-colors",
-      secondary: "bg-zinc-900 text-zinc-100 hover:bg-zinc-800 border border-zinc-800",
-      outline: "border border-zinc-700 bg-black text-zinc-200 hover:border-white hover:text-white",
-      ghost: "hover:bg-zinc-800/60 text-zinc-400 hover:text-white",
-      danger: "bg-zinc-900 text-white border border-zinc-700 hover:bg-zinc-800 hover:border-white",
-      subtle: "bg-zinc-900/80 text-zinc-200 border border-zinc-800 hover:bg-zinc-800",
+      default: "bg-ink text-surface hover:bg-[#2A2A2A] shadow-subtle",
+      olive: "bg-olive text-white hover:bg-olive-hover shadow-subtle",
+      secondary: "bg-canvas-secondary text-ink hover:bg-[#E5E1D8] border border-hairline",
+      outline: "border border-hairline bg-surface text-ink hover:bg-canvas-secondary",
+      ghost: "text-ink-secondary hover:text-ink hover:bg-canvas-secondary/70",
+      danger: "bg-terracotta-soft text-terracotta border border-terracotta-border hover:bg-[#F3E5D8]",
+      subtle: "bg-surface text-ink-secondary hover:text-ink border border-hairline-subtle",
     };
 
     const sizeStyles = {
-      default: "h-9 px-4 py-2",
-      sm: "h-7 rounded px-2.5 text-xs",
-      lg: "h-10 rounded-md px-6 text-base",
-      icon: "h-8 w-8 rounded-md p-0",
+      default: "h-8 px-3.5 py-1.5",
+      sm: "h-7 rounded-[4px] px-2.5 text-[11px]",
+      lg: "h-10 rounded-md px-5 text-sm",
+      icon: "h-8 w-8 rounded-sm p-0",
     };
 
     return (

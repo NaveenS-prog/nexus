@@ -338,15 +338,15 @@ export default function CalendarPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-8 space-y-6 animate-fade-in">
+    <div className="max-w-6xl mx-auto px-6 py-8 space-y-6 animate-fade-in text-ink">
       {/* Top Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-zinc-800 pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-hairline pb-6">
         <div>
           <div className="flex items-center gap-2">
-            <CalendarIcon className="w-5 h-5 text-white" />
-            <h1 className="text-2xl font-bold tracking-tight text-white">Calendar & Schedule</h1>
+            <CalendarIcon className="w-5 h-5 text-olive" />
+            <h1 className="text-2xl font-serif font-semibold tracking-tight text-ink">Calendar & Schedule</h1>
           </div>
-          <p className="text-xs text-zinc-400 mt-1">
+          <p className="text-xs text-ink-muted mt-1">
             Google Calendar time blocks and daily scheduled commitments
           </p>
         </div>
@@ -354,13 +354,13 @@ export default function CalendarPage() {
         {/* Date Navigation & View Toggle */}
         <div className="flex flex-wrap items-center gap-2">
           {/* Filter Toggle: Events, Exams, Classes, Personal, All */}
-          <div className="flex items-center bg-zinc-950 border border-zinc-800 rounded-lg p-0.5 text-xs overflow-x-auto">
+          <div className="flex items-center bg-canvas-secondary border border-hairline rounded-lg p-0.5 text-xs overflow-x-auto">
             <button
               onClick={() => setFilterType("events")}
               className={`px-2.5 py-1 rounded text-xs font-medium transition-all ${
                 filterType === "events" 
-                  ? "bg-white text-black font-semibold shadow-sm" 
-                  : "text-zinc-400 hover:text-white"
+                  ? "bg-surface text-ink font-semibold shadow-xs" 
+                  : "text-ink-muted hover:text-ink"
               }`}
               title="Show all calendar events"
             >
@@ -370,8 +370,8 @@ export default function CalendarPage() {
               onClick={() => setFilterType("exams")}
               className={`px-2.5 py-1 rounded text-xs font-medium transition-all ${
                 filterType === "exams" 
-                  ? "bg-rose-500 text-white font-semibold shadow-sm" 
-                  : "text-zinc-400 hover:text-rose-300"
+                  ? "bg-terracotta text-white font-semibold shadow-xs" 
+                  : "text-ink-muted hover:text-terracotta"
               }`}
               title="Filter to Examinations and Tests"
             >
@@ -381,8 +381,8 @@ export default function CalendarPage() {
               onClick={() => setFilterType("classes")}
               className={`px-2.5 py-1 rounded text-xs font-medium transition-all ${
                 filterType === "classes" 
-                  ? "bg-purple-600 text-white font-semibold shadow-sm" 
-                  : "text-zinc-400 hover:text-purple-300"
+                  ? "bg-olive text-white font-semibold shadow-xs" 
+                  : "text-ink-muted hover:text-olive"
               }`}
               title="Filter to Timetable Lectures & Classes"
             >
@@ -392,8 +392,8 @@ export default function CalendarPage() {
               onClick={() => setFilterType("personal")}
               className={`px-2.5 py-1 rounded text-xs font-medium transition-all ${
                 filterType === "personal" 
-                  ? "bg-emerald-600 text-white font-semibold shadow-sm" 
-                  : "text-zinc-400 hover:text-emerald-300"
+                  ? "bg-stone-700 text-white font-semibold shadow-xs" 
+                  : "text-ink-muted hover:text-ink"
               }`}
               title="Filter to Personal Life and Errands"
             >
@@ -403,8 +403,8 @@ export default function CalendarPage() {
               onClick={() => setFilterType("all")}
               className={`px-2.5 py-1 rounded text-xs font-medium transition-all ${
                 filterType === "all" 
-                  ? "bg-white text-black font-semibold shadow-sm" 
-                  : "text-zinc-400 hover:text-white"
+                  ? "bg-surface text-ink font-semibold shadow-xs" 
+                  : "text-ink-muted hover:text-ink"
               }`}
               title="Show all events, exams, and tasks"
             >
@@ -413,11 +413,11 @@ export default function CalendarPage() {
           </div>
 
           {/* Day / Week switch */}
-          <div className="flex items-center bg-zinc-950 border border-zinc-800 rounded-lg p-0.5 text-xs">
+          <div className="flex items-center bg-canvas-secondary border border-hairline rounded-lg p-0.5 text-xs">
             <button
               onClick={() => setViewMode("day")}
               className={`px-3 py-1 rounded text-xs font-medium transition-all ${
-                viewMode === "day" ? "bg-white text-black font-semibold shadow-sm" : "text-zinc-400 hover:text-white"
+                viewMode === "day" ? "bg-surface text-ink font-semibold shadow-xs" : "text-ink-muted hover:text-ink"
               }`}
             >
               Day
@@ -425,7 +425,7 @@ export default function CalendarPage() {
             <button
               onClick={() => setViewMode("week")}
               className={`px-3 py-1 rounded text-xs font-medium transition-all ${
-                viewMode === "week" ? "bg-white text-black font-semibold shadow-sm" : "text-zinc-400 hover:text-white"
+                viewMode === "week" ? "bg-surface text-ink font-semibold shadow-xs" : "text-ink-muted hover:text-ink"
               }`}
             >
               Week
@@ -436,7 +436,7 @@ export default function CalendarPage() {
           <Button
             size="sm"
             onClick={() => setIsCreateEventOpen(true)}
-            className="h-7 text-xs bg-white text-black hover:bg-zinc-200 font-semibold flex items-center gap-1.5 shadow-sm cursor-pointer"
+            className="h-7 text-xs bg-olive hover:bg-olive-hover text-white font-medium flex items-center gap-1.5 shadow-xs cursor-pointer"
             title="Create an event or all-day milestone"
           >
             <Plus className="w-3.5 h-3.5" />
@@ -449,7 +449,7 @@ export default function CalendarPage() {
             variant="outline"
             onClick={syncAll}
             disabled={isSyncing}
-            className="h-7 text-xs border-zinc-700 text-zinc-200 hover:bg-zinc-900 hover:border-white flex items-center gap-1.5"
+            className="h-7 text-xs border-hairline text-ink-secondary hover:text-ink hover:bg-canvas-secondary flex items-center gap-1.5"
             title="Refresh schedule from Google Calendar"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${isSyncing ? "animate-spin" : ""}`} />
@@ -457,30 +457,30 @@ export default function CalendarPage() {
           </Button>
 
           {/* Prev / Today / Next Controls */}
-          <div className="flex items-center gap-1 bg-zinc-950 border border-zinc-800 rounded-lg p-0.5">
+          <div className="flex items-center gap-1 bg-canvas-secondary border border-hairline rounded-lg p-0.5">
             <button
               onClick={handlePrev}
-              className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+              className="p-1.5 rounded hover:bg-surface text-ink-muted hover:text-ink transition-colors"
               title="Previous"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
             <button
               onClick={handleToday}
-              className="px-2.5 py-1 text-xs font-medium text-zinc-300 hover:text-white rounded hover:bg-zinc-800 transition-colors"
+              className="px-2.5 py-1 text-xs font-medium text-ink-secondary hover:text-ink rounded hover:bg-surface transition-colors"
             >
               Today
             </button>
             <button
               onClick={handleNext}
-              className="p-1.5 rounded hover:bg-zinc-800 text-zinc-400 hover:text-white transition-colors"
+              className="p-1.5 rounded hover:bg-surface text-ink-muted hover:text-ink transition-colors"
               title="Next"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
 
-          <div className="px-3 py-1.5 rounded-lg bg-zinc-950 border border-zinc-800 font-mono text-xs text-zinc-200">
+          <div className="px-3 py-1.5 rounded-lg bg-surface border border-hairline font-mono text-xs text-ink">
             {format(selectedDate, "EEE, MMM d, yyyy")}
           </div>
         </div>
@@ -488,9 +488,9 @@ export default function CalendarPage() {
 
       {/* Demo Data Notice Banner */}
       {hasDemoItems && (
-        <div className="p-3.5 rounded-xl border border-zinc-800 bg-zinc-950 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
-          <div className="flex items-center gap-2 text-zinc-300">
-            <AlertCircle className="w-4 h-4 text-white flex-shrink-0" />
+        <div className="p-3.5 rounded-xl border border-hairline bg-canvas-secondary/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+          <div className="flex items-center gap-2 text-ink-secondary">
+            <AlertCircle className="w-4 h-4 text-olive flex-shrink-0" />
             <span>
               Sample mock items (tasks & events) are active in local memory. Clear them to display only your real connected Google schedule.
             </span>
@@ -500,7 +500,7 @@ export default function CalendarPage() {
               size="sm"
               variant="outline"
               onClick={purgeDemoData}
-              className="h-7 text-xs border-zinc-700 text-zinc-200 hover:bg-zinc-900 flex items-center gap-1.5"
+              className="h-7 text-xs border-hairline text-ink-secondary hover:text-ink hover:bg-surface flex items-center gap-1.5"
             >
               <Trash2 className="w-3.5 h-3.5" />
               <span>Purge Demo Items</span>
@@ -513,19 +513,19 @@ export default function CalendarPage() {
       {viewMode === "day" && (
         <div className="space-y-4">
           {/* All-Day Events Banner */}
-          <div className="p-3.5 rounded-xl border border-zinc-800 bg-zinc-950 space-y-2.5">
+          <div className="p-4 rounded-xl border border-hairline bg-surface space-y-2.5">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-zinc-400 font-semibold flex items-center gap-1.5">
-                <CalendarDays className="w-3.5 h-3.5 text-white" />
+              <span className="text-[10px] font-mono uppercase tracking-wider text-ink-muted font-semibold flex items-center gap-1.5">
+                <CalendarDays className="w-3.5 h-3.5 text-olive" />
                 All-Day Events {allDayEvents.length > 0 ? `(${allDayEvents.length})` : ""}
               </span>
               <button
                 type="button"
                 onClick={() => setIsCreateEventOpen(true)}
-                className="text-[11px] font-mono text-zinc-400 hover:text-white flex items-center gap-1 transition-colors cursor-pointer"
+                className="text-[11px] font-mono text-ink-muted hover:text-olive flex items-center gap-1 transition-colors cursor-pointer"
                 title="Create an all-day event for this day"
               >
-                <Plus className="w-3 h-3 text-white" />
+                <Plus className="w-3 h-3 text-olive" />
                 <span>Add All-Day Event</span>
               </button>
             </div>
@@ -536,12 +536,12 @@ export default function CalendarPage() {
                   <div
                     key={event.id}
                     onClick={() => handleOpenItem(event)}
-                    className="px-3 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 text-xs text-zinc-200 hover:border-white cursor-pointer transition-colors flex items-center gap-2 group"
+                    className="px-3 py-1.5 rounded-lg bg-canvas border border-hairline text-xs text-ink hover:border-olive/50 cursor-pointer transition-colors flex items-center gap-2 group"
                   >
-                    <span className="w-1.5 h-1.5 rounded-full bg-white group-hover:scale-125 transition-transform" />
+                    <span className="w-1.5 h-1.5 rounded-full bg-olive group-hover:scale-125 transition-transform" />
                     <span className="font-medium">{event.title}</span>
                     {event.tags?.includes("Exam") && (
-                      <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold uppercase">
+                      <span className="text-[9px] font-mono px-1 py-0.2 rounded bg-terracotta-light/30 text-terracotta border border-terracotta/20 font-bold uppercase">
                         EXAM
                       </span>
                     )}
@@ -549,13 +549,13 @@ export default function CalendarPage() {
                 ))}
               </div>
             ) : (
-              <div className="flex items-center justify-between text-xs text-zinc-500 py-0.5">
+              <div className="flex items-center justify-between text-xs text-ink-muted py-0.5">
                 <span>No all-day events scheduled for this day.</span>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={() => setIsCreateEventOpen(true)}
-                  className="h-6 text-[11px] border-zinc-800 bg-zinc-900 hover:border-zinc-700 text-zinc-300 flex items-center gap-1"
+                  className="h-6 text-[11px] border-hairline bg-canvas hover:bg-canvas-secondary text-ink-secondary flex items-center gap-1"
                 >
                   <Plus className="w-3 h-3" />
                   <span>Add All-Day Event</span>
@@ -565,13 +565,13 @@ export default function CalendarPage() {
           </div>
 
           {/* Available Free Slots Banner (9:00 AM – 4:00 PM) */}
-          <div className="p-3.5 rounded-xl border border-zinc-800 bg-zinc-950 space-y-2.5">
+          <div className="p-4 rounded-xl border border-hairline bg-surface space-y-2.5">
             <div className="flex items-center justify-between">
-              <span className="text-[10px] font-mono uppercase tracking-wider text-emerald-400 font-semibold flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-emerald-400" />
+              <span className="text-[10px] font-mono uppercase tracking-wider text-olive font-semibold flex items-center gap-1.5">
+                <Clock className="w-3.5 h-3.5 text-olive" />
                 Available Free Slots (9:00 AM – 4:00 PM)
               </span>
-              <span className="text-[11px] font-mono text-zinc-400">
+              <span className="text-[11px] font-mono text-ink-muted">
                 {availableSlots.length} slot{availableSlots.length !== 1 ? "s" : ""} found (down to 5m)
               </span>
             </div>
@@ -599,18 +599,18 @@ export default function CalendarPage() {
                         setSlotFeedback(`✓ Booked Study Block for ${slot.formattedTimeRange}`);
                         setTimeout(() => setSlotFeedback(null), 2500);
                       }}
-                      className="px-2.5 py-1.5 rounded-lg bg-zinc-900 border border-zinc-800 hover:border-emerald-500 hover:bg-emerald-950/30 text-xs text-zinc-200 transition-all flex items-center gap-2 group cursor-pointer"
+                      className="px-2.5 py-1.5 rounded-lg bg-canvas border border-hairline hover:border-olive hover:bg-olive-light/10 text-xs text-ink transition-all flex items-center gap-2 group cursor-pointer"
                       title="Click to schedule a Study Block in this slot"
                     >
-                      <span className={`w-1.5 h-1.5 rounded-full ${isSmall ? "bg-amber-400" : "bg-emerald-400"}`} />
-                      <span className="font-mono text-[11px] text-zinc-200 group-hover:text-white">
+                      <span className={`w-1.5 h-1.5 rounded-full ${isSmall ? "bg-amber-600" : "bg-olive"}`} />
+                      <span className="font-mono text-[11px] text-ink group-hover:text-olive">
                         {slot.formattedTimeRange}
                       </span>
                       <span
                         className={`text-[9px] font-mono px-1.5 py-0.2 rounded border ${
                           isSmall
-                            ? "bg-amber-950/80 border-amber-800/80 text-amber-300"
-                            : "bg-emerald-950/80 border-emerald-800/80 text-emerald-300"
+                            ? "bg-canvas-secondary border-hairline text-ink-muted"
+                            : "bg-olive-light/20 border-olive/30 text-olive"
                         }`}
                       >
                         {mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}h${mins % 60 ? ` ${mins % 60}m` : ""}`}
@@ -620,13 +620,13 @@ export default function CalendarPage() {
                 })}
               </div>
             ) : (
-              <p className="text-xs text-zinc-500">
+              <p className="text-xs text-ink-muted">
                 No free slots available between 9:00 AM and 4:00 PM for this day.
               </p>
             )}
 
             {slotFeedback && (
-              <div className="text-xs text-emerald-400 font-mono pt-1 flex items-center gap-1.5 animate-fade-in">
+              <div className="text-xs text-olive font-mono pt-1 flex items-center gap-1.5 animate-fade-in">
                 <span>✓</span>
                 <span>{slotFeedback}</span>
               </div>
@@ -634,15 +634,15 @@ export default function CalendarPage() {
           </div>
 
           {/* Proportional Google Calendar Day Timeline Grid */}
-          <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4 space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-zinc-800">
+          <div className="rounded-xl border border-hairline bg-surface p-4 space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-hairline">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-semibold text-zinc-200">
+                <span className="text-xs font-semibold text-ink font-serif">
                   {format(selectedDate, "EEEE, MMMM d")}
                 </span>
-                {isToday(selectedDate) && <Badge variant="secondary">Today</Badge>}
+                {isToday(selectedDate) && <Badge variant="olive">Today</Badge>}
               </div>
-              <span className="text-[11px] font-mono text-zinc-400">
+              <span className="text-[11px] font-mono text-ink-muted">
                 {dayItems.length} event{dayItems.length !== 1 ? "s" : ""}
               </span>
             </div>
@@ -650,7 +650,7 @@ export default function CalendarPage() {
             {/* Scrollable Timeline Grid Container */}
             <div
               ref={timelineContainerRef}
-              className="relative max-h-[720px] overflow-y-auto select-none rounded-lg border border-zinc-800/80 bg-zinc-950/70"
+              className="relative max-h-[720px] overflow-y-auto select-none rounded-lg border border-hairline bg-canvas/40"
             >
               <div
                 className="relative min-w-[500px]"
@@ -662,20 +662,20 @@ export default function CalendarPage() {
                   return (
                     <div
                       key={hour}
-                      className="absolute left-0 right-0 border-t border-zinc-800/80 flex items-start"
+                      className="absolute left-0 right-0 border-t border-hairline flex items-start"
                       style={{
                         top: `${(hour - startHour) * HOUR_HEIGHT}px`,
                         height: `${HOUR_HEIGHT}px`,
                       }}
                     >
                       {/* Left Hour Label */}
-                      <span className="w-14 sm:w-16 font-mono text-xs text-zinc-500 pr-3 text-right flex-shrink-0 -translate-y-2.5 select-none">
+                      <span className="w-14 sm:w-16 font-mono text-xs text-ink-muted pr-3 text-right flex-shrink-0 -translate-y-2.5 select-none">
                         {hourLabel}
                       </span>
 
                       {/* Right Grid Slot with Half-Hour Guide Line */}
-                      <div className="flex-1 h-full border-l border-zinc-850/60 relative">
-                        <div className="absolute left-0 right-0 top-1/2 border-t border-zinc-850/30 border-dashed pointer-events-none" />
+                      <div className="flex-1 h-full border-l border-hairline relative">
+                        <div className="absolute left-0 right-0 top-1/2 border-t border-divider border-dashed pointer-events-none" />
                       </div>
                     </div>
                   );
@@ -693,8 +693,8 @@ export default function CalendarPage() {
                         className="absolute left-14 sm:left-16 right-0 pointer-events-none z-20 flex items-center"
                         style={{ top: `${redLineTop}px` }}
                       >
-                        <div className="w-2.5 h-2.5 rounded-full bg-red-500 -ml-1.5 shadow-[0_0_8px_rgba(239,68,68,0.9)]" />
-                        <div className="flex-1 h-[2px] bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.6)]" />
+                        <div className="w-2.5 h-2.5 rounded-full bg-terracotta -ml-1.5 shadow-sm" />
+                        <div className="flex-1 h-[2px] bg-terracotta shadow-xs" />
                       </div>
                     );
                   }
@@ -711,31 +711,31 @@ export default function CalendarPage() {
                     const isClass = triage.domain === "class_lecture";
                     const isStudyBlock = ev.item.title === "Study Block" || ev.item.title === "Focus Block" || ev.item.description?.includes("Study Block") || ev.item.description?.includes("Focus Block");
 
-                    // Autonomous Domain Color Scheme & Glow
-                    let colorStyle = "bg-sky-950/80 border-sky-800 hover:border-sky-400 text-sky-100 border-l-sky-500";
+                    // Subtle, restrained domain coloring
+                    let colorStyle = "bg-surface border-hairline hover:border-olive/50 text-ink border-l-olive";
                     let domainBadgeLabel = isCalendar ? "CALENDAR" : "TASK";
-                    let domainBadgeClass = "bg-zinc-800/80 text-zinc-300 border-zinc-700";
+                    let domainBadgeClass = "bg-canvas-secondary text-ink-secondary border-hairline";
 
                     if (isExam) {
-                      colorStyle = "bg-rose-950/90 border-rose-800 hover:border-rose-400 text-rose-100 border-l-rose-500 shadow-[0_0_12px_rgba(244,63,94,0.15)]";
+                      colorStyle = "bg-[#FDF6F0] border-[#EBD5C8] hover:border-terracotta text-ink border-l-terracotta shadow-xs";
                       domainBadgeLabel = "EXAM";
-                      domainBadgeClass = "bg-rose-500/20 text-rose-300 border-rose-500/50 font-bold";
+                      domainBadgeClass = "bg-terracotta-light/30 text-terracotta border-terracotta/20 font-bold";
                     } else if (isClass) {
-                      colorStyle = "bg-purple-950/80 border-purple-800 hover:border-purple-400 text-purple-100 border-l-purple-500";
+                      colorStyle = "bg-[#F7F4FA] border-[#E5DEEE] hover:border-purple-400 text-ink border-l-purple-600";
                       domainBadgeLabel = "CLASS";
-                      domainBadgeClass = "bg-purple-900/60 text-purple-300 border-purple-700 font-bold";
+                      domainBadgeClass = "bg-purple-100 text-purple-700 border-purple-200 font-bold";
                     } else if (isStudyBlock) {
-                      colorStyle = "bg-emerald-950/80 border-emerald-800 hover:border-emerald-400 text-emerald-100 border-l-emerald-500";
+                      colorStyle = "bg-olive-light/20 border-olive/30 hover:border-olive text-ink border-l-olive";
                       domainBadgeLabel = "STUDY";
-                      domainBadgeClass = "bg-emerald-900/60 text-emerald-300 border-emerald-700 font-bold";
+                      domainBadgeClass = "bg-olive-light/40 text-olive border-olive/30 font-bold";
                     } else if (triage.domain === "personal") {
-                      colorStyle = "bg-teal-950/80 border-teal-800 hover:border-teal-400 text-teal-100 border-l-teal-500";
+                      colorStyle = "bg-surface border-hairline hover:border-stone-400 text-ink border-l-stone-400";
                       domainBadgeLabel = "PERSONAL";
-                      domainBadgeClass = "bg-teal-900/60 text-teal-300 border-teal-700 font-bold";
+                      domainBadgeClass = "bg-canvas-secondary text-ink-muted border-hairline font-bold";
                     } else if (triage.domain === "project_dev") {
-                      colorStyle = "bg-amber-950/80 border-amber-800 hover:border-amber-400 text-amber-100 border-l-amber-500";
+                      colorStyle = "bg-surface border-hairline hover:border-amber-500/50 text-ink border-l-amber-600";
                       domainBadgeLabel = "DEV";
-                      domainBadgeClass = "bg-amber-900/60 text-amber-300 border-amber-700 font-bold";
+                      domainBadgeClass = "bg-amber-50 text-amber-800 border-amber-200 font-bold";
                     }
 
                     const isTall = ev.height >= 64;
@@ -750,7 +750,7 @@ export default function CalendarPage() {
                           left: `calc(${ev.column * (100 / ev.totalColumns)}% + 2px)`,
                           width: `calc(${100 / ev.totalColumns}% - 4px)`,
                         }}
-                        className={`absolute pointer-events-auto rounded-lg border border-l-4 p-2 sm:p-2.5 transition-all duration-150 cursor-pointer group shadow-sm hover:shadow-md z-10 hover:z-30 overflow-hidden flex flex-col justify-between ${colorStyle}`}
+                        className={`absolute pointer-events-auto rounded-lg border border-l-4 p-2 sm:p-2.5 transition-all duration-150 cursor-pointer group shadow-xs hover:shadow-sm z-10 hover:z-30 overflow-hidden flex flex-col justify-between ${colorStyle}`}
                         title={`${ev.item.title} (${timeStr})`}
                       >
                         {isTall ? (
@@ -758,7 +758,7 @@ export default function CalendarPage() {
                             <div className="space-y-1 min-w-0 pr-1">
                               <div className="flex items-center justify-between gap-1.5">
                                 <div className="flex items-center gap-1.5 min-w-0">
-                                  <span className="font-semibold text-xs text-white truncate group-hover:underline">
+                                  <span className="font-semibold text-xs text-ink truncate group-hover:underline">
                                     {ev.item.title}
                                   </span>
                                   <span className={`text-[9px] font-mono px-1.5 py-0.2 rounded border uppercase hidden sm:inline-flex ${domainBadgeClass}`}>
@@ -772,7 +772,7 @@ export default function CalendarPage() {
                                     target="_blank"
                                     rel="noopener noreferrer"
                                     onClick={(e) => e.stopPropagation()}
-                                    className="p-1 rounded hover:bg-white/10 text-zinc-300 hover:text-white transition-colors flex-shrink-0"
+                                    className="p-1 rounded hover:bg-canvas-secondary text-ink-muted hover:text-ink transition-colors flex-shrink-0"
                                     title="Open in Google Calendar"
                                   >
                                     <ExternalLink className="w-3 h-3" />
@@ -781,27 +781,27 @@ export default function CalendarPage() {
                               </div>
 
                               {ev.item.description && ev.height >= 85 && (
-                                <p className="text-[11px] text-zinc-300 line-clamp-1">
+                                <p className="text-[11px] text-ink-muted line-clamp-1">
                                   {ev.item.description}
                                 </p>
                               )}
                             </div>
 
-                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-zinc-300 font-mono pt-1">
+                            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[10px] text-ink-muted font-mono pt-1">
                               {timeStr && (
-                                <span className="flex items-center gap-1 font-semibold text-white">
-                                  <Clock className="w-3 h-3 text-zinc-400" />
+                                <span className="flex items-center gap-1 font-semibold text-ink">
+                                  <Clock className="w-3 h-3 text-ink-muted" />
                                   <span>{timeStr}</span>
                                 </span>
                               )}
                               {ev.item.metadata?.location && (
-                                <span className="flex items-center gap-1 text-zinc-300">
-                                  <MapPin className="w-3 h-3 text-zinc-400" />
+                                <span className="flex items-center gap-1 text-ink-secondary">
+                                  <MapPin className="w-3 h-3 text-ink-muted" />
                                   <span className="truncate max-w-[140px]">{ev.item.metadata.location}</span>
                                 </span>
                               )}
                               {ev.item.metadata?.hangoutLink && (
-                                <span className="flex items-center gap-1 text-emerald-300 font-sans">
+                                <span className="flex items-center gap-1 text-olive font-sans">
                                   <Video className="w-3 h-3" />
                                   <span>Meet</span>
                                 </span>
@@ -811,10 +811,10 @@ export default function CalendarPage() {
                         ) : (
                           <div className="flex items-center justify-between h-full w-full gap-2">
                             <div className="flex items-center gap-2 truncate">
-                              <span className="font-semibold text-xs text-white truncate">
+                              <span className="font-semibold text-xs text-ink truncate">
                                 {ev.item.title}
                               </span>
-                              <span className="text-[10px] text-zinc-300 font-mono truncate">
+                              <span className="text-[10px] text-ink-muted font-mono truncate">
                                 {timeStr}
                               </span>
                             </div>
@@ -824,7 +824,7 @@ export default function CalendarPage() {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={(e) => e.stopPropagation()}
-                                className="p-0.5 rounded hover:bg-white/10 text-zinc-300 hover:text-white flex-shrink-0"
+                                className="p-0.5 rounded hover:bg-canvas-secondary text-ink-muted hover:text-ink flex-shrink-0"
                                 title="Open in Google Calendar"
                               >
                                 <ExternalLink className="w-3 h-3" />
@@ -869,21 +869,21 @@ export default function CalendarPage() {
                 }}
                 className={`p-3.5 rounded-xl border flex flex-col space-y-3 cursor-pointer transition-all ${
                   isSelected
-                    ? "bg-zinc-900 border-white ring-1 ring-white/20"
-                    : "bg-zinc-950 border-zinc-800 hover:border-zinc-700"
+                    ? "bg-canvas border-olive ring-1 ring-olive/20 shadow-xs"
+                    : "bg-surface border-hairline hover:border-olive/40"
                 }`}
               >
                 {/* Day Header */}
-                <div className="flex items-center justify-between border-b border-zinc-800 pb-2">
+                <div className="flex items-center justify-between border-b border-hairline pb-2">
                   <div>
-                    <span className="text-xs font-mono font-bold text-zinc-200">
+                    <span className="text-xs font-mono font-bold text-ink-secondary">
                       {format(day, "EEE")}
                     </span>
-                    <p className={`text-base font-bold font-mono ${isDayToday ? "text-white font-extrabold" : "text-zinc-400"}`}>
+                    <p className={`text-base font-bold font-mono ${isDayToday ? "text-olive font-extrabold" : "text-ink"}`}>
                       {format(day, "d")}
                     </p>
                   </div>
-                  {isDayToday && <Badge variant="secondary">Today</Badge>}
+                  {isDayToday && <Badge variant="olive">Today</Badge>}
                 </div>
 
                 {/* Day Events Count & Mini List */}
@@ -895,19 +895,19 @@ export default function CalendarPage() {
                         key={item.id}
                         className={`p-1.5 rounded text-[11px] truncate transition-colors ${
                           isExam
-                            ? "bg-rose-950/70 border border-rose-800/80 text-rose-200 hover:text-white shadow-sm"
-                            : "bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white"
+                            ? "bg-[#FDF6F0] border border-[#EBD5C8] text-ink hover:text-terracotta shadow-xs"
+                            : "bg-canvas border border-hairline text-ink hover:text-olive"
                         }`}
                       >
                         <div className="flex items-center gap-1 min-w-0">
                           {isExam && (
-                            <span className="text-[8px] font-mono px-1 py-0 rounded bg-rose-500/20 text-rose-300 border border-rose-500/40 font-bold shrink-0">
+                            <span className="text-[8px] font-mono px-1 py-0 rounded bg-terracotta-light/30 text-terracotta border border-terracotta/20 font-bold shrink-0">
                               EXAM
                             </span>
                           )}
                           <span className="truncate block font-medium">{item.title}</span>
                         </div>
-                        <span className="text-[10px] text-zinc-500 font-mono">
+                        <span className="text-[10px] text-ink-muted font-mono">
                           {item.startAt && item.dueAt 
                             ? `${format(parseISO(item.startAt), "hh:mm a")} - ${format(parseISO(item.dueAt), "hh:mm a")}`
                             : item.startAt 
@@ -919,13 +919,13 @@ export default function CalendarPage() {
                   })}
 
                   {itemsForDay.length > 4 && (
-                    <span className="text-[10px] text-zinc-500 font-mono block pt-1">
+                    <span className="text-[10px] text-ink-muted font-mono block pt-1">
                       +{itemsForDay.length - 4} more
                     </span>
                   )}
 
                   {itemsForDay.length === 0 && (
-                    <span className="text-[11px] text-zinc-600 italic block pt-4 text-center">
+                    <span className="text-[11px] text-ink-muted italic block pt-4 text-center">
                       No events
                     </span>
                   )}

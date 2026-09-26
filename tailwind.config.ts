@@ -10,77 +10,104 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
+        // Warm Neutral Foundation tokens (NEXUS Design System)
+        canvas: {
+          DEFAULT: "#F7F5F0",
+          secondary: "#EFEBE3",
+        },
+        surface: {
+          DEFAULT: "#FBFAF7",
+          raised: "#FFFFFF",
+          muted: "#F2EFE9",
+          border: "#DDD8CF",
+        },
+        ink: {
+          DEFAULT: "#171717",
+          secondary: "#6F6B63",
+          muted: "#9A958B",
+          faint: "#BCB7AC",
+        },
+        hairline: {
+          DEFAULT: "#DDD8CF",
+          subtle: "#E4E0D8",
+          darker: "#CFC9BE",
+        },
+        // Single Primary Accent: Deep Olive
+        olive: {
+          DEFAULT: "#4D5A45",
+          hover: "#3E4937",
+          soft: "#EDF0EB",
+          subtle: "#DCE2D8",
+          text: "#343F2E",
+          border: "#C7CEBF",
+        },
+        // Restrained Semantic Alerts (used sparingly for same-day deadlines)
+        terracotta: {
+          DEFAULT: "#B5763A",
+          soft: "#FBF3EC",
+          border: "#E9DACB",
+          text: "#8A5424",
+        },
+        // Legacy system color mappings for backwards compatibility
+        background: "#F7F5F0",
+        foreground: "#171717",
         card: {
-          DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
+          DEFAULT: "#FBFAF7",
+          foreground: "#171717",
         },
         popover: {
-          DEFAULT: "hsl(var(--popover))",
-          foreground: "hsl(var(--popover-foreground))",
+          DEFAULT: "#FFFFFF",
+          foreground: "#171717",
         },
         primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
+          DEFAULT: "#4D5A45",
+          foreground: "#FFFFFF",
         },
         secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
+          DEFAULT: "#EFEBE3",
+          foreground: "#171717",
         },
         muted: {
-          DEFAULT: "hsl(var(--muted))",
-          foreground: "hsl(var(--muted-foreground))",
+          DEFAULT: "#EFEBE3",
+          foreground: "#6F6B63",
         },
         accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
+          DEFAULT: "#EDF0EB",
+          foreground: "#4D5A45",
         },
         destructive: {
-          DEFAULT: "hsl(var(--destructive))",
-          foreground: "hsl(var(--destructive-foreground))",
+          DEFAULT: "#B5763A",
+          foreground: "#FFFFFF",
         },
-        border: "hsl(var(--border))",
-        input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
-        nexus: {
-          950: "#000000",
-          900: "#09090b",
-          850: "#121215",
-          800: "#18181b",
-          750: "#27272a",
-          700: "#3f3f46",
-          600: "#52525b",
-          accent: "#ffffff",
-          highlight: "#f4f4f5",
-          gold: "#e4e4e7",
-          emerald: "#ffffff",
-          rose: "#a1a1aa",
-          cyan: "#d4d4d8"
-        }
+        border: "#DDD8CF",
+        input: "#DDD8CF",
+        ring: "#4D5A45",
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        xs: "4px",
+        sm: "6px",
+        md: "10px",
+        lg: "14px",
+        xl: "18px",
       },
       fontFamily: {
-        sans: ["var(--font-sans)", "system-ui", "-apple-system", "sans-serif"],
-        mono: ["var(--font-mono)", "monospace"],
+        sans: ["var(--font-sans)", "Inter", "-apple-system", "BlinkMacSystemFont", "sans-serif"],
+        serif: ["var(--font-serif)", "Newsreader", "Cormorant Garamond", "Georgia", "serif"],
+        mono: ["var(--font-mono)", "JetBrains Mono", "ui-monospace", "monospace"],
+      },
+      boxShadow: {
+        subtle: "0 1px 3px rgba(0, 0, 0, 0.03), 0 1px 2px rgba(0, 0, 0, 0.02)",
+        card: "0 1px 3px rgba(0, 0, 0, 0.04)",
+        popover: "0 12px 32px rgba(0, 0, 0, 0.06), 0 0 1px rgba(0, 0, 0, 0.08)",
       },
       keyframes: {
         "fade-in": {
-          "0%": { opacity: "0", transform: "translateY(4px)" },
+          "0%": { opacity: "0", transform: "translateY(3px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
-        },
-        "pulse-subtle": {
-          "0%, 100%": { opacity: "1" },
-          "50%": { opacity: "0.5" },
         },
       },
       animation: {
         "fade-in": "fade-in 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
-        "pulse-subtle": "pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
       },
     },
   },

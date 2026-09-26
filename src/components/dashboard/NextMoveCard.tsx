@@ -1,10 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Zap, CheckCircle, Clock, Sparkles, RefreshCw, ArrowRight } from "lucide-react";
+import { Clock, RefreshCw, ArrowRight, Play } from "lucide-react";
 import { RecommendationResult, UnifiedItem } from "@/lib/types";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
 
 interface NextMoveCardProps {
   recommendation: RecommendationResult | null;
@@ -17,10 +17,10 @@ export function NextMoveCard({ recommendation, onRefresh, onSelectTask }: NextMo
 
   if (!recommendation || dismissed) {
     return (
-      <div className="rounded-xl border border-zinc-800 bg-zinc-950 p-4 flex items-center justify-between">
+      <div className="rounded-md border border-hairline bg-surface p-5 flex items-center justify-between shadow-subtle">
         <div className="flex items-center gap-2.5">
-          <Zap className="w-4 h-4 text-white" />
-          <span className="text-xs text-zinc-400">Recommendation paused or queue clear</span>
+          <span className="w-2 h-2 rounded-full bg-olive" />
+          <span className="text-xs text-ink-secondary">Recommendation paused · Schedule clear</span>
         </div>
         <Button 
           variant="outline" 
@@ -29,57 +29,49 @@ export function NextMoveCard({ recommendation, onRefresh, onSelectTask }: NextMo
             setDismissed(false);
             onRefresh();
           }}
-          className="text-xs h-7 border-zinc-700 hover:border-white"
+          className="text-xs h-7"
         >
           <RefreshCw className="w-3 h-3 mr-1.5" />
-          What should I do now?
+          <span>What should I do now?</span>
         </Button>
       </div>
     );
   }
 
   const { item, reason, availableMinutes } = recommendation;
+  const deadlineText = item.dueAt ? `Due ${new Date(item.dueAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : undefined;
 
   return (
-    <div className="rounded-xl border border-zinc-700 bg-zinc-950 p-5 space-y-4 shadow-xl">
+    <div className="rounded-md border border-hairline bg-surface p-6 space-y-4 shadow-subtle relative overflow-hidden">
+      {/* Top Label */}
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <div className="p-1.5 rounded-md bg-white text-black border border-white">
-            <Zap className="w-4 h-4" />
-          </div>
-          <div>
-            <span className="text-[10px] uppercase font-mono tracking-wider text-zinc-400 font-bold">
-              YOUR NEXT MOVE
-            </span>
-            <h3 className="text-base font-bold text-zinc-100 mt-0.5">
-              {item.title}
-            </h3>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {item.priority === "critical" && <Badge variant="destructive">Critical Priority</Badge>}
-          {item.priority === "high" && <Badge variant="warning">High Priority</Badge>}
-          <Badge variant="secondary">{item.estimatedMinutes || 45} mins</Badge>
+        <span className="text-[10px] uppercase font-mono tracking-widest text-ink-muted">
+          What should I do now?
+        </span>
+        <div className="flex items-center gap-2 text-xs text-ink-muted font-mono">
+          <Clock className="w-3 h-3 text-ink-muted" />
+          <span>~{item.estimatedMinutes || 45} min estimated</span>
         </div>
       </div>
 
-      {/* Rationale Callout */}
-      <div className="p-3 rounded-lg bg-zinc-900 border border-zinc-800 text-xs space-y-1">
-        <div className="flex items-center gap-1.5 text-zinc-400 font-mono text-[10px] uppercase">
-          <Sparkles className="w-3 h-3 text-white" />
-          <span>Why this task now:</span>
-        </div>
-        <p className="text-zinc-300 leading-relaxed">
-          {reason}
-        </p>
+      {/* Main Focus Title */}
+      <div>
+        <h2 className="font-editorial text-2xl font-normal text-ink leading-snug tracking-tight">
+          {item.title}
+        </h2>
+        {reason && (
+          <p className="text-xs text-ink-secondary leading-relaxed mt-2 max-w-xl">
+            {reason}
+          </p>
+        )}
       </div>
 
-      {/* Action Buttons */}
-      <div className="flex items-center justify-between pt-1">
-        <div className="flex items-center gap-2 text-[11px] text-zinc-500">
-          <Clock className="w-3.5 h-3.5 text-zinc-400" />
-          <span>Available window: ~{availableMinutes || 90}m</span>
+      {/* Bottom Metadata & Intent Actions */}
+      <div className="flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-hairline-subtle">
+        <div className="text-[11px] text-ink-muted font-mono flex items-center gap-2">
+          {deadlineText && <span>{deadlineText}</span>}
+          {deadlineText && <span>·</span>}
+          <span>Free window: ~{availableMinutes || 90}m</span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -87,19 +79,30 @@ export function NextMoveCard({ recommendation, onRefresh, onSelectTask }: NextMo
             variant="ghost"
             size="sm"
             onClick={() => setDismissed(true)}
-            className="text-xs text-zinc-400 hover:text-white"
+            className="text-xs text-ink-muted hover:text-ink"
           >
-            Not Now
+            Later
           </Button>
 
           <Button
+            variant="outline"
             size="sm"
             onClick={() => onSelectTask(item)}
-            className="flex items-center gap-1.5 text-xs h-8 bg-white text-black font-semibold hover:bg-zinc-200"
+            className="text-xs"
           >
-            <span>View Task</span>
-            <ArrowRight className="w-3.5 h-3.5" />
+            <span>Details</span>
           </Button>
+
+          <Link href="/focus">
+            <Button
+              variant="olive"
+              size="sm"
+              className="flex items-center gap-1.5"
+            >
+              <Play className="w-3 h-3 fill-current" />
+              <span>Start Focus</span>
+            </Button>
+          </Link>
         </div>
       </div>
     </div>
