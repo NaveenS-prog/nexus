@@ -1,5 +1,6 @@
 import { UnifiedItem } from "@/lib/types";
 import { isExamItem, smartTriageItem } from "@/lib/nlp/itemClassifier";
+import { parseISO, differenceInCalendarDays } from "date-fns";
 
 /**
  * Normalizes title for bulletproof deduplication:
@@ -66,9 +67,35 @@ export function scanAndDeduplicateExamItems(items: UnifiedItem[]): {
 
   for (const item of sortedItems) {
     const normTitle = normalizeExamOrTaskTitle(item.title);
-    const dateKey = (item.startAt || item.dueAt || "").slice(0, 10);
     const isGcal = item.source === "google_calendar" || item.category === "calendar";
     const isExam = isExamItem(item);
+
+    // Sanitize any all-day event or exam where dueAt was erroneously set to next day by legacy gcal exclusive end
+    let cleanStartAt = item.startAt;
+    let cleanDueAt = item.dueAt;
+
+    const isAllDay = Boolean(item.metadata?.isAllDay || item.tags?.includes("All Day") || (item.startAt && item.startAt.includes("T00:00:00")));
+    if (cleanStartAt && (isAllDay || isExam)) {
+      const startDateKey = cleanStartAt.slice(0, 10);
+      if (cleanDueAt) {
+        const dueDateKey = cleanDueAt.slice(0, 10);
+        if (startDateKey !== dueDateKey) {
+          try {
+            const startD = parseISO(cleanStartAt);
+            const dueD = parseISO(cleanDueAt);
+            const diffDays = differenceInCalendarDays(dueD, startD);
+            // If dueAt was bumped to next day (legacy exclusive end date bug) or for exams, lock dueAt to the same day
+            if (diffDays === 1 || isExam) {
+              cleanDueAt = `${startDateKey}T23:59:59`;
+            }
+          } catch {}
+        }
+      } else {
+        cleanDueAt = `${startDateKey}T23:59:59`;
+      }
+    }
+
+    const dateKey = (cleanStartAt || cleanDueAt || "").slice(0, 10);
 
     // If this item is from nexus/google_tasks, but an exam or event with the same title
     // already exists in Google Calendar:
@@ -85,7 +112,11 @@ export function scanAndDeduplicateExamItems(items: UnifiedItem[]): {
         continue;
       }
       seenNexusSignatures.add(nexusSig);
-      deduplicated.push(item);
+      deduplicated.push({
+        ...item,
+        startAt: cleanStartAt,
+        dueAt: cleanDueAt,
+      });
       continue;
     }
 
@@ -104,8 +135,8 @@ export function scanAndDeduplicateExamItems(items: UnifiedItem[]): {
         description: item.description,
         source: item.source,
         category: item.category,
-        startAt: item.startAt,
-        dueAt: item.dueAt,
+        startAt: cleanStartAt,
+        dueAt: cleanDueAt,
       });
 
       const mergedTags = Array.from(
@@ -114,13 +145,19 @@ export function scanAndDeduplicateExamItems(items: UnifiedItem[]): {
 
       deduplicated.push({
         ...item,
+        startAt: cleanStartAt,
+        dueAt: cleanDueAt,
         category: "academic",
         smartDomain: "exam",
         priority: "critical",
         tags: mergedTags,
       });
     } else {
-      deduplicated.push(item);
+      deduplicated.push({
+        ...item,
+        startAt: cleanStartAt,
+        dueAt: cleanDueAt,
+      });
     }
   }
 

@@ -191,7 +191,11 @@ export default function AcademicsPage() {
                       <div className="flex items-center gap-1.5">
                         <Clock className="w-3 h-3 text-ink-muted" />
                         <span>
-                          {exam.startAt ? format(parseISO(exam.startAt), "EEE, MMM d · h:mm a") : "Schedule pending"}
+                          {exam.startAt
+                            ? (exam.metadata?.isAllDay || exam.startAt.includes("T00:00:00")
+                                ? format(parseISO(exam.startAt), "EEE, MMM d (All Day)")
+                                : format(parseISO(exam.startAt), "EEE, MMM d · h:mm a"))
+                            : "Schedule pending"}
                         </span>
                       </div>
                       {exam.metadata?.location && (
@@ -319,8 +323,13 @@ export default function AcademicsPage() {
 
                       <div className="flex items-center gap-2 mt-1 text-[11px] text-ink-muted font-mono">
                         <span className="text-ink-secondary">{courseTitle}</span>
-                        <span>·</span>
-                        <span>Due: {item.dueAt ? format(parseISO(item.dueAt), "MMM d · h:mm a") : "No fixed cutoff"}</span>
+                        <span>
+                          Due: {item.dueAt
+                            ? (item.dueAt.includes("T23:59:59") || item.metadata?.isAllDay
+                                ? format(parseISO(item.dueAt), "MMM d")
+                                : format(parseISO(item.dueAt), "MMM d · h:mm a"))
+                            : "No fixed cutoff"}
+                        </span>
                       </div>
                     </div>
                   </div>

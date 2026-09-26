@@ -12,7 +12,7 @@ import { ActiveProjectsCard } from "@/components/dashboard/ActiveProjectsCard";
 import { ItemDetailDrawer } from "@/components/dashboard/ItemDetailDrawer";
 import { UnifiedItem } from "@/lib/types";
 import { format, isSameDay, parseISO, isBefore, startOfDay } from "date-fns";
-import { isActionableTaskOrAssignment } from "@/lib/nlp/itemClassifier";
+import { isActionableTaskOrAssignment, isExamItem } from "@/lib/nlp/itemClassifier";
 
 export default function CommandCenterDashboard() {
   const {
@@ -84,9 +84,11 @@ export default function CommandCenterDashboard() {
   const pendingCount = actionableTasks.filter((i) => i.status !== "completed").length;
   const deadlineCount = actionableTasks.filter((i) => {
     if (i.status === "completed") return false;
-    if (i.dueAt) {
+    const isEventOrExam = i.category === "calendar" || i.category === "academic" || i.source === "google_calendar" || isExamItem(i);
+    const target = isEventOrExam ? (i.startAt || i.dueAt) : (i.dueAt || i.startAt);
+    if (target) {
       try {
-        const d = parseISO(i.dueAt);
+        const d = parseISO(target);
         return isSameDay(d, new Date()) || isBefore(d, startOfDay(new Date()));
       } catch {}
     }

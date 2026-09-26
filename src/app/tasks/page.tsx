@@ -58,6 +58,17 @@ export default function TasksPage() {
       }
       if (selectedFilter === "completed") return item.status === "completed";
       return true;
+    }).sort((a, b) => {
+      // Completed items sink to bottom
+      if (a.status === "completed" && b.status !== "completed") return 1;
+      if (a.status !== "completed" && b.status === "completed") return -1;
+
+      // Chronological sort by event start date or task due date
+      const isEventA = a.category === "calendar" || a.category === "academic" || a.source === "google_calendar" || isExamItem(a);
+      const isEventB = b.category === "calendar" || b.category === "academic" || b.source === "google_calendar" || isExamItem(b);
+      const timeA = (isEventA ? (a.startAt || a.dueAt) : (a.dueAt || a.startAt)) || "9999";
+      const timeB = (isEventB ? (b.startAt || b.dueAt) : (b.dueAt || b.startAt)) || "9999";
+      return timeA.localeCompare(timeB);
     });
   }, [items, selectedFilter, searchQuery]);
 
@@ -86,7 +97,12 @@ export default function TasksPage() {
 
   const formatDue = (item: UnifiedItem) => {
     const isAllDay = Boolean(item.metadata?.isAllDay || item.tags?.includes("All Day"));
-    const dateStr = item.dueAt || item.startAt;
+    // For calendar events, exams, and classes: the scheduled date is startAt!
+    // For tasks/coursework: the deadline is dueAt (falling back to startAt).
+    const isEventOrExam = item.category === "calendar" || item.category === "academic" || item.source === "google_calendar" || isExamItem(item);
+    const dateStr = isEventOrExam 
+      ? (item.startAt || item.dueAt) 
+      : (item.dueAt || item.startAt);
     if (!dateStr) return undefined;
     try {
       const d = parseISO(dateStr);

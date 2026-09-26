@@ -81,18 +81,21 @@ export function AiBriefingCard({
     const pool = allItems.length > 0 ? allItems : (items || []);
     pool.forEach((item) => {
       if (item.status === "completed") return;
-      const targetStr = item.startAt || item.dueAt;
+      const isEventOrExam = item.category === "calendar" || item.category === "academic" || item.source === "google_calendar" || isExamItem(item);
+      const targetStr = isEventOrExam ? (item.startAt || item.dueAt) : (item.dueAt || item.startAt);
       if (!targetStr) return;
-      const dateKey = targetStr.slice(0, 10);
-      if (dayMap.has(dateKey)) {
-        const entry = dayMap.get(dateKey)!;
-        entry.count += 1;
-        entry.minutes += item.estimatedMinutes || 60;
-        if (isExamItem(item)) {
-          entry.examTitles.push(item.title);
-          entry.minutes += 60;
+      try {
+        const dateKey = format(parseISO(targetStr), "yyyy-MM-dd");
+        if (dayMap.has(dateKey)) {
+          const entry = dayMap.get(dateKey)!;
+          entry.count += 1;
+          entry.minutes += item.estimatedMinutes || 60;
+          if (isExamItem(item)) {
+            entry.examTitles.push(item.title);
+            entry.minutes += 60;
+          }
         }
-      }
+      } catch {}
     });
 
     let maxDay: PeakDay | null = null;

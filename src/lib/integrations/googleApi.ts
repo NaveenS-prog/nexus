@@ -1,6 +1,6 @@
 import { UnifiedItem } from "../types";
 import { getStoredCredentials, saveStoredCredentials, IntegrationCredentials } from "./config";
-import { addDays, differenceInMinutes, parseISO } from "date-fns";
+import { addDays, differenceInMinutes, format, parseISO, subDays } from "date-fns";
 
 export interface TokenResult {
   token: string | null;
@@ -124,6 +124,14 @@ export async function fetchLiveGoogleTasks(
 
   return rawItems.map((item: any): UnifiedItem => {
     const isCompleted = item.status === "completed";
+    let taskDueAt: string | undefined = undefined;
+    if (item.due) {
+      // Google Tasks returns due timestamps anchored to 00:00:00Z.
+      // Anchor it directly to 23:59:59 of that specific calendar date to prevent cross-timezone date shifts.
+      const datePart = item.due.includes("T") ? item.due.split("T")[0] : item.due;
+      taskDueAt = `${datePart}T23:59:59`;
+    }
+
     return {
       id: `gtask-${item.id}`,
       externalId: item.id,
@@ -131,9 +139,9 @@ export async function fetchLiveGoogleTasks(
       title: item.title || "Untitled Task",
       description: item.notes || undefined,
       category: "personal",
-      priority: item.due && new Date(item.due).getTime() < Date.now() + 86400000 * 2 ? "high" : "medium",
+      priority: taskDueAt && new Date(taskDueAt).getTime() < Date.now() + 86400000 * 2 ? "high" : "medium",
       status: isCompleted ? "completed" : "pending",
-      dueAt: item.due ? new Date(item.due).toISOString() : undefined,
+      dueAt: taskDueAt,
       estimatedMinutes: 30,
       tags: ["Google Tasks"],
       createdAt: item.updated || new Date().toISOString(),
@@ -270,6 +278,34 @@ export async function fetchLiveGoogleCalendarEvents(
     const desc = event.description || (event.location ? `Location: ${event.location}` : undefined);
     const isExam = /\b(?:ia|i\.a\.|cia|cat|internals?|exam|test|quiz|midterm|viva)\b/i.test(`${summary} ${desc || ""}`);
 
+    let eventStartAt: string | undefined = undefined;
+    let eventDueAt: string | undefined = undefined;
+
+    if (isAllDay && event.start?.date) {
+      eventStartAt = `${event.start.date}T00:00:00`;
+
+      // CRITICAL FIX: Google Calendar all-day event end.date is strictly EXCLUSIVE (1 day after the event).
+      // For example, a single-day event on Sep 29 has start.date="2026-09-29" and end.date="2026-09-30".
+      // We must compute the inclusive end date by subtracting 1 day from end.date.
+      let inclusiveEndDate = event.start.date;
+      if (event.end?.date) {
+        try {
+          const endD = parseISO(event.end.date);
+          const startD = parseISO(event.start.date);
+          const prevDay = subDays(endD, 1);
+          if (prevDay >= startD) {
+            inclusiveEndDate = format(prevDay, "yyyy-MM-dd");
+          }
+        } catch {
+          inclusiveEndDate = event.start.date;
+        }
+      }
+      eventDueAt = `${inclusiveEndDate}T23:59:59`;
+    } else {
+      eventStartAt = startStr ? new Date(startStr).toISOString() : undefined;
+      eventDueAt = endStr ? new Date(endStr).toISOString() : undefined;
+    }
+
     return {
       id: `gcal-${event.id}`,
       externalId: event.id,
@@ -279,8 +315,8 @@ export async function fetchLiveGoogleCalendarEvents(
       category: isExam ? "academic" : "calendar",
       priority: isExam ? "critical" : "medium",
       status: "pending",
-      startAt: startStr ? (isAllDay ? `${event.start.date}T00:00:00` : new Date(startStr).toISOString()) : undefined,
-      dueAt: endStr ? (isAllDay ? `${event.end.date}T23:59:59` : new Date(endStr).toISOString()) : undefined,
+      startAt: eventStartAt,
+      dueAt: eventDueAt,
       estimatedMinutes: isAllDay ? (isExam ? 90 : 480) : estimatedMinutes,
       url: event.htmlLink,
       tags: isExam ? ["Exam", "Calendar"] : (isAllDay ? ["Calendar", "All Day"] : ["Calendar"]),

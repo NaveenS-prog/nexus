@@ -119,7 +119,8 @@ export function UpcomingExamsAndAssignments({
             const countdown = getCountdownLabel(item.startAt || item.dueAt);
             const courseTitle = inferCourseFromItem(item) || item.courseName;
             const dateStr = item.startAt || item.dueAt;
-            const timeFormatted = dateStr ? format(parseISO(dateStr), "EEE, MMM d · h:mm a") : undefined;
+            const isAllDay = Boolean(item.metadata?.isAllDay || item.tags?.includes("All Day") || (item.startAt && item.startAt.includes("T00:00:00")));
+            const timeFormatted = dateStr ? (isAllDay ? format(parseISO(dateStr), "EEE, MMM d") : format(parseISO(dateStr), "EEE, MMM d · h:mm a")) : undefined;
 
             return (
               <div

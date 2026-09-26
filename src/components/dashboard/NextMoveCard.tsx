@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Clock, RefreshCw, ArrowRight, Play } from "lucide-react";
 import { RecommendationResult, UnifiedItem } from "@/lib/types";
 import { Button } from "@/components/ui/button";
+import { format, parseISO } from "date-fns";
+import { isExamItem } from "@/lib/nlp/itemClassifier";
 import Link from "next/link";
 
 interface NextMoveCardProps {
@@ -39,7 +41,9 @@ export function NextMoveCard({ recommendation, onRefresh, onSelectTask }: NextMo
   }
 
   const { item, reason, availableMinutes } = recommendation;
-  const deadlineText = item.dueAt ? `Due ${new Date(item.dueAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}` : undefined;
+  const isEventOrExam = item.category === "calendar" || item.category === "academic" || item.source === "google_calendar" || isExamItem(item);
+  const targetDateStr = isEventOrExam ? (item.startAt || item.dueAt) : (item.dueAt || item.startAt);
+  const deadlineText = targetDateStr ? `${isEventOrExam ? "On" : "Due"} ${format(parseISO(targetDateStr), "MMM d")}` : undefined;
 
   return (
     <div className="rounded-md border border-hairline bg-surface p-6 space-y-4 shadow-subtle relative overflow-hidden">

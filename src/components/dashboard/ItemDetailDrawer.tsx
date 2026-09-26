@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { UnifiedItem } from "@/lib/types";
 import { smartTriageItem, getDomainBadgeProps } from "@/lib/nlp/itemClassifier";
+import { format, parseISO } from "date-fns";
 
 interface ItemDetailDrawerProps {
   item: UnifiedItem | null;
@@ -118,39 +119,24 @@ export function ItemDetailDrawer({
               <div className="p-2.5 rounded-lg bg-surface border border-hairline">
                 <div className="flex items-center gap-1.5 text-ink-muted text-[10px] font-mono uppercase">
                   <Calendar className="w-3 h-3 text-olive" />
-                  <span>{item.metadata?.isAllDay ? "Event Date" : "Start Time"}</span>
+                  <span>{item.metadata?.isAllDay || item.startAt.includes("T00:00:00") ? "Event Date" : "Start Time"}</span>
                 </div>
                 <span className="font-mono text-ink mt-1 block">
-                  {item.metadata?.isAllDay
-                    ? new Date(item.startAt).toLocaleDateString(undefined, {
-                        weekday: "short",
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      }) + " (All Day)"
-                    : new Date(item.startAt).toLocaleDateString(undefined, {
-                        month: "short",
-                        day: "numeric",
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                  {item.metadata?.isAllDay || item.startAt.includes("T00:00:00")
+                    ? `${format(parseISO(item.startAt), "EEE, MMM d, yyyy")} (All Day)`
+                    : format(parseISO(item.startAt), "EEE, MMM d · h:mm a")}
                 </span>
               </div>
             )}
 
-            {item.dueAt && !item.metadata?.isAllDay && (
+            {item.dueAt && !item.metadata?.isAllDay && !item.dueAt.includes("T23:59:59") && !item.startAt?.includes("T00:00:00") && (
               <div className="p-2.5 rounded-lg bg-surface border border-hairline">
                 <div className="flex items-center gap-1.5 text-ink-muted text-[10px] font-mono uppercase">
                   <Calendar className="w-3 h-3 text-olive" />
                   <span>{item.startAt ? "End Time" : "Due Date"}</span>
                 </div>
                 <span className="font-mono text-ink mt-1 block">
-                  {new Date(item.dueAt).toLocaleDateString(undefined, {
-                    month: "short",
-                    day: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                  {format(parseISO(item.dueAt), "EEE, MMM d · h:mm a")}
                 </span>
               </div>
             )}

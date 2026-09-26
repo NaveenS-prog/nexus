@@ -1,5 +1,6 @@
 import { UnifiedItem, DashboardMode, RecommendationResult } from "../types";
 import { parseISO, differenceInHours, differenceInMinutes, isBefore, isAfter, addHours } from "date-fns";
+import { isExamItem } from "../nlp/itemClassifier";
 
 export function recommendNextTask(
   items: UnifiedItem[],
@@ -48,7 +49,8 @@ export function recommendNextTask(
     else score += 5;
 
     // Deadline & schedule proximity
-    const targetDateStr = item.dueAt || item.startAt;
+    const isEventOrExam = item.category === "calendar" || item.category === "academic" || item.source === "google_calendar" || isExamItem(item);
+    const targetDateStr = isEventOrExam ? (item.startAt || item.dueAt) : (item.dueAt || item.startAt);
     if (targetDateStr) {
       try {
         const dueDate = parseISO(targetDateStr);

@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { UnifiedItem } from "@/lib/types";
 import { format, parseISO, isSameDay, isTomorrow } from "date-fns";
-import { isActionableTaskOrAssignment } from "@/lib/nlp/itemClassifier";
+import { isActionableTaskOrAssignment, isExamItem } from "@/lib/nlp/itemClassifier";
 import { cn } from "@/components/ui/badge";
 
 interface TodayFocusTimelineProps {
@@ -27,14 +27,17 @@ export function TodayFocusTimeline({ items, onToggleStatus, onSelectItem }: Toda
     const pWeight = { critical: 4, high: 3, medium: 2, low: 1 };
     const pDiff = (pWeight[b.priority] || 1) - (pWeight[a.priority] || 1);
     if (pDiff !== 0) return pDiff;
-    const timeA = a.dueAt || a.startAt || "";
-    const timeB = b.dueAt || b.startAt || "";
+    const isEventA = a.category === "calendar" || a.category === "academic" || a.source === "google_calendar" || isExamItem(a);
+    const isEventB = b.category === "calendar" || b.category === "academic" || b.source === "google_calendar" || isExamItem(b);
+    const timeA = (isEventA ? (a.startAt || a.dueAt) : (a.dueAt || a.startAt)) || "";
+    const timeB = (isEventB ? (b.startAt || b.dueAt) : (b.dueAt || b.startAt)) || "";
     return timeA.localeCompare(timeB);
   });
 
   const formatDue = (item: UnifiedItem) => {
     const isAllDay = Boolean(item.metadata?.isAllDay || item.tags?.includes("All Day"));
-    const dateStr = item.dueAt || item.startAt;
+    const isEventOrExam = item.category === "calendar" || item.category === "academic" || item.source === "google_calendar" || isExamItem(item);
+    const dateStr = isEventOrExam ? (item.startAt || item.dueAt) : (item.dueAt || item.startAt);
     if (!dateStr) return undefined;
     try {
       const d = parseISO(dateStr);
