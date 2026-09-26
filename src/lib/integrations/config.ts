@@ -43,7 +43,18 @@ export function getStoredCredentials(overrideCreds?: Partial<IntegrationCredenti
     // Ignore read errors
   }
 
-  return { ...envCreds, ...fileCreds, ...(overrideCreds || {}) };
+  const cleanedOverride: Partial<IntegrationCredentials> = {};
+  if (overrideCreds) {
+    for (const [k, v] of Object.entries(overrideCreds)) {
+      if (typeof v === "string" && v.trim() !== "") {
+        (cleanedOverride as any)[k] = v.trim();
+      } else if (typeof v === "number" && !isNaN(v)) {
+        (cleanedOverride as any)[k] = v;
+      }
+    }
+  }
+
+  return { ...envCreds, ...fileCreds, ...cleanedOverride };
 }
 
 export function saveStoredCredentials(creds: Partial<IntegrationCredentials>): IntegrationCredentials {

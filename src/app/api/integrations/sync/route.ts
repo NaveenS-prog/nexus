@@ -18,6 +18,7 @@ export async function POST(req: Request) {
   const creds = getStoredCredentials(clientCreds);
   const allItems: UnifiedItem[] = [];
   const errors: string[] = [];
+  let updatedCredentials: Partial<IntegrationCredentials> | undefined = undefined;
   const stats = {
     googleTasks: 0,
     googleCalendar: 0,
@@ -25,7 +26,7 @@ export async function POST(req: Request) {
   };
 
   // 1. Sync Google Tasks
-  if (creds.googleAccessToken || (creds.googleRefreshToken && creds.googleClientId)) {
+  if (creds.googleAccessToken || (creds.googleRefreshToken && (creds.googleClientId || process.env.GOOGLE_CLIENT_ID))) {
     try {
       const gtasks = await fetchLiveGoogleTasks(creds);
       allItems.push(...gtasks);
@@ -37,11 +38,14 @@ export async function POST(req: Request) {
   }
 
   // 2. Sync Google Calendar
-  if (creds.googleAccessToken || (creds.googleRefreshToken && creds.googleClientId)) {
+  if (creds.googleAccessToken || (creds.googleRefreshToken && (creds.googleClientId || process.env.GOOGLE_CLIENT_ID))) {
     try {
-      const gcal = await fetchLiveGoogleCalendarEvents(creds);
-      allItems.push(...gcal);
-      stats.googleCalendar = gcal.length;
+      const gcalResult = await fetchLiveGoogleCalendarEvents(creds);
+      allItems.push(...gcalResult.items);
+      stats.googleCalendar = gcalResult.items.length;
+      if (gcalResult.newCreds) {
+        updatedCredentials = { ...(updatedCredentials || {}), ...gcalResult.newCreds };
+      }
     } catch (err: any) {
       console.error("Failed to sync Google Calendar:", err);
       errors.push(`Google Calendar: ${err.message}`);
@@ -67,5 +71,6 @@ export async function POST(req: Request) {
     stats,
     errors,
     items: allItems,
+    updatedCredentials,
   });
 }

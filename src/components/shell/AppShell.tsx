@@ -5,10 +5,46 @@ import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
 import { CommandPalette } from "@/components/command/CommandPalette";
 import { BrainDumpModal } from "@/components/command/BrainDumpModal";
+import { useNexusStore } from "@/lib/data/store";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [commandOpen, setCommandOpen] = useState(false);
   const [brainDumpOpen, setBrainDumpOpen] = useState(false);
+  const { syncAll } = useNexusStore();
+
+  // 1. Autonomous Real-Time Background Synchronization
+  useEffect(() => {
+    // Immediate background sync on load (debounced 500ms)
+    const initTimer = setTimeout(() => {
+      syncAll();
+    }, 500);
+
+    // Sync whenever user switches back to this browser window / tab
+    const handleFocus = () => {
+      syncAll();
+    };
+
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        syncAll();
+      }
+    };
+
+    window.addEventListener("focus", handleFocus);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    // Periodic live sync every 45 seconds so newly created calendar events stream in automatically
+    const interval = setInterval(() => {
+      syncAll();
+    }, 45000);
+
+    return () => {
+      clearTimeout(initTimer);
+      clearInterval(interval);
+      window.removeEventListener("focus", handleFocus);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
+  }, [syncAll]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

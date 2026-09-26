@@ -19,7 +19,7 @@ import { isExamItem, isActionableTaskOrAssignment } from "@/lib/nlp/itemClassifi
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { isSyncing, lastSyncedText, syncAll, items } = useNexusStore();
+  const { isSyncing, lastSyncedText, syncAll, items, syncError, needsReauth } = useNexusStore();
 
   const examsCount = useMemo(() => {
     return items.filter((i) => isExamItem(i) && i.status !== "completed").length;
@@ -143,27 +143,56 @@ export function Sidebar() {
       {/* Bottom Sync & Health Status */}
       <div className="p-3 border-t border-zinc-800">
         <div className="px-3 py-2.5 rounded-lg bg-zinc-950 border border-zinc-800 flex items-center justify-between text-[11px]">
-          <div className="flex items-center gap-2">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-white"></span>
-            </span>
-            <div className="flex flex-col">
-              <span className="text-zinc-200 font-medium leading-none">Connected</span>
-              <span className="text-zinc-500 text-[10px] leading-tight mt-0.5">
-                Sync: {lastSyncedText}
+          {needsReauth ? (
+            <Link
+              href="/settings"
+              className="flex items-center gap-2 group text-amber-300 hover:text-amber-200 transition-colors w-full"
+              title="Google authorization token expired. Click to reconnect in Settings."
+            >
+              <span className="relative flex h-2 w-2 shrink-0">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-400"></span>
               </span>
-            </div>
-          </div>
+              <div className="flex flex-col flex-1 min-w-0">
+                <span className="font-semibold leading-none text-amber-300 text-[11px]">Auth Expired</span>
+                <span className="text-zinc-400 text-[10px] leading-tight mt-0.5 truncate group-hover:underline">
+                  Reconnect Google →
+                </span>
+              </div>
+            </Link>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 min-w-0">
+                <span className="relative flex h-2 w-2 shrink-0">
+                  <span className={cn(
+                    "animate-ping absolute inline-flex h-full w-full rounded-full opacity-75",
+                    syncError ? "bg-rose-400" : "bg-emerald-400"
+                  )}></span>
+                  <span className={cn(
+                    "relative inline-flex rounded-full h-2 w-2",
+                    syncError ? "bg-rose-400" : "bg-emerald-400"
+                  )}></span>
+                </span>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-zinc-200 font-medium leading-none">
+                    {syncError ? "Sync Notice" : "Connected"}
+                  </span>
+                  <span className="text-zinc-400 text-[10px] leading-tight mt-0.5 truncate" title={syncError || lastSyncedText}>
+                    {syncError ? "Click to Retry" : `Sync: ${lastSyncedText}`}
+                  </span>
+                </div>
+              </div>
 
-          <button
-            onClick={() => syncAll()}
-            disabled={isSyncing}
-            title="Manual Sync Now"
-            className="p-1.5 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors disabled:opacity-50"
-          >
-            <RefreshCw className={cn("w-3.5 h-3.5", isSyncing && "animate-spin text-white")} />
-          </button>
+              <button
+                onClick={() => syncAll()}
+                disabled={isSyncing}
+                title="Manual Sync Now"
+                className="p-1.5 rounded-md text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors disabled:opacity-50 shrink-0 ml-1"
+              >
+                <RefreshCw className={cn("w-3.5 h-3.5", isSyncing && "animate-spin text-white")} />
+              </button>
+            </>
+          )}
         </div>
       </div>
     </aside>

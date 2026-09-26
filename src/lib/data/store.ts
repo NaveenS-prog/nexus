@@ -96,6 +96,8 @@ let memoryState: {
   isSyncing: boolean;
   lastSyncedText: string;
   isLiveSynced: boolean;
+  syncError?: string;
+  needsReauth?: boolean;
 } = {
   items: initialScannedItems,
   projects: [],
@@ -106,6 +108,8 @@ let memoryState: {
   isSyncing: false,
   lastSyncedText: "Never",
   isLiveSynced: true,
+  syncError: undefined,
+  needsReauth: false,
 };
 
 const listeners = new Set<() => void>();
@@ -346,9 +350,38 @@ export function useNexusStore() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(credsPayload),
       });
+
       if (res.ok) {
         const data = await res.json();
-        if (data.items && data.items.length > 0) {
+
+        // 1. If backend refreshed credentials, save back to localStorage immediately
+        if (data.updatedCredentials && typeof window !== "undefined") {
+          try {
+            const curCredsStr = localStorage.getItem("nexus_credentials_v1");
+            const curCreds = curCredsStr ? JSON.parse(curCredsStr) : {};
+            localStorage.setItem("nexus_credentials_v1", JSON.stringify({ ...curCreds, ...data.updatedCredentials }));
+          } catch {}
+        }
+
+        // 2. Track sync errors vs success transparently
+        if (data.errors && data.errors.length > 0) {
+          const errMsg = data.errors.join("; ");
+          memoryState.syncError = errMsg;
+          const isAuthErr =
+            errMsg.toLowerCase().includes("401") ||
+            errMsg.toLowerCase().includes("unauthorized") ||
+            errMsg.toLowerCase().includes("no google authorization token") ||
+            errMsg.toLowerCase().includes("invalid_grant");
+          memoryState.needsReauth = isAuthErr;
+          memoryState.lastSyncedText = isAuthErr ? "Auth Expired" : "Sync Error";
+        } else {
+          memoryState.lastSyncedText = "Just now";
+          memoryState.syncError = undefined;
+          memoryState.needsReauth = false;
+        }
+
+        // 3. Process live items from Google Calendar / Tasks / Notion
+        if (data.items && Array.isArray(data.items)) {
           // Purge all mock demo items once live items are received
           const liveExamNorms = new Set(
             data.items.filter((d: any) => d.id?.startsWith("gcal-")).map((d: any) => normalizeExamOrTaskTitle(d.title))
@@ -431,12 +464,16 @@ export function useNexusStore() {
             return integ;
           });
         }
+      } else {
+        memoryState.lastSyncedText = "Sync failed";
+        memoryState.syncError = `Server returned ${res.status}`;
       }
-    } catch (err) {
-      console.warn("Live sync check error, continuing with local cache", err);
+    } catch (err: any) {
+      console.warn("Live sync error:", err);
+      memoryState.lastSyncedText = "Sync failed";
+      memoryState.syncError = err.message || "Network error";
     } finally {
       memoryState.isSyncing = false;
-      memoryState.lastSyncedText = "Just now";
       notifyListeners();
     }
   }, []);
@@ -492,6 +529,8 @@ export function useNexusStore() {
     isSyncing: memoryState.isSyncing,
     lastSyncedText: memoryState.lastSyncedText,
     isLiveSynced: memoryState.isLiveSynced,
+    syncError: memoryState.syncError,
+    needsReauth: memoryState.needsReauth,
     setMode,
     toggleItemCompletion,
     addItem,
