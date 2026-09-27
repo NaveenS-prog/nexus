@@ -32,7 +32,7 @@ export async function GET(req: Request) {
   const redirectUri = `${url.origin}/api/auth/google/callback`;
 
   if (!clientId || !clientSecret) {
-    return NextResponse.redirect(`${url.origin}/settings?error=missing_credentials`);
+    return NextResponse.redirect(`${url.origin}/settings?tab=google&error=missing_credentials`);
   }
 
   try {

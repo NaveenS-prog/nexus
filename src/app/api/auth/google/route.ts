@@ -7,9 +7,14 @@ export async function GET(req: Request) {
 
   const creds = getStoredCredentials();
   const clientId = queryClientId || creds.googleClientId;
+  const clientSecret = creds.googleClientSecret;
 
   if (!clientId) {
-    return NextResponse.redirect(`${url.origin}/settings?error=missing_client_id`);
+    return NextResponse.redirect(`${url.origin}/settings?tab=google&error=missing_client_id`);
+  }
+
+  if (!clientSecret) {
+    return NextResponse.redirect(`${url.origin}/settings?tab=google&error=missing_client_secret`);
   }
 
   const redirectUri = `${url.origin}/api/auth/google/callback`;

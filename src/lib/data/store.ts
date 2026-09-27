@@ -233,13 +233,18 @@ export function useNexusStore() {
     notifyListeners();
 
     try {
-      // Purge any legacy secrets stored in client localStorage for security
+      // Safe migration: if localStorage has any legacy credentials, save them to server before clearing
       if (typeof window !== "undefined") {
         const savedCreds = localStorage.getItem("nexus_credentials_v1");
         if (savedCreds) {
           try {
             const parsed = JSON.parse(savedCreds);
             if (parsed.googleClientSecret || parsed.googleRefreshToken || parsed.googleAccessToken || parsed.notionApiKey) {
+              await fetch("/api/integrations/save", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(parsed),
+              });
               delete parsed.googleClientSecret;
               delete parsed.googleRefreshToken;
               delete parsed.googleAccessToken;
@@ -281,9 +286,14 @@ export function useNexusStore() {
 
         // 3. Process live items from Google Calendar / Tasks / Notion
         if (data.items && Array.isArray(data.items)) {
-          const gcalSynced = !data.errors?.some((e: string) => e.toLowerCase().includes("calendar"));
-          const gtasksSynced = !data.errors?.some((e: string) => e.toLowerCase().includes("tasks"));
-          const notionSynced = !data.errors?.some((e: string) => e.toLowerCase().includes("notion"));
+          const gcalSynced = (data.stats?.googleCalendar ?? 0) > 0;
+          const gtasksSynced = (data.stats?.googleTasks ?? 0) > 0;
+          const notionSynced = (data.stats?.notion ?? 0) > 0;
+
+          // If no provider returned items (e.g. not connected), do NOT wipe existing cached items
+          if (!gcalSynced && !gtasksSynced && !notionSynced && data.items.length === 0) {
+            return;
+          }
 
           const nonLiveItems = memoryState.items.filter((item) => {
             // Strictly remove any legacy hardcoded fallback or mock items
@@ -291,15 +301,15 @@ export function useNexusStore() {
             if (item.id.startsWith("mock-")) return false;
             if (/^item-[0-9]{1,3}$/.test(item.id)) return false;
 
-            // If Google Calendar was synced, purge all previous calendar events so deleted or switched account events disappear
+            // Only purge previous calendar items if Google Calendar actually synced new items
             if (gcalSynced && (item.source === "google_calendar" || item.id.startsWith("gcal-"))) {
               return false;
             }
-            // If Google Tasks was synced, purge previous tasks
+            // Only purge previous tasks if Google Tasks actually synced new items
             if (gtasksSynced && (item.source === "google_tasks" || item.id.startsWith("gtask-"))) {
               return false;
             }
-            // If Notion was synced, purge previous notion items
+            // Only purge previous notion items if Notion actually synced new items
             if (notionSynced && (item.source === "notion" || item.id.startsWith("notion-"))) {
               return false;
             }

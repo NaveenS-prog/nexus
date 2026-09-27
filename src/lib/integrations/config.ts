@@ -13,14 +13,13 @@ export interface IntegrationCredentials {
   notionDatabaseId?: string;
 }
 
-// Support both local repo directory and serverless /tmp directory
-const getCredsFilePath = () => {
-  const tmpPath = path.join(os.tmpdir(), "nexus_credentials.json");
-  const localPath = path.join(process.cwd(), "nexus_credentials.json");
-  if (fs.existsSync(tmpPath)) return tmpPath;
-  if (fs.existsSync(localPath)) return localPath;
-  return tmpPath;
-};
+function getLocalCredsPath(): string {
+  return path.join(process.cwd(), "nexus_credentials.json");
+}
+
+function getTmpCredsPath(): string {
+  return path.join(os.tmpdir(), "nexus_credentials.json");
+}
 
 export function getStoredCredentials(overrideCreds?: Partial<IntegrationCredentials>): IntegrationCredentials {
   const envCreds: IntegrationCredentials = {
@@ -33,11 +32,24 @@ export function getStoredCredentials(overrideCreds?: Partial<IntegrationCredenti
   };
 
   let fileCreds: Partial<IntegrationCredentials> = {};
+
+  // 1. Read from local directory
   try {
-    const credsPath = getCredsFilePath();
-    if (fs.existsSync(credsPath)) {
-      const fileData = fs.readFileSync(credsPath, "utf-8");
-      fileCreds = JSON.parse(fileData);
+    const localPath = getLocalCredsPath();
+    if (fs.existsSync(localPath)) {
+      const fileData = fs.readFileSync(localPath, "utf-8");
+      fileCreds = { ...fileCreds, ...JSON.parse(fileData) };
+    }
+  } catch (err) {
+    // Ignore read errors
+  }
+
+  // 2. Read from tmp directory (merged)
+  try {
+    const tmpPath = getTmpCredsPath();
+    if (fs.existsSync(tmpPath)) {
+      const fileData = fs.readFileSync(tmpPath, "utf-8");
+      fileCreds = { ...fileCreds, ...JSON.parse(fileData) };
     }
   } catch (err) {
     // Ignore read errors
@@ -90,20 +102,21 @@ export function maskClientId(clientId?: string): string {
 }
 
 function persistToDisk(creds: IntegrationCredentials): void {
-  // Try saving to /tmp (works in serverless Vercel)
-  try {
-    const tmpPath = path.join(os.tmpdir(), "nexus_credentials.json");
-    fs.writeFileSync(tmpPath, JSON.stringify(creds, null, 2), "utf-8");
-  } catch (err) {
-    // Ignore
-  }
+  const localPath = getLocalCredsPath();
+  const tmpPath = getTmpCredsPath();
 
-  // Also try local directory if writable
+  // Try saving to local directory
   try {
-    const localPath = path.join(process.cwd(), "nexus_credentials.json");
     fs.writeFileSync(localPath, JSON.stringify(creds, null, 2), "utf-8");
   } catch (err) {
     // Ignore read-only errors on serverless
+  }
+
+  // Also try saving to /tmp (works in serverless Vercel)
+  try {
+    fs.writeFileSync(tmpPath, JSON.stringify(creds, null, 2), "utf-8");
+  } catch (err) {
+    // Ignore
   }
 }
 

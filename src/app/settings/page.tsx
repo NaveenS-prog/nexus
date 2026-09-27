@@ -130,7 +130,16 @@ export default function SettingsPage() {
         fetchStatus();
         syncAll();
       } else if (params.get("error")) {
-        setErrorMsg(`OAuth connection issue: ${params.get("error")}`);
+        const err = params.get("error");
+        if (err === "missing_credentials" || err === "missing_client_secret") {
+          setErrorMsg("Google Client Secret is required to connect. Please enter your Google Client ID & Secret in 'Configure Google' below and click Save.");
+          setActiveConfigTab("google");
+        } else if (err === "missing_client_id") {
+          setErrorMsg("Google Client ID is required. Please enter your Client ID in 'Configure Google' below and click Save.");
+          setActiveConfigTab("google");
+        } else {
+          setErrorMsg(`OAuth connection issue: ${err}`);
+        }
         window.history.replaceState({}, document.title, window.location.pathname);
       }
     }
@@ -391,7 +400,7 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="flex items-center gap-2.5 self-end sm:self-center">
-                  {(googleClientId || integrationStatus?.google?.hasClientId) && (
+                  {integrationStatus?.google?.hasClientId && integrationStatus?.google?.hasClientSecret ? (
                     <button
                       type="button"
                       onClick={() => {
@@ -402,6 +411,14 @@ export default function SettingsPage() {
                       <ExternalLink className="w-3.5 h-3.5" />
                       <span>{integrationStatus?.google?.connected ? "Switch Account" : "Connect Google"}</span>
                     </button>
+                  ) : (
+                    <Button
+                      onClick={() => setActiveConfigTab("google")}
+                      className="bg-olive hover:bg-olive-hover text-white text-xs h-8"
+                    >
+                      <Key className="w-3.5 h-3.5 mr-1.5" />
+                      Configure Google
+                    </Button>
                   )}
                   <Button
                     onClick={() => setActiveConfigTab("google")}
