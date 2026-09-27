@@ -31,7 +31,7 @@ export function CreateEventModal({
   isOpen,
   onClose,
   defaultDate,
-  defaultIsAllDay = true,
+  defaultIsAllDay = false,
   onCreated,
 }: CreateEventModalProps) {
   const { addItem } = useNexusStore();
@@ -46,12 +46,15 @@ export function CreateEventModal({
   const [description, setDescription] = useState("");
   const [feedback, setFeedback] = useState<string | null>(null);
 
-  // Sync date when defaultDate prop changes
+  // Sync date and all-day state when modal opens or props change
   useEffect(() => {
     if (defaultDate) {
       setDateStr(format(defaultDate, "yyyy-MM-dd"));
     }
-  }, [defaultDate]);
+    if (isOpen) {
+      setIsAllDay(defaultIsAllDay);
+    }
+  }, [defaultDate, defaultIsAllDay, isOpen]);
 
   // Auto-detect exam / IA signals from title
   const isDetectedExam = isExamItem({ title });
@@ -140,10 +143,10 @@ export function CreateEventModal({
             </div>
             <div>
               <h2 className="text-sm font-serif font-semibold text-ink tracking-tight">
-                {isAllDay ? "Add All-Day Event" : "Schedule Event"}
+                Add Event
               </h2>
               <p className="text-xs text-ink-muted">
-                Create an exam, deadline, or full-day calendar milestone
+                Schedule a class, meeting, exam, or all-day milestone
               </p>
             </div>
           </div>
@@ -178,63 +181,74 @@ export function CreateEventModal({
               autoFocus
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="e.g. Python ia exam, COA IA-2, Hackathon Day"
+              placeholder="e.g. Python ia exam, COA IA-2, Team Project Sync"
               className="w-full bg-canvas border border-hairline rounded-lg px-3.5 py-2 text-xs text-ink placeholder-ink-muted outline-none focus:border-olive transition-colors font-sans"
             />
           </div>
 
-          {/* Date & All-Day Toggle */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 items-end">
-            <div className="space-y-1.5">
-              <label className="text-xs font-semibold text-ink">
-                Date <span className="text-terracotta">*</span>
+          {/* Date & Time Row (Google Calendar Style) */}
+          <div className="space-y-3 p-3.5 rounded-lg bg-canvas border border-hairline">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-1 flex-1">
+                <label className="text-xs font-semibold text-ink flex items-center gap-1.5">
+                  <CalendarIcon className="w-3.5 h-3.5 text-olive" />
+                  Date <span className="text-terracotta">*</span>
+                </label>
+                <input
+                  type="date"
+                  required
+                  value={dateStr}
+                  onChange={(e) => setDateStr(e.target.value)}
+                  className="w-full bg-surface border border-hairline rounded-md px-3 py-1.5 text-xs text-ink outline-none focus:border-olive font-mono"
+                />
+              </div>
+
+              {/* All-Day Checkbox (Google Calendar Style) */}
+              <label className="flex items-center gap-2 cursor-pointer select-none self-end sm:self-center pt-1 sm:pt-4">
+                <input
+                  type="checkbox"
+                  checked={isAllDay}
+                  onChange={(e) => setIsAllDay(e.target.checked)}
+                  className="w-4 h-4 rounded border-hairline text-olive accent-olive cursor-pointer"
+                />
+                <span className="text-xs font-medium text-ink">
+                  All day
+                </span>
               </label>
-              <input
-                type="date"
-                required
-                value={dateStr}
-                onChange={(e) => setDateStr(e.target.value)}
-                className="w-full bg-canvas border border-hairline rounded-lg px-3 py-2 text-xs text-ink outline-none focus:border-olive font-mono"
-              />
             </div>
 
-            {/* All-Day Checkbox / Toggle */}
-            <label className="flex items-center gap-2.5 p-2 rounded-lg bg-canvas border border-hairline cursor-pointer hover:border-olive/40 transition-colors h-[38px]">
-              <input
-                type="checkbox"
-                checked={isAllDay}
-                onChange={(e) => setIsAllDay(e.target.checked)}
-                className="w-4 h-4 rounded border-hairline text-olive accent-olive cursor-pointer"
-              />
-              <span className="text-xs font-medium text-ink select-none">
-                All-Day Event
-              </span>
-            </label>
+            {/* Timed Inputs (Visible when All day is unchecked) */}
+            {!isAllDay && (
+              <div className="grid grid-cols-2 gap-3 pt-2 border-t border-hairline/60 animate-fade-in">
+                <div className="space-y-1">
+                  <label className="text-[11px] font-medium text-ink-muted flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-ink-muted" />
+                    Start Time
+                  </label>
+                  <input
+                    type="time"
+                    required={!isAllDay}
+                    value={startTime}
+                    onChange={(e) => setStartTime(e.target.value)}
+                    className="w-full bg-surface border border-hairline rounded-md px-2.5 py-1.5 text-xs text-ink font-mono outline-none focus:border-olive"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[11px] font-medium text-ink-muted flex items-center gap-1">
+                    <Clock className="w-3 h-3 text-ink-muted" />
+                    End Time
+                  </label>
+                  <input
+                    type="time"
+                    required={!isAllDay}
+                    value={endTime}
+                    onChange={(e) => setEndTime(e.target.value)}
+                    className="w-full bg-surface border border-hairline rounded-md px-2.5 py-1.5 text-xs text-ink font-mono outline-none focus:border-olive"
+                  />
+                </div>
+              </div>
+            )}
           </div>
-
-          {/* Timed Inputs (if not all day) */}
-          {!isAllDay && (
-            <div className="grid grid-cols-2 gap-3.5 p-3 rounded-lg bg-canvas-secondary/50 border border-hairline animate-fade-in">
-              <div className="space-y-1">
-                <label className="text-[11px] font-medium text-ink-muted">Start Time</label>
-                <input
-                  type="time"
-                  value={startTime}
-                  onChange={(e) => setStartTime(e.target.value)}
-                  className="w-full bg-surface border border-hairline rounded-md px-2.5 py-1.5 text-xs text-ink font-mono outline-none focus:border-olive"
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-[11px] font-medium text-ink-muted">End Time</label>
-                <input
-                  type="time"
-                  value={endTime}
-                  onChange={(e) => setEndTime(e.target.value)}
-                  className="w-full bg-surface border border-hairline rounded-md px-2.5 py-1.5 text-xs text-ink font-mono outline-none focus:border-olive"
-                />
-              </div>
-            </div>
-          )}
 
           {/* Category & Priority */}
           <div className="grid grid-cols-2 gap-3.5">
@@ -305,7 +319,7 @@ export function CreateEventModal({
               className="h-8 text-xs bg-olive hover:bg-olive-hover text-white font-medium"
             >
               <Plus className="w-3.5 h-3.5 mr-1" />
-              {isAllDay ? "Add All-Day Event" : "Create Event"}
+              Add Event
             </Button>
           </div>
         </form>
