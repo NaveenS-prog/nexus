@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { 
   Settings as SettingsIcon, 
   CheckCircle, 
@@ -23,37 +23,107 @@ import { useNexusStore } from "@/lib/data/store";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
+interface IntegrationStatus {
+  google: {
+    connected: boolean;
+    hasClientId: boolean;
+    clientId: string;
+    hasClientSecret: boolean;
+    maskedClientSecret: string;
+    hasRefreshToken: boolean;
+    maskedRefreshToken: string;
+    hasAccessToken: boolean;
+    maskedAccessToken: string;
+  };
+  notion: {
+    connected: boolean;
+    hasApiKey: boolean;
+    maskedApiKey: string;
+    hasDatabaseId: boolean;
+    databaseId: string;
+  };
+}
+
 export default function SettingsPage() {
-  const { integrations, syncAll, isSyncing, purgeDemoData, resetToDemo, disconnectGoogle, mode, setMode, isLiveSynced } = useNexusStore();
+  const {
+    integrations,
+    syncAll,
+    isSyncing,
+    purgeDemoData,
+    resetToDemo,
+    disconnectGoogle,
+    disconnectNotion,
+    mode,
+    setMode,
+    isLiveSynced,
+  } = useNexusStore();
   
-  // Credentials state
+  // Credentials state (write-only for sensitive secrets)
   const [googleClientId, setGoogleClientId] = useState("");
   const [googleClientSecret, setGoogleClientSecret] = useState("");
   const [googleRefreshToken, setGoogleRefreshToken] = useState("");
   const [googleAccessToken, setGoogleAccessToken] = useState("");
-  const [serverGoogleConfigured, setServerGoogleConfigured] = useState(false);
   
   const [notionApiKey, setNotionApiKey] = useState("");
   const [notionDatabaseId, setNotionDatabaseId] = useState("");
 
+  const [integrationStatus, setIntegrationStatus] = useState<IntegrationStatus | null>(null);
   const [activeConfigTab, setActiveConfigTab] = useState<"overview" | "google" | "notion">("overview");
   const [statusMsg, setStatusMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
 
-  // Load saved credentials on mount and handle OAuth callback return
+  const fetchStatus = useCallback(async () => {
+    try {
+      const res = await fetch("/api/integrations/status");
+      if (res.ok) {
+        const data: IntegrationStatus = await res.json();
+        setIntegrationStatus(data);
+        if (data.google?.clientId) {
+          setGoogleClientId((prev) => prev || data.google.clientId);
+        }
+        if (data.notion?.databaseId) {
+          setNotionDatabaseId((prev) => prev || data.notion.databaseId);
+        }
+      }
+    } catch (err) {
+      console.error("Error fetching status:", err);
+    }
+  }, []);
+
+  // Handle initial mount, legacy secret purge, and OAuth callback return
   useEffect(() => {
     if (typeof window !== "undefined") {
       const saved = localStorage.getItem("nexus_credentials_v1");
       if (saved) {
         try {
           const creds = JSON.parse(saved);
+          // If legacy plaintext secrets exist in browser storage, migrate them safely to server once, then purge
+          if (creds.googleClientSecret || creds.googleRefreshToken || creds.googleAccessToken || creds.notionApiKey) {
+            fetch("/api/integrations/save", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                googleClientId: creds.googleClientId,
+                googleClientSecret: creds.googleClientSecret,
+                googleRefreshToken: creds.googleRefreshToken,
+                googleAccessToken: creds.googleAccessToken,
+                notionApiKey: creds.notionApiKey,
+                notionDatabaseId: creds.notionDatabaseId,
+              }),
+            })
+              .then(() => fetchStatus())
+              .catch(() => {});
+
+            // Permanently purge sensitive secrets from browser DOM/storage
+            delete creds.googleClientSecret;
+            delete creds.googleRefreshToken;
+            delete creds.googleAccessToken;
+            delete creds.notionApiKey;
+            localStorage.setItem("nexus_credentials_v1", JSON.stringify(creds));
+          }
           if (creds.googleClientId) setGoogleClientId(creds.googleClientId);
-          if (creds.googleClientSecret) setGoogleClientSecret(creds.googleClientSecret);
-          if (creds.googleRefreshToken) setGoogleRefreshToken(creds.googleRefreshToken);
-          if (creds.googleAccessToken) setGoogleAccessToken(creds.googleAccessToken);
-          if (creds.notionApiKey) setNotionApiKey(creds.notionApiKey);
           if (creds.notionDatabaseId) setNotionDatabaseId(creds.notionDatabaseId);
         } catch {
           // ignore
@@ -62,41 +132,19 @@ export default function SettingsPage() {
 
       const params = new URLSearchParams(window.location.search);
       if (params.get("connected") === "google") {
-        const at = params.get("at");
-        const rt = params.get("rt");
-        const cid = params.get("cid");
-        const sec = params.get("sec");
-
-        const existingStr = localStorage.getItem("nexus_credentials_v1");
-        const existing = existingStr ? JSON.parse(existingStr) : {};
-        const updated = {
-          ...existing,
-          googleAccessToken: at || existing.googleAccessToken,
-          googleRefreshToken: rt || existing.googleRefreshToken,
-          googleClientId: cid || existing.googleClientId,
-          googleClientSecret: sec || existing.googleClientSecret,
-        };
-        localStorage.setItem("nexus_credentials_v1", JSON.stringify(updated));
-
+        // Clear query parameters from URL address bar without reloading
+        window.history.replaceState({}, document.title, window.location.pathname);
         setStatusMsg("Google Account connected successfully via OAuth! Syncing live data...");
+        fetchStatus();
         syncAll();
       } else if (params.get("error")) {
         setErrorMsg(`OAuth connection issue: ${params.get("error")}`);
+        window.history.replaceState({}, document.title, window.location.pathname);
       }
     }
-  }, [syncAll]);
 
-  // Load status
-  useEffect(() => {
-    fetch("/api/integrations/status")
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.google?.hasClientId) {
-          setServerGoogleConfigured(true);
-        }
-      })
-      .catch((err) => console.error("Error fetching status:", err));
-  }, []);
+    fetchStatus();
+  }, [fetchStatus, syncAll]);
 
   const handleSaveGoogle = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -104,18 +152,11 @@ export default function SettingsPage() {
     setStatusMsg("");
     setErrorMsg("");
 
-    const updatedCreds = {
-      googleClientId: googleClientId.trim() || undefined,
-      googleClientSecret: googleClientSecret.trim() || undefined,
-      googleRefreshToken: googleRefreshToken.trim() || undefined,
-      googleAccessToken: googleAccessToken.trim() || undefined,
-    };
-
-    if (typeof window !== "undefined") {
-      const existingStr = localStorage.getItem("nexus_credentials_v1");
-      const existing = existingStr ? JSON.parse(existingStr) : {};
-      localStorage.setItem("nexus_credentials_v1", JSON.stringify({ ...existing, ...updatedCreds }));
-    }
+    const updatedCreds: Record<string, string | undefined> = {};
+    if (googleClientId.trim()) updatedCreds.googleClientId = googleClientId.trim();
+    if (googleClientSecret.trim()) updatedCreds.googleClientSecret = googleClientSecret.trim();
+    if (googleRefreshToken.trim()) updatedCreds.googleRefreshToken = googleRefreshToken.trim();
+    if (googleAccessToken.trim()) updatedCreds.googleAccessToken = googleAccessToken.trim();
 
     try {
       const res = await fetch("/api/integrations/save", {
@@ -126,7 +167,13 @@ export default function SettingsPage() {
 
       const data = await res.json();
       if (data.success) {
-        setStatusMsg("Google credentials saved! Testing live sync...");
+        // Clear sensitive secret inputs from memory immediately
+        setGoogleClientSecret("");
+        setGoogleRefreshToken("");
+        setGoogleAccessToken("");
+
+        setStatusMsg("Google credentials saved securely on server! Syncing live data...");
+        await fetchStatus();
         await syncAll();
         setStatusMsg("Google Calendar & Tasks connected and synced!");
         setActiveConfigTab("overview");
@@ -146,16 +193,9 @@ export default function SettingsPage() {
     setStatusMsg("");
     setErrorMsg("");
 
-    const updatedCreds = {
-      notionApiKey: notionApiKey.trim() || undefined,
-      notionDatabaseId: notionDatabaseId.trim() || undefined,
-    };
-
-    if (typeof window !== "undefined") {
-      const existingStr = localStorage.getItem("nexus_credentials_v1");
-      const existing = existingStr ? JSON.parse(existingStr) : {};
-      localStorage.setItem("nexus_credentials_v1", JSON.stringify({ ...existing, ...updatedCreds }));
-    }
+    const updatedCreds: Record<string, string | undefined> = {};
+    if (notionApiKey.trim()) updatedCreds.notionApiKey = notionApiKey.trim();
+    if (notionDatabaseId.trim()) updatedCreds.notionDatabaseId = notionDatabaseId.trim();
 
     try {
       const res = await fetch("/api/integrations/save", {
@@ -166,7 +206,11 @@ export default function SettingsPage() {
 
       const data = await res.json();
       if (data.success) {
-        setStatusMsg("Notion credentials saved! Testing live sync...");
+        // Clear sensitive API key from memory
+        setNotionApiKey("");
+
+        setStatusMsg("Notion credentials saved securely on server! Syncing live data...");
+        await fetchStatus();
         await syncAll();
         setStatusMsg("Notion project database connected and synced!");
         setActiveConfigTab("overview");
@@ -183,17 +227,10 @@ export default function SettingsPage() {
   const handleTriggerLiveSync = async () => {
     setSyncFeedback("Syncing with Google Calendar, Google Tasks & Notion...");
     try {
-      let credsPayload = {};
-      const saved = localStorage.getItem("nexus_credentials_v1");
-      if (saved) {
-        try {
-          credsPayload = { credentials: JSON.parse(saved) };
-        } catch {}
-      }
       const res = await fetch("/api/integrations/sync", { 
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(credsPayload),
+        body: JSON.stringify({}),
       });
       const data = await res.json();
       if (data.items && data.items.length > 0) {
@@ -360,14 +397,17 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="flex items-center gap-2.5 self-end sm:self-center">
-                  {(googleClientId || serverGoogleConfigured) && (
-                    <a
-                      href={googleClientId ? `/api/auth/google?client_id=${encodeURIComponent(googleClientId.trim())}&client_secret=${encodeURIComponent(googleClientSecret.trim())}` : `/api/auth/google`}
+                  {(googleClientId || integrationStatus?.google?.hasClientId) && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        window.location.href = "/api/auth/google";
+                      }}
                       className="px-3 py-1.5 rounded-md bg-olive hover:bg-olive-hover text-white font-medium transition-colors flex items-center gap-1.5 text-xs shadow-xs"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
-                      <span>{googleRefreshToken || googleAccessToken ? "Switch Account" : "Connect Google"}</span>
-                    </a>
+                      <span>{integrationStatus?.google?.connected ? "Switch Account" : "Connect Google"}</span>
+                    </button>
                   )}
                   <Button
                     onClick={() => setActiveConfigTab("google")}
@@ -376,7 +416,7 @@ export default function SettingsPage() {
                     className="text-xs h-8 border-hairline hover:border-olive/50 text-ink-secondary hover:text-ink"
                   >
                     <Key className="w-3.5 h-3.5 mr-1.5 text-olive" />
-                    {googleRefreshToken || googleAccessToken ? "Manage Keys" : "Manual Keys"}
+                    {integrationStatus?.google?.connected ? "Manage Keys" : "Manual Keys"}
                   </Button>
                 </div>
               </div>
@@ -409,7 +449,7 @@ export default function SettingsPage() {
                     className="text-xs h-8 border-hairline hover:border-olive/50 text-ink-secondary hover:text-ink"
                   >
                     <Key className="w-3.5 h-3.5 mr-1.5 text-olive" />
-                    Enter Notion Keys
+                    {integrationStatus?.notion?.connected ? "Manage Notion Keys" : "Enter Notion Keys"}
                   </Button>
                 </div>
               </div>
@@ -439,9 +479,12 @@ export default function SettingsPage() {
         {activeConfigTab === "google" && (
           <form onSubmit={handleSaveGoogle} className="space-y-4 text-xs">
             <div className="p-3.5 rounded-lg bg-canvas border border-hairline text-ink-secondary space-y-1">
-              <span className="font-semibold text-ink">Google Calendar & Tasks Setup:</span>
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-olive" />
+                <span className="font-semibold text-ink">Google Calendar & Tasks Setup</span>
+              </div>
               <p className="text-[11px] text-ink-muted leading-relaxed">
-                Enter your Google Cloud OAuth credentials below, or paste your existing Refresh Token / Access Token. If you have Client ID & Secret configured, you can also use the one-click Google OAuth button.
+                Credentials and tokens are stored write-only on the secure server. Secrets are never exposed in browser DOM or inspect tools.
               </p>
             </div>
 
@@ -458,34 +501,71 @@ export default function SettingsPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-ink font-medium">Google Client Secret</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-ink font-medium">Google Client Secret</label>
+                  {integrationStatus?.google?.hasClientSecret && (
+                    <div className="flex items-center gap-1 text-[10px] text-olive font-medium">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Configured & Secured</span>
+                    </div>
+                  )}
+                </div>
                 <input
                   type="password"
+                  autoComplete="new-password"
                   value={googleClientSecret}
                   onChange={(e) => setGoogleClientSecret(e.target.value)}
-                  placeholder="GOCSPX-..."
+                  placeholder={integrationStatus?.google?.maskedClientSecret || "GOCSPX-..."}
                   className="w-full bg-canvas border border-hairline rounded-lg p-2.5 text-ink placeholder-ink-muted outline-none focus:border-olive font-mono text-xs"
                 />
+                <p className="text-[10px] text-ink-muted">
+                  {integrationStatus?.google?.hasClientSecret
+                    ? "Stored securely server-side. Leave blank to keep existing secret, or enter new to rotate."
+                    : "Write-only. Stored securely on server and never inspectable in client DOM."}
+                </p>
               </div>
 
               <div className="space-y-1 sm:col-span-2">
-                <label className="text-ink font-medium">Google Refresh Token (Recommended for auto-refresh)</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-ink font-medium">Google Refresh Token (Auto-refresh & background sync)</label>
+                  {integrationStatus?.google?.hasRefreshToken && (
+                    <div className="flex items-center gap-1 text-[10px] text-olive font-medium">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Configured & Secured</span>
+                    </div>
+                  )}
+                </div>
                 <input
                   type="password"
+                  autoComplete="new-password"
                   value={googleRefreshToken}
                   onChange={(e) => setGoogleRefreshToken(e.target.value)}
-                  placeholder="1//04xyz... (or click Connect with Google if Client ID is entered)"
+                  placeholder={integrationStatus?.google?.maskedRefreshToken || "1//04... (or connect via OAuth button below)"}
                   className="w-full bg-canvas border border-hairline rounded-lg p-2.5 text-ink placeholder-ink-muted outline-none focus:border-olive font-mono text-xs"
                 />
+                <p className="text-[10px] text-ink-muted">
+                  {integrationStatus?.google?.hasRefreshToken
+                    ? "Stored securely on server. Leave blank to retain current token."
+                    : "Obtained automatically via one-click OAuth below, or can be pasted manually."}
+                </p>
               </div>
 
               <div className="space-y-1 sm:col-span-2">
-                <label className="text-ink font-medium">Direct Access Token (Optional temporary token)</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-ink font-medium">Direct Access Token (Optional temporary token)</label>
+                  {integrationStatus?.google?.hasAccessToken && (
+                    <div className="flex items-center gap-1 text-[10px] text-olive font-medium">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Active Session Token</span>
+                    </div>
+                  )}
+                </div>
                 <input
                   type="password"
+                  autoComplete="new-password"
                   value={googleAccessToken}
                   onChange={(e) => setGoogleAccessToken(e.target.value)}
-                  placeholder="ya29.a0A..."
+                  placeholder={integrationStatus?.google?.maskedAccessToken || "ya29.a0A..."}
                   className="w-full bg-canvas border border-hairline rounded-lg p-2.5 text-ink placeholder-ink-muted outline-none focus:border-olive font-mono text-xs"
                 />
               </div>
@@ -493,17 +573,38 @@ export default function SettingsPage() {
 
             <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-hairline">
               <div className="flex flex-wrap items-center gap-2">
-                {(googleClientId || serverGoogleConfigured) && (
-                  <a
-                    href={googleClientId ? `/api/auth/google?client_id=${encodeURIComponent(googleClientId.trim())}&client_secret=${encodeURIComponent(googleClientSecret.trim())}` : `/api/auth/google`}
+                {(googleClientId || integrationStatus?.google?.hasClientId) && (
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (googleClientId.trim() || googleClientSecret.trim()) {
+                        setIsSaving(true);
+                        try {
+                          await fetch("/api/integrations/save", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              googleClientId: googleClientId.trim() || undefined,
+                              googleClientSecret: googleClientSecret.trim() || undefined,
+                            }),
+                          });
+                          setGoogleClientSecret("");
+                        } catch (err) {
+                          console.error("Save error:", err);
+                        } finally {
+                          setIsSaving(false);
+                        }
+                      }
+                      window.location.href = "/api/auth/google";
+                    }}
                     className="px-4 py-2 rounded-md bg-olive hover:bg-olive-hover text-white font-medium transition-colors flex items-center gap-2 text-xs shadow-xs"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
-                    <span>{googleRefreshToken || googleAccessToken ? "Switch / Reconnect Google (OAuth)" : "Connect with Google Account (OAuth)"}</span>
-                  </a>
+                    <span>{integrationStatus?.google?.connected ? "Switch / Reconnect Google (OAuth)" : "Connect with Google Account (OAuth)"}</span>
+                  </button>
                 )}
 
-                {(googleRefreshToken || googleAccessToken) && (
+                {(integrationStatus?.google?.connected || googleRefreshToken || googleAccessToken) && (
                   <Button
                     type="button"
                     variant="danger"
@@ -513,6 +614,8 @@ export default function SettingsPage() {
                         await disconnectGoogle();
                         setGoogleAccessToken("");
                         setGoogleRefreshToken("");
+                        setGoogleClientSecret("");
+                        await fetchStatus();
                         setStatusMsg("Google Account disconnected and calendar events cleared.");
                         setTimeout(() => setStatusMsg(""), 4000);
                       }
@@ -541,22 +644,39 @@ export default function SettingsPage() {
         {activeConfigTab === "notion" && (
           <form onSubmit={handleSaveNotion} className="space-y-4 text-xs">
             <div className="p-3.5 rounded-lg bg-canvas border border-hairline text-ink-secondary space-y-1">
-              <span className="font-semibold text-ink">Notion Integration Setup:</span>
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-4 h-4 text-olive" />
+                <span className="font-semibold text-ink">Notion Integration Setup</span>
+              </div>
               <p className="text-[11px] text-ink-muted leading-relaxed">
-                Create an internal integration at <a href="https://www.notion.so/my-integrations" target="_blank" rel="noreferrer" className="underline text-olive">notion.so/my-integrations</a>, then share your Projects database with it.
+                Create an internal integration at <a href="https://www.notion.so/my-integrations" target="_blank" rel="noreferrer" className="underline text-olive">notion.so/my-integrations</a>, then share your Projects database with it. Secrets are stored securely write-only on the server.
               </p>
             </div>
 
             <div className="space-y-3">
               <div className="space-y-1">
-                <label className="text-ink font-medium">Notion API Key (Internal Integration Secret)</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-ink font-medium">Notion API Key (Internal Integration Secret)</label>
+                  {integrationStatus?.notion?.hasApiKey && (
+                    <div className="flex items-center gap-1 text-[10px] text-olive font-medium">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Configured & Secured</span>
+                    </div>
+                  )}
+                </div>
                 <input
                   type="password"
+                  autoComplete="new-password"
                   value={notionApiKey}
                   onChange={(e) => setNotionApiKey(e.target.value)}
-                  placeholder="secret_..."
+                  placeholder={integrationStatus?.notion?.maskedApiKey || "secret_..."}
                   className="w-full bg-canvas border border-hairline rounded-lg p-2.5 text-ink placeholder-ink-muted outline-none focus:border-olive font-mono text-xs"
                 />
+                <p className="text-[10px] text-ink-muted">
+                  {integrationStatus?.notion?.hasApiKey
+                    ? "Stored securely server-side. Leave blank to keep existing key, or enter a new key to rotate."
+                    : "Write-only. Stored securely on server and never inspectable in client DOM."}
+                </p>
               </div>
 
               <div className="space-y-1">
@@ -574,13 +694,39 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2 pt-3 border-t border-hairline">
-              <Button variant="ghost" size="sm" type="button" onClick={() => setActiveConfigTab("overview")}>
-                Cancel
-              </Button>
-              <Button size="sm" type="submit" disabled={isSaving} className="bg-olive hover:bg-olive-hover text-white font-medium">
-                {isSaving ? "Saving & Syncing..." : "Save Notion Credentials & Sync"}
-              </Button>
+            <div className="flex items-center justify-between gap-2 pt-3 border-t border-hairline">
+              <div>
+                {integrationStatus?.notion?.connected && (
+                  <Button
+                    type="button"
+                    variant="danger"
+                    size="sm"
+                    onClick={async () => {
+                      if (confirm("Disconnect Notion and remove synced project items?")) {
+                        await disconnectNotion();
+                        setNotionApiKey("");
+                        setNotionDatabaseId("");
+                        await fetchStatus();
+                        setStatusMsg("Notion disconnected successfully.");
+                        setTimeout(() => setStatusMsg(""), 4000);
+                      }
+                    }}
+                    className="text-xs h-8"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+                    <span>Disconnect Notion</span>
+                  </Button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" type="button" onClick={() => setActiveConfigTab("overview")}>
+                  Cancel
+                </Button>
+                <Button size="sm" type="submit" disabled={isSaving} className="bg-olive hover:bg-olive-hover text-white font-medium">
+                  {isSaving ? "Saving & Syncing..." : "Save Notion Credentials & Sync"}
+                </Button>
+              </div>
             </div>
           </form>
         )}

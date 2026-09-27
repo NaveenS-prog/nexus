@@ -4,11 +4,9 @@ import { getStoredCredentials } from "@/lib/integrations/config";
 export async function GET(req: Request) {
   const url = new URL(req.url);
   const queryClientId = url.searchParams.get("client_id");
-  const queryClientSecret = url.searchParams.get("client_secret");
 
   const creds = getStoredCredentials();
   const clientId = queryClientId || creds.googleClientId;
-  const clientSecret = queryClientSecret || creds.googleClientSecret;
 
   if (!clientId) {
     return NextResponse.redirect(`${url.origin}/settings?error=missing_client_id`);
@@ -25,10 +23,9 @@ export async function GET(req: Request) {
     "profile",
   ].join(" ");
 
-  // Pack state so callback can restore client_id and client_secret seamlessly
+  // Pack state safely (never place client secrets in OAuth state or query parameters)
   const stateData = JSON.stringify({
     cid: clientId,
-    sec: clientSecret || "",
   });
   const encodedState = Buffer.from(stateData).toString("base64url");
 

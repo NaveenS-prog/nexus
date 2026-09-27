@@ -16,13 +16,11 @@ export async function GET(req: Request) {
   }
 
   let clientId = "";
-  let clientSecret = "";
 
   if (state) {
     try {
       const decoded = JSON.parse(Buffer.from(state, "base64url").toString("utf-8"));
-      clientId = decoded.cid;
-      clientSecret = decoded.sec;
+      clientId = decoded.cid || "";
     } catch {
       // Ignore state parse errors
     }
@@ -30,7 +28,7 @@ export async function GET(req: Request) {
 
   const creds = getStoredCredentials();
   clientId = clientId || creds.googleClientId || "";
-  clientSecret = clientSecret || creds.googleClientSecret || "";
+  const clientSecret = creds.googleClientSecret || "";
   const redirectUri = `${url.origin}/api/auth/google/callback`;
 
   if (!clientId || !clientSecret) {
@@ -68,15 +66,8 @@ export async function GET(req: Request) {
       googleTokenExpiry: Date.now() + (tokens.expires_in || 3600) * 1000,
     });
 
-    const params = new URLSearchParams({
-      connected: "google",
-      at: accessToken,
-      rt: refreshToken,
-      cid: clientId,
-      sec: clientSecret,
-    });
-
-    return NextResponse.redirect(`${url.origin}/settings?${params.toString()}`);
+    // Clean, secure redirect with zero tokens or secrets exposed in browser URL
+    return NextResponse.redirect(`${url.origin}/settings?connected=google`);
   } catch (err: any) {
     console.error("Google OAuth callback exception:", err);
     return NextResponse.redirect(`${url.origin}/settings?error=server_error`);

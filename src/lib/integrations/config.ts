@@ -57,14 +57,32 @@ export function getStoredCredentials(overrideCreds?: Partial<IntegrationCredenti
   return { ...envCreds, ...fileCreds, ...cleanedOverride };
 }
 
-export function saveStoredCredentials(creds: Partial<IntegrationCredentials>): IntegrationCredentials {
-  const existing = getStoredCredentials();
-  const merged = { ...existing, ...creds };
-  
+export function maskSecret(secret?: string): string {
+  if (!secret) return "";
+  const trimmed = secret.trim();
+  if (trimmed.length <= 8) {
+    return "••••••••";
+  }
+  if (trimmed.startsWith("GOCSPX-")) {
+    return `GOCSPX-••••••••${trimmed.slice(-4)}`;
+  }
+  if (trimmed.startsWith("secret_")) {
+    return `secret_••••••••${trimmed.slice(-4)}`;
+  }
+  if (trimmed.startsWith("1//0")) {
+    return `1//0••••••••${trimmed.slice(-4)}`;
+  }
+  if (trimmed.startsWith("ya29.")) {
+    return `ya29.••••••••${trimmed.slice(-4)}`;
+  }
+  return `${trimmed.slice(0, 4)}••••••••${trimmed.slice(-4)}`;
+}
+
+function persistToDisk(creds: IntegrationCredentials): void {
   // Try saving to /tmp (works in serverless Vercel)
   try {
     const tmpPath = path.join(os.tmpdir(), "nexus_credentials.json");
-    fs.writeFileSync(tmpPath, JSON.stringify(merged, null, 2), "utf-8");
+    fs.writeFileSync(tmpPath, JSON.stringify(creds, null, 2), "utf-8");
   } catch (err) {
     // Ignore
   }
@@ -72,10 +90,47 @@ export function saveStoredCredentials(creds: Partial<IntegrationCredentials>): I
   // Also try local directory if writable
   try {
     const localPath = path.join(process.cwd(), "nexus_credentials.json");
-    fs.writeFileSync(localPath, JSON.stringify(merged, null, 2), "utf-8");
+    fs.writeFileSync(localPath, JSON.stringify(creds, null, 2), "utf-8");
   } catch (err) {
     // Ignore read-only errors on serverless
   }
+}
 
+export function saveStoredCredentials(creds: Partial<IntegrationCredentials>): IntegrationCredentials {
+  const existing = getStoredCredentials();
+  const merged: IntegrationCredentials = { ...existing };
+
+  for (const [k, v] of Object.entries(creds)) {
+    if (v === null || v === "") {
+      // Explicit deletion
+      delete (merged as any)[k];
+    } else if (v !== undefined) {
+      (merged as any)[k] = v;
+    }
+  }
+
+  persistToDisk(merged);
   return merged;
 }
+
+export function clearGoogleCredentials(): IntegrationCredentials {
+  const existing = getStoredCredentials();
+  delete existing.googleAccessToken;
+  delete existing.googleRefreshToken;
+  delete existing.googleTokenExpiry;
+  delete existing.googleClientId;
+  delete existing.googleClientSecret;
+
+  persistToDisk(existing);
+  return existing;
+}
+
+export function clearNotionCredentials(): IntegrationCredentials {
+  const existing = getStoredCredentials();
+  delete existing.notionApiKey;
+  delete existing.notionDatabaseId;
+
+  persistToDisk(existing);
+  return existing;
+}
+

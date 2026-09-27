@@ -233,36 +233,34 @@ export function useNexusStore() {
     notifyListeners();
 
     try {
-      let credsPayload = {};
+      // Purge any legacy secrets stored in client localStorage for security
       if (typeof window !== "undefined") {
         const savedCreds = localStorage.getItem("nexus_credentials_v1");
         if (savedCreds) {
           try {
-            credsPayload = { credentials: JSON.parse(savedCreds) };
+            const parsed = JSON.parse(savedCreds);
+            if (parsed.googleClientSecret || parsed.googleRefreshToken || parsed.googleAccessToken || parsed.notionApiKey) {
+              delete parsed.googleClientSecret;
+              delete parsed.googleRefreshToken;
+              delete parsed.googleAccessToken;
+              delete parsed.notionApiKey;
+              localStorage.setItem("nexus_credentials_v1", JSON.stringify(parsed));
+            }
           } catch {
             // ignore
           }
         }
       }
 
-      // Call real live integrations sync endpoint
+      // Call live integrations sync endpoint (server uses its secure server-side credentials store)
       const res = await fetch("/api/integrations/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(credsPayload),
+        body: JSON.stringify({}),
       });
 
       if (res.ok) {
         const data = await res.json();
-
-        // 1. If backend refreshed credentials, save back to localStorage immediately
-        if (data.updatedCredentials && typeof window !== "undefined") {
-          try {
-            const curCredsStr = localStorage.getItem("nexus_credentials_v1");
-            const curCreds = curCredsStr ? JSON.parse(curCredsStr) : {};
-            localStorage.setItem("nexus_credentials_v1", JSON.stringify({ ...curCreds, ...data.updatedCredentials }));
-          } catch {}
-        }
 
         // 2. Track sync errors vs success transparently
         if (data.errors && data.errors.length > 0) {
@@ -397,6 +395,8 @@ export function useNexusStore() {
           delete curCreds.googleAccessToken;
           delete curCreds.googleRefreshToken;
           delete curCreds.googleTokenExpiry;
+          delete curCreds.googleClientId;
+          delete curCreds.googleClientSecret;
           localStorage.setItem("nexus_credentials_v1", JSON.stringify(curCreds));
         } catch {}
       }
@@ -406,9 +406,7 @@ export function useNexusStore() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          googleAccessToken: "",
-          googleRefreshToken: "",
-          googleTokenExpiry: 0,
+          action: "disconnect_google",
         }),
       });
     } catch {}
@@ -427,6 +425,45 @@ export function useNexusStore() {
     );
     if (typeof window !== "undefined") {
       localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(remaining));
+    }
+    notifyListeners();
+  }, []);
+
+  const disconnectNotion = useCallback(async () => {
+    if (typeof window !== "undefined") {
+      const curCredsStr = localStorage.getItem("nexus_credentials_v1");
+      if (curCredsStr) {
+        try {
+          const curCreds = JSON.parse(curCredsStr);
+          delete curCreds.notionApiKey;
+          delete curCreds.notionDatabaseId;
+          localStorage.setItem("nexus_credentials_v1", JSON.stringify(curCreds));
+        } catch {}
+      }
+    }
+    try {
+      await fetch("/api/integrations/save", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "disconnect_notion",
+        }),
+      });
+    } catch {}
+
+    const remaining = memoryState.items.filter(
+      (item) => item.source !== "notion" && !item.id.startsWith("notion-")
+    );
+    memoryState.items = remaining;
+    memoryState.projects = memoryState.projects.filter((p) => p.id !== "notion-synced-db");
+    memoryState.integrations = memoryState.integrations.map((integ) =>
+      integ.provider === "notion"
+        ? { ...integ, isConnected: false, itemCount: 0, lastSyncedAt: "Never" }
+        : integ
+    );
+    if (typeof window !== "undefined") {
+      localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(remaining));
+      localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(memoryState.projects));
     }
     notifyListeners();
   }, []);
@@ -498,5 +535,6 @@ export function useNexusStore() {
     purgeDemoData,
     resetToDemo,
     disconnectGoogle,
+    disconnectNotion,
   };
 }
