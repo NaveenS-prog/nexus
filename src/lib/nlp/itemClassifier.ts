@@ -77,7 +77,7 @@ const PERSONAL_PATTERNS = [
   // Finance & Admin
   /\b(?:pay\s+rent|rent|bill|recharge|electricity|fees|fee|bank|transfer|tax|renew|passport|visa|emi|investment|money)\b/i,
   // Social & Family
-  /\b(?:call\s+mom|call\s+dad|call\s+parents|call|dinner\s+with|lunch\s+with|party|birthday|gift|family|friend|hangout)\b/i,
+  /\b(?:call\s+mom|call\s+dad|call\s+parents|call|dinner\s+with|lunch\s+with|party|birthday\s+gift|birthday\s+party|gift|family|friend|hangout)\b/i,
   // Travel & Commute
   /\b(?:flight|train|hotel|trip|travel|commute|cab|uber|ola|bus)\b/i,
   // Miscellaneous Personal
@@ -88,6 +88,43 @@ const PERSONAL_PATTERNS = [
 const MEETING_PATTERNS = [
   /\b(?:sync|1:1|1-on-1|standup|weekly\s+sync|office\s+hours|club\s+meeting|interview|mentor|scrum|discussion|catch-up|sync-up|team\s+meeting)\b/i,
 ];
+
+// 7. Commemorative Celebrations & Birthdays (Non-actionable calendar events)
+const BIRTHDAY_PATTERNS = [
+  /\b(?:birthdays?|b['’]?day|bday|b\-day)\b/i,
+  /\b(?:anniversary|birth\s+anniversary)\b/i,
+  /\b(?:born\s+on\s+this\s+day)\b/i,
+  /\b(?:happy\s+birthday)\b/i,
+  /\b(?:turns?\s+\d+)\b/i,
+  /\b(?:[a-z0-9'\s]+'s\s+birthday)\b/i,
+];
+
+/**
+ * NLP Classifier: Checks if an item represents a Birthday, Anniversary, or Commemorative celebration.
+ * These are non-actionable calendar occasions that must be filtered out of task queues.
+ */
+export function isBirthdayItem(item?: {
+  title?: string;
+  description?: string;
+  tags?: string[];
+  category?: string;
+  metadata?: Record<string, any>;
+} | null): boolean {
+  if (!item) return false;
+  if (item.category === "birthday") return true;
+  if (item.tags?.some((t) => /birthday/i.test(t))) return true;
+
+  const title = (item.title || "").trim();
+  const desc = (item.description || "").trim();
+  const fullText = `${title} ${desc}`.trim();
+
+  // If title has actionable errand verbs like "buy gift", "plan party", "call to wish",
+  // it is an actual errand rather than a passive birthday calendar occasion.
+  const isErrand = /\b(?:buy|purchase|order|gift|plan|organize|host|bake|book|reserve|call|wish)\b/i.test(title);
+  if (isErrand) return false;
+
+  return BIRTHDAY_PATTERNS.some((pattern) => pattern.test(fullText));
+}
 
 /**
  * Autonomous Smart Triage Engine:
@@ -123,6 +160,20 @@ export function smartTriageItem(input?: {
         isActionableTask: true,
       };
     }
+  }
+
+  // 1.5. Commemorative Celebrations & Birthdays: NEVER an actionable task
+  if (isBirthdayItem({ title, description: desc, category: safeInput.category })) {
+    return {
+      domain: "personal",
+      confidence: 0.99,
+      reason: "Commemorative birthday celebration occasion (non-actionable calendar event)",
+      suggestedAction: "Send warm wishes and greetings on this day.",
+      priority: "low",
+      estimatedMinutes: 0,
+      tags: ["Birthday", "Celebration"],
+      isActionableTask: false,
+    };
   }
 
   // 2. Google Classroom or Coursework Submissions
@@ -272,6 +323,15 @@ export function classifyItemNLP(input: {
 }): ClassificationResult {
   const triage = smartTriageItem(input);
 
+  if (isBirthdayItem(input)) {
+    return {
+      type: "class_lecture",
+      confidence: 0.99,
+      reason: "Commemorative birthday celebration occasion (non-actionable event)",
+      isActionableTask: false,
+    };
+  }
+
   if (triage.domain === "class_lecture" || triage.domain === "meeting") {
     return {
       type: "class_lecture",
@@ -294,20 +354,24 @@ export function classifyItemNLP(input: {
     type: "task",
     confidence: triage.confidence,
     reason: triage.reason,
-    isActionableTask: true,
+    isActionableTask: triage.isActionableTask,
   };
 }
 
 /**
- * Filter utility: returns true only if the item is an actionable task or assignment (NOT a passive class lecture).
+ * Filter utility: returns true only if the item is an actionable task or assignment (NOT a passive class lecture or birthday).
  */
-export function isActionableTaskOrAssignment(item: {
-  title: string;
+export function isActionableTaskOrAssignment(item?: {
+  title?: string;
   description?: string;
-  metadata?: { location?: string };
+  metadata?: { location?: string; [key: string]: any };
   source?: string;
   category?: string;
-}): boolean {
+  tags?: string[];
+} | null): boolean {
+  if (!item) return false;
+  if (isBirthdayItem(item)) return false;
+
   const triage = smartTriageItem({
     title: item.title,
     description: item.description,

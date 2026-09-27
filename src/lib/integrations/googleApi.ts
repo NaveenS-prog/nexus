@@ -1,6 +1,7 @@
 import { UnifiedItem } from "../types";
 import { getStoredCredentials, saveStoredCredentials, IntegrationCredentials } from "./config";
 import { addDays, differenceInMinutes, format, parseISO, subDays } from "date-fns";
+import { isBirthdayItem } from "@/lib/nlp/itemClassifier";
 
 export interface TokenResult {
   token: string | null;
@@ -277,6 +278,7 @@ export async function fetchLiveGoogleCalendarEvents(
     const summary = event.summary || "Calendar Event";
     const desc = event.description || (event.location ? `Location: ${event.location}` : undefined);
     const isExam = /\b(?:ia|i\.a\.|cia|cat|internals?|exam|test|quiz|midterm|viva)\b/i.test(`${summary} ${desc || ""}`);
+    const isBirthday = isBirthdayItem({ title: summary, description: desc });
 
     let eventStartAt: string | undefined = undefined;
     let eventDueAt: string | undefined = undefined;
@@ -312,14 +314,20 @@ export async function fetchLiveGoogleCalendarEvents(
       source: "google_calendar",
       title: summary,
       description: desc,
-      category: isExam ? "academic" : "calendar",
-      priority: isExam ? "critical" : "medium",
+      category: isExam ? "academic" : (isBirthday ? "personal" : "calendar"),
+      priority: isExam ? "critical" : (isBirthday ? "low" : "medium"),
       status: "pending",
       startAt: eventStartAt,
       dueAt: eventDueAt,
       estimatedMinutes: isAllDay ? (isExam ? 90 : 480) : estimatedMinutes,
       url: event.htmlLink,
-      tags: isExam ? ["Exam", "Calendar"] : (isAllDay ? ["Calendar", "All Day"] : ["Calendar"]),
+      tags: isExam
+        ? ["Exam", "Calendar"]
+        : isBirthday
+        ? ["Birthday", "Calendar"]
+        : isAllDay
+        ? ["Calendar", "All Day"]
+        : ["Calendar"],
       metadata: { isAllDay, location: event.location, hangoutLink: event.hangoutLink },
       createdAt: event.created || new Date().toISOString(),
       updatedAt: event.updated || new Date().toISOString(),

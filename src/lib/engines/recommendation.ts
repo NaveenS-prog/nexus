@@ -1,15 +1,16 @@
 import { UnifiedItem, DashboardMode, RecommendationResult } from "../types";
 import { parseISO, differenceInHours, differenceInMinutes, isBefore, isAfter, addHours } from "date-fns";
-import { isExamItem } from "../nlp/itemClassifier";
+import { isExamItem, isBirthdayItem } from "../nlp/itemClassifier";
 
 export function recommendNextTask(
   items: UnifiedItem[],
   mode: DashboardMode = "default",
   now: Date = new Date()
 ): RecommendationResult | null {
-  // 1. Filter out completed tasks and generic past calendar events
+  // 1. Filter out completed tasks, birthdays, and generic past calendar events
   const candidateTasks = items.filter((item) => {
     if (item.status === "completed") return false;
+    if (isBirthdayItem(item)) return false;
     if (item.category === "calendar") {
       // Don't recommend a calendar event as a task to do
       return false;

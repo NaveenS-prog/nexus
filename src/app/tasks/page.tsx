@@ -15,7 +15,8 @@ import { ItemDetailDrawer } from "@/components/dashboard/ItemDetailDrawer";
 import { 
   isActionableTaskOrAssignment, 
   smartTriageItem, 
-  isExamItem 
+  isExamItem,
+  isBirthdayItem
 } from "@/lib/nlp/itemClassifier";
 import { format, parseISO, isSameDay, isTomorrow } from "date-fns";
 import { cn } from "@/components/ui/badge";
@@ -33,7 +34,7 @@ export default function TasksPage() {
   // Filter items
   const filteredItems = useMemo(() => {
     return items.filter((item) => {
-      if (!isActionableTaskOrAssignment(item) || smartTriageItem(item).domain === "class_lecture") {
+      if (!isActionableTaskOrAssignment(item) || isBirthdayItem(item) || smartTriageItem(item).domain === "class_lecture") {
         return false;
       }
 
