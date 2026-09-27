@@ -18,6 +18,21 @@ import { UnifiedItem } from "@/lib/types";
 import { smartTriageItem, getDomainBadgeProps } from "@/lib/nlp/itemClassifier";
 import { format, parseISO } from "date-fns";
 
+function parseSafeDate(dateStr?: string | null): Date | null {
+  if (!dateStr || typeof dateStr !== "string") return null;
+  const trimmed = dateStr.trim();
+  if (!trimmed) return null;
+  try {
+    const d = parseISO(trimmed);
+    if (!isNaN(d.getTime())) return d;
+  } catch {}
+  try {
+    const d = new Date(trimmed);
+    if (!isNaN(d.getTime())) return d;
+  } catch {}
+  return null;
+}
+
 interface ItemDetailDrawerProps {
   item: UnifiedItem | null;
   isOpen: boolean;
@@ -115,31 +130,40 @@ export function ItemDetailDrawer({
         <div className="space-y-3">
           <span className="text-[11px] font-mono uppercase text-ink-muted font-semibold">Details</span>
           <div className="grid grid-cols-2 gap-3 text-xs">
-            {item.startAt && (
-              <div className="p-2.5 rounded-lg bg-surface border border-hairline">
-                <div className="flex items-center gap-1.5 text-ink-muted text-[10px] font-mono uppercase">
-                  <Calendar className="w-3 h-3 text-olive" />
-                  <span>{item.metadata?.isAllDay || item.startAt.includes("T00:00:00") ? "Event Date" : "Start Time"}</span>
+            {item.startAt && (() => {
+              const parsed = parseSafeDate(item.startAt);
+              if (!parsed) return null;
+              const isAllDay = Boolean(item.metadata?.isAllDay || item.startAt.includes("T00:00:00") || !item.startAt.includes("T"));
+              return (
+                <div className="p-2.5 rounded-lg bg-surface border border-hairline">
+                  <div className="flex items-center gap-1.5 text-ink-muted text-[10px] font-mono uppercase">
+                    <Calendar className="w-3 h-3 text-olive" />
+                    <span>{isAllDay ? "Event Date" : "Start Time"}</span>
+                  </div>
+                  <span className="font-mono text-ink mt-1 block">
+                    {isAllDay
+                      ? `${format(parsed, "EEE, MMM d, yyyy")} (All Day)`
+                      : format(parsed, "EEE, MMM d · h:mm a")}
+                  </span>
                 </div>
-                <span className="font-mono text-ink mt-1 block">
-                  {item.metadata?.isAllDay || item.startAt.includes("T00:00:00")
-                    ? `${format(parseISO(item.startAt), "EEE, MMM d, yyyy")} (All Day)`
-                    : format(parseISO(item.startAt), "EEE, MMM d · h:mm a")}
-                </span>
-              </div>
-            )}
+              );
+            })()}
 
-            {item.dueAt && !item.metadata?.isAllDay && !item.dueAt.includes("T23:59:59") && !item.startAt?.includes("T00:00:00") && (
-              <div className="p-2.5 rounded-lg bg-surface border border-hairline">
-                <div className="flex items-center gap-1.5 text-ink-muted text-[10px] font-mono uppercase">
-                  <Calendar className="w-3 h-3 text-olive" />
-                  <span>{item.startAt ? "End Time" : "Due Date"}</span>
+            {item.dueAt && !item.metadata?.isAllDay && !item.dueAt.includes("T23:59:59") && !item.startAt?.includes("T00:00:00") && (() => {
+              const parsed = parseSafeDate(item.dueAt);
+              if (!parsed) return null;
+              return (
+                <div className="p-2.5 rounded-lg bg-surface border border-hairline">
+                  <div className="flex items-center gap-1.5 text-ink-muted text-[10px] font-mono uppercase">
+                    <Calendar className="w-3 h-3 text-olive" />
+                    <span>{item.startAt ? "End Time" : "Due Date"}</span>
+                  </div>
+                  <span className="font-mono text-ink mt-1 block">
+                    {format(parsed, "EEE, MMM d · h:mm a")}
+                  </span>
                 </div>
-                <span className="font-mono text-ink mt-1 block">
-                  {format(parseISO(item.dueAt), "EEE, MMM d · h:mm a")}
-                </span>
-              </div>
-            )}
+              );
+            })()}
 
             {item.estimatedMinutes && (
               <div className="p-2.5 rounded-lg bg-surface border border-hairline">

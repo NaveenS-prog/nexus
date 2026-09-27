@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { 
   GraduationCap, 
   BookOpen, 
@@ -30,32 +30,96 @@ import {
 } from "date-fns";
 import { cn } from "@/components/ui/badge";
 
+// Bulletproof safe date parser that NEVER throws RangeError
+function parseSafeDate(dateStr?: string | null): Date | null {
+  if (!dateStr || typeof dateStr !== "string") return null;
+  const trimmed = dateStr.trim();
+  if (!trimmed) return null;
+
+  try {
+    const d = parseISO(trimmed);
+    if (!isNaN(d.getTime())) return d;
+  } catch {}
+
+  try {
+    const d = new Date(trimmed);
+    if (!isNaN(d.getTime())) return d;
+  } catch {}
+
+  return null;
+}
+
+function formatSafeExamDate(dateStr?: string | null, isAllDayMeta?: boolean): string {
+  if (!dateStr) return "Schedule pending";
+  const parsed = parseSafeDate(dateStr);
+  if (!parsed) return "Schedule pending";
+
+  try {
+    const isAllDay = Boolean(
+      isAllDayMeta ||
+      (typeof dateStr === "string" && (dateStr.includes("T00:00:00") || !dateStr.includes("T")))
+    );
+    return isAllDay
+      ? format(parsed, "EEE, MMM d (All Day)")
+      : format(parsed, "EEE, MMM d · h:mm a");
+  } catch {
+    return "Schedule pending";
+  }
+}
+
+function formatSafeAssignmentDue(dueStr?: string | null, isAllDayMeta?: boolean): string {
+  if (!dueStr) return "No fixed cutoff";
+  const parsed = parseSafeDate(dueStr);
+  if (!parsed) return "No fixed cutoff";
+
+  try {
+    const isAllDay = Boolean(
+      isAllDayMeta ||
+      (typeof dueStr === "string" && (dueStr.includes("T23:59:59") || !dueStr.includes("T")))
+    );
+    return isAllDay
+      ? format(parsed, "MMM d")
+      : format(parsed, "MMM d · h:mm a");
+  } catch {
+    return "No fixed cutoff";
+  }
+}
+
 export default function AcademicsPage() {
   const { items, toggleItemCompletion, deleteItem } = useNexusStore();
   const [selectedItem, setSelectedItem] = useState<UnifiedItem | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   // 1. Separate Exams from Assignments
   const exams = useMemo(() => {
+    if (!items || !Array.isArray(items)) return [];
     return items
       .filter((item) => {
+        if (!item || !item.title) return false;
         if (isExamItem(item)) return true;
         const triage = smartTriageItem(item);
-        return triage.domain === "exam" || item.tags?.includes("Exam");
+        return triage.domain === "exam" || Boolean(item.tags?.includes("Exam"));
       })
       .sort((a, b) => {
-        const dateA = a.startAt || a.dueAt || "9999";
-        const dateB = b.startAt || b.dueAt || "9999";
+        const dateA = String(a.startAt || a.dueAt || "9999");
+        const dateB = String(b.startAt || b.dueAt || "9999");
         return dateA.localeCompare(dateB);
       });
   }, [items]);
 
   // 2. Strict Academic Coursework
   const assignments = useMemo(() => {
+    if (!items || !Array.isArray(items)) return [];
     return items.filter((item) => {
+      if (!item || !item.title) return false;
       if (isExamItem(item)) return false;
       const triage = smartTriageItem(item);
-      if (triage.domain === "exam") return false;
+      if (triage.domain === "exam" || item.tags?.includes("Exam")) return false;
       return (
         triage.domain === "assignment" ||
         item.source === "google_classroom" ||
@@ -69,13 +133,14 @@ export default function AcademicsPage() {
     const map = new Map<string, { examsCount: number; assignmentsCount: number; items: UnifiedItem[] }>();
 
     [...exams, ...assignments].forEach((item) => {
+      if (!item) return;
       const course = inferCourseFromItem(item) || item.courseName || "General Academics";
       if (!map.has(course)) {
         map.set(course, { examsCount: 0, assignmentsCount: 0, items: [] });
       }
       const entry = map.get(course)!;
       entry.items.push(item);
-      if (isExamItem(item)) {
+      if (isExamItem(item) || item.tags?.includes("Exam")) {
         if (item.status !== "completed") entry.examsCount += 1;
       } else {
         if (item.status !== "completed") entry.assignmentsCount += 1;
@@ -91,10 +156,10 @@ export default function AcademicsPage() {
 
   const getExamCountdown = (exam: UnifiedItem) => {
     const targetDate = exam.startAt || exam.dueAt;
-    if (!targetDate) return { text: "Date Pending", isUrgent: false };
+    const parsed = parseSafeDate(targetDate);
+    if (!parsed) return { text: "Date Pending", isUrgent: false };
 
     try {
-      const parsed = parseISO(targetDate);
       if (isToday(parsed)) {
         return { text: "EXAM TODAY", isUrgent: true };
       }
@@ -103,6 +168,9 @@ export default function AcademicsPage() {
       }
 
       const diffDays = differenceInCalendarDays(parsed, startOfDay(new Date()));
+      if (isNaN(diffDays)) {
+        return { text: "Scheduled", isUrgent: false };
+      }
       if (diffDays < 0) {
         return { text: "Concluded", isUrgent: false };
       }
@@ -119,6 +187,17 @@ export default function AcademicsPage() {
     setSelectedItem(item);
     setDrawerOpen(true);
   };
+
+  if (!mounted) {
+    return (
+      <div className="max-w-5xl mx-auto px-6 py-10 space-y-12 font-sans animate-pulse">
+        <div className="border-b border-hairline pb-6">
+          <div className="h-8 w-48 bg-canvas-secondary rounded-sm mb-2" />
+          <div className="h-4 w-80 bg-canvas-secondary rounded-sm" />
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-5xl mx-auto px-6 py-10 space-y-12 animate-fade-in font-sans">
@@ -160,7 +239,6 @@ export default function AcademicsPage() {
             {exams.map((exam) => {
               const countdown = getExamCountdown(exam);
               const courseTitle = inferCourseFromItem(exam) || exam.courseName || "Academic Course";
-              const examType = getExamTypeLabel(exam.title);
               const isCompleted = exam.status === "completed";
 
               return (
@@ -189,17 +267,13 @@ export default function AcademicsPage() {
 
                     <div className="text-[11px] text-ink-muted font-mono space-y-0.5 pt-1">
                       <div className="flex items-center gap-1.5">
-                        <Clock className="w-3 h-3 text-ink-muted" />
+                        <Clock className="w-3 h-3 text-ink-muted shrink-0" />
                         <span>
-                          {exam.startAt
-                            ? (exam.metadata?.isAllDay || exam.startAt.includes("T00:00:00")
-                                ? format(parseISO(exam.startAt), "EEE, MMM d (All Day)")
-                                : format(parseISO(exam.startAt), "EEE, MMM d · h:mm a"))
-                            : "Schedule pending"}
+                          {formatSafeExamDate(exam.startAt, exam.metadata?.isAllDay)}
                         </span>
                       </div>
-                      {exam.metadata?.location && (
-                        <div className="text-ink-secondary text-[10px]">
+                      {exam.metadata?.location && typeof exam.metadata.location === "string" && (
+                        <div className="text-ink-secondary text-[10px] truncate">
                           Location: {exam.metadata.location}
                         </div>
                       )}
@@ -247,7 +321,8 @@ export default function AcademicsPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {courses.map((courseName) => {
-              const data = courseMap.get(courseName)!;
+              const data = courseMap.get(courseName);
+              if (!data) return null;
               return (
                 <div
                   key={courseName}
@@ -324,17 +399,13 @@ export default function AcademicsPage() {
                       <div className="flex items-center gap-2 mt-1 text-[11px] text-ink-muted font-mono">
                         <span className="text-ink-secondary">{courseTitle}</span>
                         <span>
-                          Due: {item.dueAt
-                            ? (item.dueAt.includes("T23:59:59") || item.metadata?.isAllDay
-                                ? format(parseISO(item.dueAt), "MMM d")
-                                : format(parseISO(item.dueAt), "MMM d · h:mm a"))
-                            : "No fixed cutoff"}
+                          Due: {formatSafeAssignmentDue(item.dueAt, item.metadata?.isAllDay)}
                         </span>
                       </div>
                     </div>
                   </div>
 
-                  {item.url && (
+                  {item.url && typeof item.url === "string" && (
                     <a
                       href={item.url}
                       target="_blank"

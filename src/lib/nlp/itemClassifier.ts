@@ -93,8 +93,8 @@ const MEETING_PATTERNS = [
  * Autonomous Smart Triage Engine:
  * Analyzes any item title, description, source, and timing, outputting a complete domain classification.
  */
-export function smartTriageItem(input: {
-  title: string;
+export function smartTriageItem(input?: {
+  title?: string;
   description?: string;
   location?: string;
   source?: string;
@@ -102,9 +102,10 @@ export function smartTriageItem(input: {
   dueAt?: string;
   startAt?: string;
 }): SmartTriageResult {
-  const title = (input.title || "").trim();
-  const desc = (input.description || "").trim();
-  const location = (input.location || "").trim();
+  const safeInput = input || {};
+  const title = (safeInput.title || "").trim();
+  const desc = (safeInput.description || "").trim();
+  const location = (safeInput.location || "").trim();
   const fullText = `${title} ${desc} ${location}`.trim();
 
   // 1. HIGHEST PRIORITY: Exams & Internal Assessments
@@ -125,7 +126,7 @@ export function smartTriageItem(input: {
   }
 
   // 2. Google Classroom or Coursework Submissions
-  if (input.source === "google_classroom") {
+  if (safeInput.source === "google_classroom") {
     return {
       domain: "assignment",
       confidence: 0.96,
@@ -155,7 +156,7 @@ export function smartTriageItem(input: {
   }
 
   // 4. Engineering, Coding, GitHub, and Development Projects
-  if (input.source === "github") {
+  if (safeInput.source === "github") {
     return {
       domain: "project_dev",
       confidence: 0.95,
@@ -232,7 +233,7 @@ export function smartTriageItem(input: {
   }
 
   // 8. Source-based heuristics: Google Calendar events without action verbs
-  if (input.source === "google_calendar" || input.category === "calendar") {
+  if (safeInput.source === "google_calendar" || safeInput.category === "calendar") {
     // If it mentions no personal action verbs, it's likely a calendar routine event
     return {
       domain: "class_lecture",
@@ -321,10 +322,11 @@ export function isActionableTaskOrAssignment(item: {
 /**
  * Checks if an item represents an Exam, Test, Quiz, or Internal Assessment (IA).
  */
-export function isExamItem(item: {
-  title: string;
+export function isExamItem(item?: {
+  title?: string;
   description?: string;
-}): boolean {
+} | null): boolean {
+  if (!item) return false;
   const title = (item.title || "").trim();
   const desc = (item.description || "").trim();
   return EXAM_PATTERNS.some((pattern) => pattern.test(title) || pattern.test(desc));
@@ -334,13 +336,14 @@ export function isExamItem(item: {
  * Intelligent Course Inference:
  * Extracts or infers standardized course names and codes from titles, descriptions, or existing fields.
  */
-export function inferCourseFromItem(item: {
-  title: string;
+export function inferCourseFromItem(item?: {
+  title?: string;
   description?: string;
   courseName?: string;
-}): string | undefined {
+} | null): string | undefined {
+  if (!item) return undefined;
   if (item.courseName?.trim()) return item.courseName.trim();
-  const text = `${item.title} ${item.description || ""}`.toLowerCase();
+  const text = `${item.title || ""} ${item.description || ""}`.toLowerCase();
 
   if (/\b(?:os|operating\s+systems?)\b/i.test(text)) return "Operating Systems (OS)";
   if (/\b(?:coa|computer\s+org(?:anization)?|computer\s+architecture)\b/i.test(text)) return "Computer Org & Architecture (COA)";
@@ -358,8 +361,8 @@ export function inferCourseFromItem(item: {
 /**
  * Categorizes the type of examination (IA, Semester, Practical, Viva, Quiz).
  */
-export function getExamTypeLabel(title: string): string {
-  const lower = title.toLowerCase();
+export function getExamTypeLabel(title?: string): string {
+  const lower = (title || "").toLowerCase();
   if (/\b(?:ia|cia|cat|internals?)\b/i.test(lower)) return "Internal Assessment (IA)";
   if (/\b(?:viva|oral)\b/i.test(lower)) return "Viva Voce Examination";
   if (/\b(?:practical|lab)\b/i.test(lower)) return "Practical / Lab Exam";
@@ -371,13 +374,14 @@ export function getExamTypeLabel(title: string): string {
 /**
  * Helper to get the SmartDomain of any item.
  */
-export function getSmartDomain(item: {
-  title: string;
+export function getSmartDomain(item?: {
+  title?: string;
   description?: string;
   source?: string;
   category?: string;
   metadata?: Record<string, any>;
-}): SmartDomain {
+} | null): SmartDomain {
+  if (!item) return "personal";
   return smartTriageItem({
     title: item.title,
     description: item.description,
@@ -390,7 +394,7 @@ export function getSmartDomain(item: {
 /**
  * Visual styling configuration for Smart Domain badges.
  */
-export function getDomainBadgeProps(domain: SmartDomain): {
+export function getDomainBadgeProps(domain?: SmartDomain | string): {
   label: string;
   shortLabel: string;
   colorClass: string;
@@ -451,6 +455,15 @@ export function getDomainBadgeProps(domain: SmartDomain): {
         colorClass: "text-cyan-300",
         borderClass: "border-cyan-500/40",
         bgClass: "bg-cyan-500/20",
+        badgeVariant: "secondary",
+      };
+    default:
+      return {
+        label: "Academic / General",
+        shortLabel: "ITEM",
+        colorClass: "text-ink-secondary",
+        borderClass: "border-hairline",
+        bgClass: "bg-surface",
         badgeVariant: "secondary",
       };
   }
