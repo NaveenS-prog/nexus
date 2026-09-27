@@ -31,8 +31,10 @@ export async function POST(req: Request) {
     // Build partial update payload without overwriting existing secrets if empty
     const toUpdate: Partial<IntegrationCredentials> = {};
 
-    if (typeof body.googleClientId === "string") {
+    if (typeof body.googleClientId === "string" && body.googleClientId.trim() !== "") {
       toUpdate.googleClientId = body.googleClientId.trim();
+    } else if (body.clearGoogleClientId) {
+      toUpdate.googleClientId = "";
     }
 
     if (typeof body.googleClientSecret === "string" && body.googleClientSecret.trim() !== "") {
@@ -59,8 +61,10 @@ export async function POST(req: Request) {
       toUpdate.notionApiKey = "";
     }
 
-    if (typeof body.notionDatabaseId === "string") {
+    if (typeof body.notionDatabaseId === "string" && body.notionDatabaseId.trim() !== "") {
       toUpdate.notionDatabaseId = body.notionDatabaseId.trim();
+    } else if (body.clearNotionDatabaseId) {
+      toUpdate.notionDatabaseId = "";
     }
 
     const updated = saveStoredCredentials(toUpdate);

@@ -27,7 +27,7 @@ interface IntegrationStatus {
   google: {
     connected: boolean;
     hasClientId: boolean;
-    clientId: string;
+    maskedClientId: string;
     hasClientSecret: boolean;
     maskedClientSecret: string;
     hasRefreshToken: boolean;
@@ -40,7 +40,7 @@ interface IntegrationStatus {
     hasApiKey: boolean;
     maskedApiKey: string;
     hasDatabaseId: boolean;
-    databaseId: string;
+    maskedDatabaseId: string;
   };
 }
 
@@ -58,7 +58,7 @@ export default function SettingsPage() {
     isLiveSynced,
   } = useNexusStore();
   
-  // Credentials state (write-only for sensitive secrets)
+  // Credentials state (write-only for sensitive secrets and identifiers)
   const [googleClientId, setGoogleClientId] = useState("");
   const [googleClientSecret, setGoogleClientSecret] = useState("");
   const [googleRefreshToken, setGoogleRefreshToken] = useState("");
@@ -80,12 +80,6 @@ export default function SettingsPage() {
       if (res.ok) {
         const data: IntegrationStatus = await res.json();
         setIntegrationStatus(data);
-        if (data.google?.clientId) {
-          setGoogleClientId((prev) => prev || data.google.clientId);
-        }
-        if (data.notion?.databaseId) {
-          setNotionDatabaseId((prev) => prev || data.notion.databaseId);
-        }
       }
     } catch (err) {
       console.error("Error fetching status:", err);
@@ -123,8 +117,6 @@ export default function SettingsPage() {
             delete creds.notionApiKey;
             localStorage.setItem("nexus_credentials_v1", JSON.stringify(creds));
           }
-          if (creds.googleClientId) setGoogleClientId(creds.googleClientId);
-          if (creds.notionDatabaseId) setNotionDatabaseId(creds.notionDatabaseId);
         } catch {
           // ignore
         }
@@ -167,7 +159,8 @@ export default function SettingsPage() {
 
       const data = await res.json();
       if (data.success) {
-        // Clear sensitive secret inputs from memory immediately
+        // Clear sensitive inputs from memory immediately
+        setGoogleClientId("");
         setGoogleClientSecret("");
         setGoogleRefreshToken("");
         setGoogleAccessToken("");
@@ -206,8 +199,9 @@ export default function SettingsPage() {
 
       const data = await res.json();
       if (data.success) {
-        // Clear sensitive API key from memory
+        // Clear inputs from memory
         setNotionApiKey("");
+        setNotionDatabaseId("");
 
         setStatusMsg("Notion credentials saved securely on server! Syncing live data...");
         await fetchStatus();
@@ -490,14 +484,27 @@ export default function SettingsPage() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-ink font-medium">Google Client ID</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-ink font-medium">Google Client ID</label>
+                  {integrationStatus?.google?.hasClientId && (
+                    <div className="flex items-center gap-1 text-[10px] text-olive font-medium">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Configured & Masked</span>
+                    </div>
+                  )}
+                </div>
                 <input
                   type="text"
                   value={googleClientId}
                   onChange={(e) => setGoogleClientId(e.target.value)}
-                  placeholder="e.g. 123456789-xyz.apps.googleusercontent.com"
+                  placeholder={integrationStatus?.google?.maskedClientId || "e.g. 123456789-xyz.apps.googleusercontent.com"}
                   className="w-full bg-canvas border border-hairline rounded-lg p-2.5 text-ink placeholder-ink-muted outline-none focus:border-olive font-mono text-xs"
                 />
+                <p className="text-[10px] text-ink-muted">
+                  {integrationStatus?.google?.hasClientId
+                    ? "Masked for privacy. Leave blank to retain current ID, or enter new to update."
+                    : "OAuth public client identifier from your Google Cloud Console."}
+                </p>
               </div>
 
               <div className="space-y-1">
@@ -680,16 +687,26 @@ export default function SettingsPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-ink font-medium">Notion Database ID</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-ink font-medium">Notion Database ID</label>
+                  {integrationStatus?.notion?.hasDatabaseId && (
+                    <div className="flex items-center gap-1 text-[10px] text-olive font-medium">
+                      <ShieldCheck className="w-3.5 h-3.5" />
+                      <span>Configured & Masked</span>
+                    </div>
+                  )}
+                </div>
                 <input
                   type="text"
                   value={notionDatabaseId}
                   onChange={(e) => setNotionDatabaseId(e.target.value)}
-                  placeholder="e.g. 2969f64c053f4c63bf1829e0689b91e9"
+                  placeholder={integrationStatus?.notion?.maskedDatabaseId || "e.g. 2969f64c053f4c63bf1829e0689b91e9"}
                   className="w-full bg-canvas border border-hairline rounded-lg p-2.5 text-ink placeholder-ink-muted outline-none focus:border-olive font-mono text-xs"
                 />
                 <p className="text-[10px] text-ink-muted">
-                  Find this in your Notion database link: notion.so/workspace/<strong>[database_id]</strong>?v=...
+                  {integrationStatus?.notion?.hasDatabaseId
+                    ? "Masked for privacy. Leave blank to keep existing database ID, or enter new to update."
+                    : "Find this in your Notion database link: notion.so/workspace/[database_id]?v=..."}
                 </p>
               </div>
             </div>

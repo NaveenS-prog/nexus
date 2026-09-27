@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getStoredCredentials, maskSecret } from "@/lib/integrations/config";
+import { getStoredCredentials, maskSecret, maskClientId } from "@/lib/integrations/config";
 
 export async function GET() {
   const creds = getStoredCredentials();
@@ -16,7 +16,7 @@ export async function GET() {
     google: {
       connected: googleConnected,
       hasClientId: Boolean(creds.googleClientId),
-      clientId: creds.googleClientId || "",
+      maskedClientId: maskClientId(creds.googleClientId),
       hasClientSecret: Boolean(creds.googleClientSecret),
       maskedClientSecret: maskSecret(creds.googleClientSecret),
       hasRefreshToken: Boolean(creds.googleRefreshToken),
@@ -29,7 +29,7 @@ export async function GET() {
       hasApiKey: Boolean(creds.notionApiKey),
       maskedApiKey: maskSecret(creds.notionApiKey),
       hasDatabaseId: Boolean(creds.notionDatabaseId),
-      databaseId: creds.notionDatabaseId || "",
+      maskedDatabaseId: maskSecret(creds.notionDatabaseId),
     },
   });
 }

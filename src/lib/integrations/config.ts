@@ -78,6 +78,17 @@ export function maskSecret(secret?: string): string {
   return `${trimmed.slice(0, 4)}••••••••${trimmed.slice(-4)}`;
 }
 
+export function maskClientId(clientId?: string): string {
+  if (!clientId) return "";
+  const trimmed = clientId.trim();
+  if (trimmed.endsWith(".apps.googleusercontent.com")) {
+    const prefix = trimmed.slice(0, 6);
+    return `${prefix}••••••••.apps.googleusercontent.com`;
+  }
+  if (trimmed.length <= 8) return "••••••••";
+  return `${trimmed.slice(0, 4)}••••••••${trimmed.slice(-4)}`;
+}
+
 function persistToDisk(creds: IntegrationCredentials): void {
   // Try saving to /tmp (works in serverless Vercel)
   try {
