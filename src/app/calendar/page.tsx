@@ -19,7 +19,7 @@ import {
   Plus
 } from "lucide-react";
 import { useNexusStore } from "@/lib/data/store";
-import { Badge } from "@/components/ui/badge";
+import { Badge, cn } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ItemDetailDrawer } from "@/components/dashboard/ItemDetailDrawer";
 import { CreateEventModal } from "@/components/calendar/CreateEventModal";
@@ -34,6 +34,8 @@ import {
   parseISO, 
   startOfWeek, 
   isToday, 
+  isYesterday,
+  isTomorrow,
   addMinutes,
   subMinutes
 } from "date-fns";
@@ -303,6 +305,24 @@ export default function CalendarPage() {
     return Array.from({ length: 7 }, (_, i) => addDays(start, i));
   }, [selectedDate]);
 
+  // Context-aware dynamic navigation label (Yesterday / Today / Tomorrow / respective date)
+  const navDateLabel = useMemo(() => {
+    if (viewMode === "week") {
+      const today = new Date();
+      const currentWeekStart = startOfWeek(today, { weekStartsOn: 1 });
+      const selWeekStart = startOfWeek(selectedDate, { weekStartsOn: 1 });
+      const diffWeeks = Math.round((selWeekStart.getTime() - currentWeekStart.getTime()) / (7 * 86400000));
+      if (diffWeeks === 0) return "This Week";
+      if (diffWeeks === -1) return "Last Week";
+      if (diffWeeks === 1) return "Next Week";
+      return `${format(weekDays[0], "MMM d")} - ${format(weekDays[6], "MMM d")}`;
+    }
+    if (isToday(selectedDate)) return "Today";
+    if (isYesterday(selectedDate)) return "Yesterday";
+    if (isTomorrow(selectedDate)) return "Tomorrow";
+    return format(selectedDate, "MMM d");
+  }, [selectedDate, viewMode, weekDays]);
+
   const handlePrev = () => {
     if (viewMode === "day") setSelectedDate((d) => subDays(d, 1));
     else setSelectedDate((d) => subDays(d, 7));
@@ -461,27 +481,35 @@ export default function CalendarPage() {
             <button
               onClick={handlePrev}
               className="p-1.5 rounded hover:bg-surface text-ink-muted hover:text-ink transition-colors"
-              title="Previous"
+              title={viewMode === "day" ? "Previous Day" : "Previous Week"}
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
             <button
               onClick={handleToday}
-              className="px-2.5 py-1 text-xs font-medium text-ink-secondary hover:text-ink rounded hover:bg-surface transition-colors"
+              className={cn(
+                "px-2.5 py-1 text-xs font-medium rounded transition-colors whitespace-nowrap",
+                isToday(selectedDate)
+                  ? "text-ink font-semibold"
+                  : "text-ink-secondary hover:text-ink hover:bg-surface"
+              )}
+              title={isToday(selectedDate) ? "Current Day" : "Click to jump to Today"}
             >
-              Today
+              {navDateLabel}
             </button>
             <button
               onClick={handleNext}
               className="p-1.5 rounded hover:bg-surface text-ink-muted hover:text-ink transition-colors"
-              title="Next"
+              title={viewMode === "day" ? "Next Day" : "Next Week"}
             >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
 
           <div className="px-3 py-1.5 rounded-lg bg-surface border border-hairline font-mono text-xs text-ink">
-            {format(selectedDate, "EEE, MMM d, yyyy")}
+            {viewMode === "week"
+              ? `${format(weekDays[0], "MMM d")} - ${format(weekDays[6], "MMM d, yyyy")}`
+              : format(selectedDate, "EEE, MMM d, yyyy")}
           </div>
         </div>
       </div>
@@ -641,6 +669,8 @@ export default function CalendarPage() {
                   {format(selectedDate, "EEEE, MMMM d")}
                 </span>
                 {isToday(selectedDate) && <Badge variant="olive">Today</Badge>}
+                {isYesterday(selectedDate) && <Badge variant="secondary">Yesterday</Badge>}
+                {isTomorrow(selectedDate) && <Badge variant="secondary">Tomorrow</Badge>}
               </div>
               <span className="text-[11px] font-mono text-ink-muted">
                 {dayItems.length} event{dayItems.length !== 1 ? "s" : ""}
