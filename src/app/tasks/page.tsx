@@ -6,7 +6,10 @@ import {
   Search, 
   Circle, 
   CheckCircle2, 
-  ChevronRight
+  ChevronRight,
+  Calendar,
+  Clock,
+  X
 } from "lucide-react";
 import { useNexusStore } from "@/lib/data/store";
 import { UnifiedItem, Priority, Category } from "@/lib/types";
@@ -18,7 +21,7 @@ import {
   isExamItem,
   isBirthdayItem
 } from "@/lib/nlp/itemClassifier";
-import { format, parseISO, isSameDay, isTomorrow } from "date-fns";
+import { format, parseISO, isSameDay, isTomorrow, addDays } from "date-fns";
 import { cn } from "@/components/ui/badge";
 
 export default function TasksPage() {
@@ -26,6 +29,9 @@ export default function TasksPage() {
   const [selectedFilter, setSelectedFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [newTitle, setNewTitle] = useState("");
+  const [newDueDate, setNewDueDate] = useState<string>(format(new Date(), "yyyy-MM-dd"));
+  const [newDueTime, setNewDueTime] = useState<string>("");
+  const [hasSpecificTime, setHasSpecificTime] = useState<boolean>(false);
   const [newCategory, setNewCategory] = useState<Category>("personal");
   const [newPriority, setNewPriority] = useState<Priority>("medium");
   const [selectedItem, setSelectedItem] = useState<UnifiedItem | null>(null);
@@ -77,6 +83,15 @@ export default function TasksPage() {
     e.preventDefault();
     if (!newTitle.trim()) return;
 
+    let computedDueAt: string | undefined = undefined;
+    if (newDueDate) {
+      if (hasSpecificTime && newDueTime) {
+        computedDueAt = `${newDueDate}T${newDueTime}:00`;
+      } else {
+        computedDueAt = `${newDueDate}T23:59:59`;
+      }
+    }
+
     addItem({
       source: "nexus",
       title: newTitle.trim(),
@@ -84,7 +99,10 @@ export default function TasksPage() {
       priority: newPriority,
       status: "pending",
       estimatedMinutes: 30,
-      dueAt: new Date(Date.now() + 86400000).toISOString(),
+      dueAt: computedDueAt,
+      metadata: {
+        isAllDay: !hasSpecificTime,
+      },
       tags: ["Quick Add"],
     });
 
@@ -107,6 +125,7 @@ export default function TasksPage() {
     if (!dateStr) return undefined;
     try {
       const d = parseISO(dateStr);
+      if (isNaN(d.getTime())) return undefined;
       const today = new Date();
       if (isSameDay(d, today)) {
         return isAllDay ? "Today" : `Today · ${format(d, "h:mm a")}`;
@@ -146,42 +165,174 @@ export default function TasksPage() {
         </div>
       </div>
 
-      {/* Quick Add Bar */}
-      <form onSubmit={handleCreateTask} className="p-2 rounded-md border border-hairline bg-surface flex flex-wrap items-center gap-2 shadow-subtle">
-        <input
-          type="text"
-          value={newTitle}
-          onChange={(e) => setNewTitle(e.target.value)}
-          placeholder="Add a new task (e.g. 'Finish OS Semaphore code')..."
-          className="flex-1 min-w-[220px] bg-transparent px-3 py-1.5 text-xs text-ink placeholder-ink-muted outline-none"
-        />
+      {/* Quick Add Bar with Full Date & Time Controls */}
+      <form onSubmit={handleCreateTask} className="p-3.5 rounded-md border border-hairline bg-surface space-y-2.5 shadow-subtle">
+        {/* Row 1: Task Title & Submit Button */}
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={newTitle}
+            onChange={(e) => setNewTitle(e.target.value)}
+            placeholder="Add a new task (e.g. 'Finish OS Semaphore code')..."
+            className="flex-1 bg-transparent px-2 py-1 text-xs text-ink placeholder-ink-muted outline-none border-b border-transparent focus:border-olive transition-colors"
+          />
 
-        <select
-          value={newCategory}
-          onChange={(e) => setNewCategory(e.target.value as Category)}
-          className="bg-canvas-secondary border border-hairline rounded-sm px-2 py-1 text-xs text-ink-secondary outline-none font-mono"
-        >
-          <option value="personal">Personal</option>
-          <option value="academic">Academic</option>
-          <option value="project">Project</option>
-          <option value="idea">Idea</option>
-        </select>
+          <Button type="submit" variant="olive" size="sm" className="h-7 text-xs flex items-center gap-1.5 shrink-0 px-3">
+            <Plus className="w-3.5 h-3.5" />
+            <span>Add Task</span>
+          </Button>
+        </div>
 
-        <select
-          value={newPriority}
-          onChange={(e) => setNewPriority(e.target.value as Priority)}
-          className="bg-canvas-secondary border border-hairline rounded-sm px-2 py-1 text-xs text-ink-secondary outline-none font-mono"
-        >
-          <option value="low">Low</option>
-          <option value="medium">Medium</option>
-          <option value="high">High</option>
-          <option value="critical">Critical</option>
-        </select>
+        {/* Row 2: Date Picker, Time Input, Category, and Priority */}
+        <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-hairline-subtle text-xs">
+          {/* Due Date Picker */}
+          <div className="flex items-center gap-1.5 bg-canvas-secondary/70 hover:bg-canvas-secondary border border-hairline rounded-sm px-2 py-1 text-ink-secondary transition-colors">
+            <Calendar className="w-3.5 h-3.5 text-olive shrink-0" />
+            <span className="text-[10px] font-mono uppercase text-ink-muted shrink-0">Due:</span>
+            <input
+              type="date"
+              value={newDueDate}
+              onChange={(e) => setNewDueDate(e.target.value)}
+              className="bg-transparent text-xs text-ink outline-none font-mono cursor-pointer"
+              title="Set task due date"
+            />
+            {newDueDate && (
+              <button
+                type="button"
+                onClick={() => {
+                  setNewDueDate("");
+                  setNewDueTime("");
+                  setHasSpecificTime(false);
+                }}
+                className="text-ink-muted hover:text-ink text-[11px] px-0.5 leading-none ml-0.5"
+                title="Clear due date"
+              >
+                ×
+              </button>
+            )}
+          </div>
 
-        <Button type="submit" variant="olive" size="sm" className="h-7 text-xs flex items-center gap-1.5">
-          <Plus className="w-3 h-3" />
-          <span>Add</span>
-        </Button>
+          {/* Optional Time Picker */}
+          <div className="flex items-center gap-1.5 bg-canvas-secondary/70 hover:bg-canvas-secondary border border-hairline rounded-sm px-2 py-1 text-ink-secondary transition-colors">
+            <Clock className="w-3.5 h-3.5 text-ink-muted shrink-0" />
+            <input
+              type="time"
+              value={newDueTime}
+              onChange={(e) => {
+                setNewDueTime(e.target.value);
+                setHasSpecificTime(Boolean(e.target.value));
+              }}
+              className="bg-transparent text-xs text-ink outline-none font-mono cursor-pointer"
+              title="Optional specific time"
+            />
+            {newDueTime && (
+              <button
+                type="button"
+                onClick={() => {
+                  setNewDueTime("");
+                  setHasSpecificTime(false);
+                }}
+                className="text-ink-muted hover:text-ink text-[11px] px-0.5 leading-none ml-0.5"
+                title="Clear time"
+              >
+                ×
+              </button>
+            )}
+          </div>
+
+          {/* Category Select */}
+          <select
+            value={newCategory}
+            onChange={(e) => setNewCategory(e.target.value as Category)}
+            className="bg-canvas-secondary/70 hover:bg-canvas-secondary border border-hairline rounded-sm px-2 py-1 text-xs text-ink-secondary outline-none font-mono cursor-pointer transition-colors"
+            title="Task category"
+          >
+            <option value="personal">Personal</option>
+            <option value="academic">Academic</option>
+            <option value="project">Project</option>
+            <option value="idea">Idea</option>
+          </select>
+
+          {/* Priority Select */}
+          <select
+            value={newPriority}
+            onChange={(e) => setNewPriority(e.target.value as Priority)}
+            className="bg-canvas-secondary/70 hover:bg-canvas-secondary border border-hairline rounded-sm px-2 py-1 text-xs text-ink-secondary outline-none font-mono cursor-pointer transition-colors"
+            title="Task priority"
+          >
+            <option value="low">Low Priority</option>
+            <option value="medium">Medium Priority</option>
+            <option value="high">High Priority</option>
+            <option value="critical">Critical Priority</option>
+          </select>
+        </div>
+
+        {/* Row 3: Quick Shortcuts & Live Due Date Preview */}
+        <div className="flex flex-wrap items-center justify-between gap-2 pt-1 text-[11px]">
+          <div className="flex items-center gap-1.5 font-mono">
+            <span className="text-[10px] text-ink-muted uppercase">Shortcuts:</span>
+            <button
+              type="button"
+              onClick={() => setNewDueDate(format(new Date(), "yyyy-MM-dd"))}
+              className={cn(
+                "px-2 py-0.5 rounded text-[10px] transition-colors",
+                newDueDate === format(new Date(), "yyyy-MM-dd")
+                  ? "bg-olive-soft text-olive font-medium border border-olive-border"
+                  : "text-ink-muted hover:text-ink hover:bg-canvas-secondary"
+              )}
+            >
+              Today
+            </button>
+            <button
+              type="button"
+              onClick={() => setNewDueDate(format(addDays(new Date(), 1), "yyyy-MM-dd"))}
+              className={cn(
+                "px-2 py-0.5 rounded text-[10px] transition-colors",
+                newDueDate === format(addDays(new Date(), 1), "yyyy-MM-dd")
+                  ? "bg-olive-soft text-olive font-medium border border-olive-border"
+                  : "text-ink-muted hover:text-ink hover:bg-canvas-secondary"
+              )}
+            >
+              Tomorrow
+            </button>
+            <button
+              type="button"
+              onClick={() => setNewDueDate(format(addDays(new Date(), 7), "yyyy-MM-dd"))}
+              className={cn(
+                "px-2 py-0.5 rounded text-[10px] transition-colors",
+                newDueDate === format(addDays(new Date(), 7), "yyyy-MM-dd")
+                  ? "bg-olive-soft text-olive font-medium border border-olive-border"
+                  : "text-ink-muted hover:text-ink hover:bg-canvas-secondary"
+              )}
+            >
+              In 7 Days
+            </button>
+            {newDueDate && (
+              <button
+                type="button"
+                onClick={() => {
+                  setNewDueDate("");
+                  setNewDueTime("");
+                  setHasSpecificTime(false);
+                }}
+                className="px-1.5 py-0.5 rounded text-[10px] text-ink-muted hover:text-terracotta transition-colors"
+              >
+                No deadline
+              </button>
+            )}
+          </div>
+
+          {newDueDate ? (
+            <span className="font-mono text-[10px] text-ink-secondary">
+              Scheduled for: <strong className="text-ink font-medium">{format(parseISO(`${newDueDate}T00:00:00`), "EEE, MMM d")}</strong>
+              {hasSpecificTime && newDueTime ? ` at ${newDueTime}` : " (All Day)"}
+            </span>
+          ) : (
+            <span className="font-mono text-[10px] text-ink-muted italic">
+              No cutoff date assigned
+            </span>
+          )}
+        </div>
       </form>
 
       {/* Filter Tabs */}

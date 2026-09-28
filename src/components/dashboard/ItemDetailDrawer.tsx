@@ -149,9 +149,14 @@ export function ItemDetailDrawer({
               );
             })()}
 
-            {item.dueAt && !item.metadata?.isAllDay && !item.dueAt.includes("T23:59:59") && !item.startAt?.includes("T00:00:00") && (() => {
+            {item.dueAt && (() => {
               const parsed = parseSafeDate(item.dueAt);
               if (!parsed) return null;
+              const isAllDay = Boolean(
+                item.metadata?.isAllDay ||
+                item.dueAt.includes("T23:59:59") ||
+                !item.dueAt.includes("T")
+              );
               return (
                 <div className="p-2.5 rounded-lg bg-surface border border-hairline">
                   <div className="flex items-center gap-1.5 text-ink-muted text-[10px] font-mono uppercase">
@@ -159,7 +164,9 @@ export function ItemDetailDrawer({
                     <span>{item.startAt ? "End Time" : "Due Date"}</span>
                   </div>
                   <span className="font-mono text-ink mt-1 block">
-                    {format(parsed, "EEE, MMM d · h:mm a")}
+                    {isAllDay
+                      ? `${format(parsed, "EEE, MMM d, yyyy")} (All Day)`
+                      : format(parsed, "EEE, MMM d · h:mm a")}
                   </span>
                 </div>
               );
