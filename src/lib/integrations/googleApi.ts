@@ -1,6 +1,6 @@
 import { UnifiedItem } from "../types";
 import { getStoredCredentials, saveStoredCredentials, IntegrationCredentials } from "./config";
-import { addDays, differenceInMinutes, format, parseISO, subDays } from "date-fns";
+import { addDays, addMinutes, differenceInMinutes, format, parseISO, subDays } from "date-fns";
 import { isBirthdayItem } from "@/lib/nlp/itemClassifier";
 
 export interface TokenResult {
@@ -336,3 +336,199 @@ export async function fetchLiveGoogleCalendarEvents(
 
   return { items, newCreds };
 }
+
+/**
+ * Creates a new event directly in the user's primary Google Calendar via API.
+ */
+export async function createLiveGoogleCalendarEvent(
+  eventData: {
+    title: string;
+    description?: string;
+    startAt?: string;
+    dueAt?: string;
+    location?: string;
+    isAllDay?: boolean;
+  },
+  overrideCreds?: Partial<IntegrationCredentials>
+): Promise<{ id: string; htmlLink?: string } | null> {
+  const tokenResult = await getValidGoogleAccessToken(overrideCreds);
+  const token = tokenResult.token;
+  if (!token) return null;
+
+  const isAllDay = Boolean(
+    eventData.isAllDay ||
+    (eventData.startAt && eventData.startAt.includes("T00:00:00") && (!eventData.dueAt || eventData.dueAt.includes("T23:59:59")))
+  );
+
+  let body: any;
+  if (isAllDay && eventData.startAt) {
+    const startDate = eventData.startAt.slice(0, 10);
+    let endDate = startDate;
+    if (eventData.dueAt) {
+      endDate = eventData.dueAt.slice(0, 10);
+    }
+    try {
+      const parsedEnd = parseISO(`${endDate}T00:00:00`);
+      const nextDay = addDays(parsedEnd, 1);
+      endDate = format(nextDay, "yyyy-MM-dd");
+    } catch {
+      endDate = startDate;
+    }
+
+    body = {
+      summary: eventData.title,
+      description: eventData.description,
+      location: eventData.location,
+      start: { date: startDate },
+      end: { date: endDate },
+    };
+  } else {
+    const startIso = eventData.startAt ? new Date(eventData.startAt).toISOString() : new Date().toISOString();
+    const endIso = eventData.dueAt
+      ? new Date(eventData.dueAt).toISOString()
+      : addMinutes(new Date(startIso), 60).toISOString();
+
+    body = {
+      summary: eventData.title,
+      description: eventData.description,
+      location: eventData.location,
+      start: { dateTime: startIso },
+      end: { dateTime: endIso },
+    };
+  }
+
+  const res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error("Failed to create Google Calendar event:", res.status, errText);
+    return null;
+  }
+
+  const created = await res.json();
+  return { id: created.id, htmlLink: created.htmlLink };
+}
+
+/**
+ * Creates a new task directly in the user's Google Tasks default list via API.
+ */
+export async function createLiveGoogleTask(
+  taskData: {
+    title: string;
+    description?: string;
+    dueAt?: string;
+  },
+  overrideCreds?: Partial<IntegrationCredentials>
+): Promise<{ id: string } | null> {
+  const tokenResult = await getValidGoogleAccessToken(overrideCreds);
+  const token = tokenResult.token;
+  if (!token) return null;
+
+  const body: any = {
+    title: taskData.title,
+    notes: taskData.description,
+  };
+
+  if (taskData.dueAt) {
+    try {
+      const datePart = taskData.dueAt.slice(0, 10);
+      body.due = `${datePart}T00:00:00.000Z`;
+    } catch {}
+  }
+
+  const res = await fetch("https://tasks.googleapis.com/tasks/v1/lists/@default/tasks", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  if (!res.ok) {
+    const errText = await res.text();
+    console.error("Failed to create Google Task:", res.status, errText);
+    return null;
+  }
+
+  const created = await res.json();
+  return { id: created.id };
+}
+
+/**
+ * Updates task completion status directly in Google Tasks.
+ */
+export async function updateLiveGoogleTaskStatus(
+  taskId: string,
+  isCompleted: boolean,
+  overrideCreds?: Partial<IntegrationCredentials>
+): Promise<boolean> {
+  const tokenResult = await getValidGoogleAccessToken(overrideCreds);
+  const token = tokenResult.token;
+  if (!token) return false;
+
+  const rawId = taskId.replace(/^gtask-/, "");
+  const body = {
+    status: isCompleted ? "completed" : "needsAction",
+    completed: isCompleted ? new Date().toISOString() : null,
+  };
+
+  const res = await fetch(`https://tasks.googleapis.com/tasks/v1/lists/@default/tasks/${encodeURIComponent(rawId)}`, {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(body),
+  });
+
+  return res.ok;
+}
+
+/**
+ * Deletes an event directly from Google Calendar via API.
+ */
+export async function deleteLiveGoogleCalendarEvent(
+  eventId: string,
+  overrideCreds?: Partial<IntegrationCredentials>
+): Promise<boolean> {
+  const tokenResult = await getValidGoogleAccessToken(overrideCreds);
+  const token = tokenResult.token;
+  if (!token) return false;
+
+  const rawId = eventId.replace(/^gcal-/, "");
+  const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(rawId)}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  return res.ok;
+}
+
+/**
+ * Deletes a task directly from Google Tasks via API.
+ */
+export async function deleteLiveGoogleTask(
+  taskId: string,
+  overrideCreds?: Partial<IntegrationCredentials>
+): Promise<boolean> {
+  const tokenResult = await getValidGoogleAccessToken(overrideCreds);
+  const token = tokenResult.token;
+  if (!token) return false;
+
+  const rawId = taskId.replace(/^gtask-/, "");
+  const res = await fetch(`https://tasks.googleapis.com/tasks/v1/lists/@default/tasks/${encodeURIComponent(rawId)}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  return res.ok;
+}
+

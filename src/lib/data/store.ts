@@ -152,18 +152,33 @@ export function useNexusStore() {
   }, []);
 
   const toggleItemCompletion = useCallback((id: string) => {
+    let toggledItem: UnifiedItem | undefined = undefined;
     const updated = memoryState.items.map((item) => {
       if (item.id === id) {
         const newStatus: ItemStatus = item.status === "completed" ? "pending" : "completed";
-        return {
+        toggledItem = {
           ...item,
           status: newStatus,
           updatedAt: new Date().toISOString(),
         };
+        return toggledItem;
       }
       return item;
     });
     saveItems(updated);
+
+    // 2-way sync with Google Tasks in the background
+    if (toggledItem && ((toggledItem as UnifiedItem).source === "google_tasks" || id.startsWith("gtask-"))) {
+      fetch("/api/integrations/push", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "toggle_status",
+          id,
+          isCompleted: (toggledItem as UnifiedItem).status === "completed",
+        }),
+      }).catch((e) => console.warn("Background Google Tasks status sync failed", e));
+    }
   }, []);
 
   const addItem = useCallback((item: Omit<UnifiedItem, "id" | "createdAt" | "updatedAt">) => {
@@ -188,19 +203,55 @@ export function useNexusStore() {
 
     const mergedTags = Array.from(new Set([...(item.tags || []), ...triage.tags]));
 
-    const idPrefix = item.source === "google_calendar" ? "manual-calendar" : "nexus-task";
+    const isCalendarEvent = item.category === "calendar" || item.source === "google_calendar" || Boolean(item.startAt && !item.startAt.includes("T00:00:00"));
+    const idPrefix = isCalendarEvent ? "manual-calendar" : "nexus-task";
+    const tempId = `${idPrefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+
     const newItem: UnifiedItem = {
       ...item,
       category: autoCategory,
       priority: item.priority === "medium" && triage.priority !== "medium" ? triage.priority : item.priority,
       smartDomain: triage.domain,
       tags: mergedTags,
-      id: `${idPrefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+      id: tempId,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
     const updated = [newItem, ...memoryState.items];
     saveItems(updated);
+
+    // 2-way live push to Google Calendar or Google Tasks in background
+    if (typeof window !== "undefined") {
+      fetch("/api/integrations/push", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "create",
+          type: isCalendarEvent ? "event" : "task",
+          item: newItem,
+        }),
+      })
+        .then((res) => res.json())
+        .then((data) => {
+          if (data.success && data.googleId) {
+            memoryState.items = memoryState.items.map((i) =>
+              i.id === tempId
+                ? {
+                    ...i,
+                    id: data.googleId,
+                    externalId: data.externalId || data.googleId.replace(/^(gcal|gtask)-/, ""),
+                    source: isCalendarEvent ? "google_calendar" : "google_tasks",
+                    url: data.url || i.url,
+                  }
+                : i
+            );
+            localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(memoryState.items));
+            notifyListeners();
+          }
+        })
+        .catch((e) => console.warn("Background Google push failed", e));
+    }
+
     return newItem;
   }, []);
 
@@ -212,8 +263,21 @@ export function useNexusStore() {
   }, []);
 
   const deleteItem = useCallback((id: string) => {
+    const itemToDelete = memoryState.items.find((item) => item.id === id);
     const updated = memoryState.items.filter((item) => item.id !== id);
     saveItems(updated);
+
+    // 2-way sync delete with Google Calendar / Google Tasks
+    if (itemToDelete && (id.startsWith("gcal-") || id.startsWith("gtask-"))) {
+      fetch("/api/integrations/push", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "delete",
+          id,
+        }),
+      }).catch((e) => console.warn("Background Google delete failed", e));
+    }
   }, []);
 
   const addFocusSession = useCallback((session: Omit<FocusSession, "id">) => {
