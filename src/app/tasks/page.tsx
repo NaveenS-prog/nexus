@@ -25,7 +25,7 @@ import { format, parseISO, isSameDay, isTomorrow, addDays } from "date-fns";
 import { cn } from "@/components/ui/badge";
 
 export default function TasksPage() {
-  const { items, addItem, toggleItemCompletion, deleteItem } = useNexusStore();
+  const { items, addItem, toggleItemCompletion, deleteItem, integrations } = useNexusStore();
   const [selectedFilter, setSelectedFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [newTitle, setNewTitle] = useState("");
@@ -36,6 +36,11 @@ export default function TasksPage() {
   const [newPriority, setNewPriority] = useState<Priority>("medium");
   const [selectedItem, setSelectedItem] = useState<UnifiedItem | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [syncNote, setSyncNote] = useState<{ text: string; isError?: boolean } | null>(null);
+
+  const isGoogleTasksConnected = Boolean(
+    integrations?.find((i) => i.provider === "google_tasks")?.isConnected
+  );
 
   // Filter items
   const filteredItems = useMemo(() => {
@@ -105,6 +110,19 @@ export default function TasksPage() {
       },
       tags: ["Quick Add"],
     });
+
+    if (isGoogleTasksConnected) {
+      setSyncNote({
+        text: `✓ Created "${newTitle.trim()}" and syncing live to Google Tasks...`,
+        isError: false,
+      });
+    } else {
+      setSyncNote({
+        text: `✓ Created "${newTitle.trim()}" in NEXUS (Google account not connected — connect in Settings to sync with Google Tasks)`,
+        isError: false,
+      });
+    }
+    setTimeout(() => setSyncNote(null), 5000);
 
     setNewTitle("");
   };
@@ -333,7 +351,44 @@ export default function TasksPage() {
             </span>
           )}
         </div>
+
+        {/* Row 4: Live Google Tasks 2-Way Sync Status */}
+        <div className="flex items-center justify-between pt-1.5 border-t border-hairline-subtle text-[11px]">
+          {isGoogleTasksConnected ? (
+            <div className="flex items-center gap-1.5 text-olive font-mono text-[10px]">
+              <span className="w-1.5 h-1.5 rounded-full bg-olive animate-pulse" />
+              <span>⚡ Google Tasks 2-Way Live Sync Active</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 text-ink-muted text-[10px]">
+              <span>Google account not connected (task saved locally in NEXUS).</span>
+              <a href="/settings?tab=google" className="text-olive hover:underline font-medium">
+                Connect Google in Settings &rarr;
+              </a>
+            </div>
+          )}
+        </div>
       </form>
+
+      {/* Sync Feedback Alert */}
+      {syncNote && (
+        <div
+          className={cn(
+            "p-3 rounded-md border text-xs flex items-center justify-between gap-2 animate-fade-in font-medium",
+            syncNote.isError
+              ? "bg-terracotta/10 border-terracotta/30 text-terracotta"
+              : "bg-olive/10 border-olive/30 text-ink"
+          )}
+        >
+          <span>{syncNote.text}</span>
+          <button
+            onClick={() => setSyncNote(null)}
+            className="text-ink-muted hover:text-ink text-xs px-1"
+          >
+            ✕
+          </button>
+        </div>
+      )}
 
       {/* Filter Tabs */}
       <div className="flex items-center gap-2 border-b border-hairline pb-2 overflow-x-auto text-xs">

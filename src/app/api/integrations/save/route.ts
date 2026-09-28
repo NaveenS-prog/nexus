@@ -3,6 +3,8 @@ import {
   saveStoredCredentials,
   clearGoogleCredentials,
   clearNotionCredentials,
+  attachCredentialsCookie,
+  clearCredentialsCookie,
   IntegrationCredentials,
 } from "@/lib/integrations/config";
 
@@ -11,21 +13,23 @@ export async function POST(req: Request) {
     const body = await req.json();
 
     if (body.action === "disconnect_google") {
-      clearGoogleCredentials();
-      return NextResponse.json({
+      const remaining = clearGoogleCredentials();
+      const res = NextResponse.json({
         success: true,
         message: "Google Account disconnected successfully",
         googleConfigured: false,
       });
+      return attachCredentialsCookie(res, remaining);
     }
 
     if (body.action === "disconnect_notion") {
-      clearNotionCredentials();
-      return NextResponse.json({
+      const remaining = clearNotionCredentials();
+      const res = NextResponse.json({
         success: true,
         message: "Notion disconnected successfully",
         notionConfigured: false,
       });
+      return attachCredentialsCookie(res, remaining);
     }
 
     // Build partial update payload without overwriting existing secrets if empty
@@ -69,7 +73,7 @@ export async function POST(req: Request) {
 
     const updated = saveStoredCredentials(toUpdate);
 
-    return NextResponse.json({
+    const res = NextResponse.json({
       success: true,
       message: "Credentials saved securely on server",
       googleConfigured: Boolean(
@@ -77,6 +81,8 @@ export async function POST(req: Request) {
       ),
       notionConfigured: Boolean(updated.notionApiKey && updated.notionDatabaseId),
     });
+
+    return attachCredentialsCookie(res, updated);
   } catch (err: any) {
     return NextResponse.json(
       { success: false, error: err.message || "Failed to save credentials" },

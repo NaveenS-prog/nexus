@@ -4,27 +4,67 @@ import {
   createLiveGoogleTask, 
   updateLiveGoogleTaskStatus, 
   deleteLiveGoogleCalendarEvent, 
-  deleteLiveGoogleTask 
+  deleteLiveGoogleTask,
+  getValidGoogleAccessToken,
 } from "@/lib/integrations/googleApi";
-import { getStoredCredentials } from "@/lib/integrations/config";
+import { getStoredCredentials, attachCredentialsCookie, IntegrationCredentials } from "@/lib/integrations/config";
 
 export async function POST(req: Request) {
   try {
-    const creds = getStoredCredentials();
+    let clientCreds: Partial<IntegrationCredentials> = {};
+    let body: any = {};
+    try {
+      body = await req.json();
+      if (body.credentials) {
+        clientCreds = body.credentials;
+      }
+    } catch {
+      // Body parse fallback
+    }
+
+    const creds = getStoredCredentials(clientCreds);
     const isGoogleConnected = Boolean(
       creds.googleAccessToken || (creds.googleRefreshToken && (creds.googleClientId || process.env.GOOGLE_CLIENT_ID))
     );
+
+    const { action, type, item, isCompleted, id } = body;
+
+    // 0. TEST CONNECTION ACTION
+    if (action === "test") {
+      if (!isGoogleConnected) {
+        return NextResponse.json({
+          success: false,
+          connected: false,
+          message: "Google account is not connected. Please enter your Google OAuth credentials or connect in Settings.",
+        });
+      }
+
+      try {
+        const tokenResult = await getValidGoogleAccessToken(creds);
+        if (tokenResult.token) {
+          const res = NextResponse.json({
+            success: true,
+            connected: true,
+            message: "Google Calendar & Tasks connection active and verified!",
+          });
+          return attachCredentialsCookie(res, creds);
+        }
+      } catch (err: any) {
+        return NextResponse.json({
+          success: false,
+          connected: false,
+          message: `Google authentication failed: ${err.message}`,
+        });
+      }
+    }
 
     if (!isGoogleConnected) {
       return NextResponse.json({
         success: false,
         notConnected: true,
-        message: "Google integration is not connected",
+        message: "Google integration is not connected. Item saved locally in NEXUS.",
       });
     }
-
-    const body = await req.json();
-    const { action, type, item, isCompleted, id } = body;
 
     // 1. CREATE EVENT / TASK
     if (action === "create") {
@@ -38,14 +78,20 @@ export async function POST(req: Request) {
           isAllDay: item.metadata?.isAllDay,
         }, creds);
 
-        if (result) {
-          return NextResponse.json({
+        if (result.success && result.id) {
+          const res = NextResponse.json({
             success: true,
             googleId: `gcal-${result.id}`,
             externalId: result.id,
             url: result.htmlLink,
-            message: "Event created in Google Calendar",
+            message: "Event created and synced to Google Calendar",
           });
+          return attachCredentialsCookie(res, creds);
+        } else {
+          return NextResponse.json({
+            success: false,
+            message: result.error || "Failed to create Google Calendar event",
+          }, { status: 400 });
         }
       } else {
         // Create in Google Tasks
@@ -55,20 +101,21 @@ export async function POST(req: Request) {
           dueAt: item.dueAt,
         }, creds);
 
-        if (result) {
-          return NextResponse.json({
+        if (result.success && result.id) {
+          const res = NextResponse.json({
             success: true,
             googleId: `gtask-${result.id}`,
             externalId: result.id,
-            message: "Task created in Google Tasks",
+            message: "Task created and synced to Google Tasks",
           });
+          return attachCredentialsCookie(res, creds);
+        } else {
+          return NextResponse.json({
+            success: false,
+            message: result.error || "Failed to create Google Task",
+          }, { status: 400 });
         }
       }
-
-      return NextResponse.json({
-        success: false,
-        message: "Failed to push item to Google",
-      }, { status: 500 });
     }
 
     // 2. TOGGLE TASK COMPLETION
@@ -76,7 +123,8 @@ export async function POST(req: Request) {
       const targetId = id || item?.id;
       if (targetId) {
         const ok = await updateLiveGoogleTaskStatus(targetId, Boolean(isCompleted), creds);
-        return NextResponse.json({ success: ok });
+        const res = NextResponse.json({ success: ok });
+        return attachCredentialsCookie(res, creds);
       }
     }
 
@@ -86,10 +134,12 @@ export async function POST(req: Request) {
       if (targetId) {
         if (targetId.startsWith("gcal-")) {
           const ok = await deleteLiveGoogleCalendarEvent(targetId, creds);
-          return NextResponse.json({ success: ok });
+          const res = NextResponse.json({ success: ok });
+          return attachCredentialsCookie(res, creds);
         } else if (targetId.startsWith("gtask-")) {
           const ok = await deleteLiveGoogleTask(targetId, creds);
-          return NextResponse.json({ success: ok });
+          const res = NextResponse.json({ success: ok });
+          return attachCredentialsCookie(res, creds);
         }
       }
     }
@@ -100,3 +150,4 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
+

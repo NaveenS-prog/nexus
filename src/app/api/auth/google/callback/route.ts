@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getStoredCredentials, saveStoredCredentials } from "@/lib/integrations/config";
+import { getStoredCredentials, saveStoredCredentials, attachCredentialsCookie } from "@/lib/integrations/config";
 
 export async function GET(req: Request) {
   const url = new URL(req.url);
@@ -58,7 +58,7 @@ export async function GET(req: Request) {
     const accessToken = tokens.access_token;
     const refreshToken = tokens.refresh_token || creds.googleRefreshToken || "";
 
-    saveStoredCredentials({
+    const updatedCreds = saveStoredCredentials({
       googleClientId: clientId,
       googleClientSecret: clientSecret,
       googleAccessToken: accessToken,
@@ -67,7 +67,8 @@ export async function GET(req: Request) {
     });
 
     // Clean, secure redirect with zero tokens or secrets exposed in browser URL
-    return NextResponse.redirect(`${url.origin}/settings?connected=google`);
+    const response = NextResponse.redirect(`${url.origin}/settings?connected=google`);
+    return attachCredentialsCookie(response, updatedCreds);
   } catch (err: any) {
     console.error("Google OAuth callback exception:", err);
     return NextResponse.redirect(`${url.origin}/settings?error=server_error`);

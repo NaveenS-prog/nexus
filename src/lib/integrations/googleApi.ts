@@ -98,21 +98,59 @@ export async function getValidGoogleAccessToken(
   return { token: null, refreshed: false };
 }
 
+export interface LivePushResult {
+  success: boolean;
+  id?: string;
+  htmlLink?: string;
+  error?: string;
+}
+
+/**
+ * Universal authenticated fetch for Google APIs with automatic 401 retry and emergency token refresh.
+ */
+export async function fetchWithGoogleAuth(
+  url: string,
+  options: RequestInit = {},
+  overrideCreds?: Partial<IntegrationCredentials>
+): Promise<{ res: Response; token: string }> {
+  let tokenResult = await getValidGoogleAccessToken(overrideCreds);
+  let token = tokenResult.token;
+
+  if (!token) {
+    throw new Error("No Google authorization token found. Please connect your Google account in Settings.");
+  }
+
+  const buildHeaders = (authToken: string) => {
+    const h = new Headers(options.headers || {});
+    h.set("Authorization", `Bearer ${authToken}`);
+    return h;
+  };
+
+  let res = await fetch(url, { ...options, headers: buildHeaders(token) });
+
+  // If 401 Unauthorized, automatically attempt token refresh and retry once
+  if (res.status === 401) {
+    const creds = getStoredCredentials(overrideCreds);
+    if (creds.googleRefreshToken) {
+      console.warn("Google API returned 401: attempting emergency token refresh...");
+      const refreshed = await refreshGoogleAccessToken(creds);
+      if (refreshed?.accessToken) {
+        token = refreshed.accessToken;
+        res = await fetch(url, { ...options, headers: buildHeaders(token) });
+      }
+    }
+  }
+
+  return { res, token };
+}
+
 export async function fetchLiveGoogleTasks(
   overrideCreds?: Partial<IntegrationCredentials>
 ): Promise<UnifiedItem[]> {
-  const tokenResult = await getValidGoogleAccessToken(overrideCreds);
-  const token = tokenResult.token;
-
-  if (!token) {
-    throw new Error("No valid Google Access Token or Refresh Token found.");
-  }
-
-  const res = await fetch(
+  const { res } = await fetchWithGoogleAuth(
     "https://tasks.googleapis.com/tasks/v1/lists/@default/tasks?showCompleted=true&showHidden=true&maxResults=100",
-    {
-      headers: { Authorization: `Bearer ${token}` },
-    }
+    {},
+    overrideCreds
   );
 
   if (!res.ok) {
@@ -350,70 +388,72 @@ export async function createLiveGoogleCalendarEvent(
     isAllDay?: boolean;
   },
   overrideCreds?: Partial<IntegrationCredentials>
-): Promise<{ id: string; htmlLink?: string } | null> {
-  const tokenResult = await getValidGoogleAccessToken(overrideCreds);
-  const token = tokenResult.token;
-  if (!token) return null;
+): Promise<LivePushResult> {
+  try {
+    const isAllDay = Boolean(
+      eventData.isAllDay ||
+      (eventData.startAt && eventData.startAt.includes("T00:00:00") && (!eventData.dueAt || eventData.dueAt.includes("T23:59:59")))
+    );
 
-  const isAllDay = Boolean(
-    eventData.isAllDay ||
-    (eventData.startAt && eventData.startAt.includes("T00:00:00") && (!eventData.dueAt || eventData.dueAt.includes("T23:59:59")))
-  );
+    let body: any;
+    if (isAllDay && eventData.startAt) {
+      const startDate = eventData.startAt.slice(0, 10);
+      let endDate = startDate;
+      if (eventData.dueAt) {
+        endDate = eventData.dueAt.slice(0, 10);
+      }
+      try {
+        const parsedEnd = parseISO(`${endDate}T00:00:00`);
+        const nextDay = addDays(parsedEnd, 1);
+        endDate = format(nextDay, "yyyy-MM-dd");
+      } catch {
+        endDate = startDate;
+      }
 
-  let body: any;
-  if (isAllDay && eventData.startAt) {
-    const startDate = eventData.startAt.slice(0, 10);
-    let endDate = startDate;
-    if (eventData.dueAt) {
-      endDate = eventData.dueAt.slice(0, 10);
+      body = {
+        summary: eventData.title,
+        description: eventData.description,
+        location: eventData.location,
+        start: { date: startDate },
+        end: { date: endDate },
+      };
+    } else {
+      const startIso = eventData.startAt ? new Date(eventData.startAt).toISOString() : new Date().toISOString();
+      const endIso = eventData.dueAt
+        ? new Date(eventData.dueAt).toISOString()
+        : addMinutes(new Date(startIso), 60).toISOString();
+
+      body = {
+        summary: eventData.title,
+        description: eventData.description,
+        location: eventData.location,
+        start: { dateTime: startIso },
+        end: { dateTime: endIso },
+      };
     }
-    try {
-      const parsedEnd = parseISO(`${endDate}T00:00:00`);
-      const nextDay = addDays(parsedEnd, 1);
-      endDate = format(nextDay, "yyyy-MM-dd");
-    } catch {
-      endDate = startDate;
+
+    const { res } = await fetchWithGoogleAuth(
+      "https://www.googleapis.com/calendar/v3/calendars/primary/events",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+      overrideCreds
+    );
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error("Failed to create Google Calendar event:", res.status, errText);
+      return { success: false, error: `Google Calendar API error (${res.status}): ${errText}` };
     }
 
-    body = {
-      summary: eventData.title,
-      description: eventData.description,
-      location: eventData.location,
-      start: { date: startDate },
-      end: { date: endDate },
-    };
-  } else {
-    const startIso = eventData.startAt ? new Date(eventData.startAt).toISOString() : new Date().toISOString();
-    const endIso = eventData.dueAt
-      ? new Date(eventData.dueAt).toISOString()
-      : addMinutes(new Date(startIso), 60).toISOString();
-
-    body = {
-      summary: eventData.title,
-      description: eventData.description,
-      location: eventData.location,
-      start: { dateTime: startIso },
-      end: { dateTime: endIso },
-    };
+    const created = await res.json();
+    return { success: true, id: created.id, htmlLink: created.htmlLink };
+  } catch (err: any) {
+    console.error("Exception creating Google Calendar event:", err);
+    return { success: false, error: err.message };
   }
-
-  const res = await fetch("https://www.googleapis.com/calendar/v3/calendars/primary/events", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    console.error("Failed to create Google Calendar event:", res.status, errText);
-    return null;
-  }
-
-  const created = await res.json();
-  return { id: created.id, htmlLink: created.htmlLink };
 }
 
 /**
@@ -426,40 +466,42 @@ export async function createLiveGoogleTask(
     dueAt?: string;
   },
   overrideCreds?: Partial<IntegrationCredentials>
-): Promise<{ id: string } | null> {
-  const tokenResult = await getValidGoogleAccessToken(overrideCreds);
-  const token = tokenResult.token;
-  if (!token) return null;
+): Promise<LivePushResult> {
+  try {
+    const body: any = {
+      title: taskData.title,
+      notes: taskData.description,
+    };
 
-  const body: any = {
-    title: taskData.title,
-    notes: taskData.description,
-  };
+    if (taskData.dueAt) {
+      try {
+        const datePart = taskData.dueAt.slice(0, 10);
+        body.due = `${datePart}T00:00:00.000Z`;
+      } catch {}
+    }
 
-  if (taskData.dueAt) {
-    try {
-      const datePart = taskData.dueAt.slice(0, 10);
-      body.due = `${datePart}T00:00:00.000Z`;
-    } catch {}
+    const { res } = await fetchWithGoogleAuth(
+      "https://tasks.googleapis.com/tasks/v1/lists/@default/tasks",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+      overrideCreds
+    );
+
+    if (!res.ok) {
+      const errText = await res.text();
+      console.error("Failed to create Google Task:", res.status, errText);
+      return { success: false, error: `Google Tasks API error (${res.status}): ${errText}` };
+    }
+
+    const created = await res.json();
+    return { success: true, id: created.id };
+  } catch (err: any) {
+    console.error("Exception creating Google Task:", err);
+    return { success: false, error: err.message };
   }
-
-  const res = await fetch("https://tasks.googleapis.com/tasks/v1/lists/@default/tasks", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-
-  if (!res.ok) {
-    const errText = await res.text();
-    console.error("Failed to create Google Task:", res.status, errText);
-    return null;
-  }
-
-  const created = await res.json();
-  return { id: created.id };
 }
 
 /**
@@ -470,26 +512,28 @@ export async function updateLiveGoogleTaskStatus(
   isCompleted: boolean,
   overrideCreds?: Partial<IntegrationCredentials>
 ): Promise<boolean> {
-  const tokenResult = await getValidGoogleAccessToken(overrideCreds);
-  const token = tokenResult.token;
-  if (!token) return false;
+  try {
+    const rawId = taskId.replace(/^gtask-/, "");
+    const body = {
+      status: isCompleted ? "completed" : "needsAction",
+      completed: isCompleted ? new Date().toISOString() : null,
+    };
 
-  const rawId = taskId.replace(/^gtask-/, "");
-  const body = {
-    status: isCompleted ? "completed" : "needsAction",
-    completed: isCompleted ? new Date().toISOString() : null,
-  };
+    const { res } = await fetchWithGoogleAuth(
+      `https://tasks.googleapis.com/tasks/v1/lists/@default/tasks/${encodeURIComponent(rawId)}`,
+      {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      },
+      overrideCreds
+    );
 
-  const res = await fetch(`https://tasks.googleapis.com/tasks/v1/lists/@default/tasks/${encodeURIComponent(rawId)}`, {
-    method: "PATCH",
-    headers: {
-      Authorization: `Bearer ${token}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-
-  return res.ok;
+    return res.ok;
+  } catch (err) {
+    console.error("Failed to update Google Task status:", err);
+    return false;
+  }
 }
 
 /**
@@ -499,17 +543,18 @@ export async function deleteLiveGoogleCalendarEvent(
   eventId: string,
   overrideCreds?: Partial<IntegrationCredentials>
 ): Promise<boolean> {
-  const tokenResult = await getValidGoogleAccessToken(overrideCreds);
-  const token = tokenResult.token;
-  if (!token) return false;
-
-  const rawId = eventId.replace(/^gcal-/, "");
-  const res = await fetch(`https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(rawId)}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  return res.ok;
+  try {
+    const rawId = eventId.replace(/^gcal-/, "");
+    const { res } = await fetchWithGoogleAuth(
+      `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(rawId)}`,
+      { method: "DELETE" },
+      overrideCreds
+    );
+    return res.ok || res.status === 404 || res.status === 410;
+  } catch (err) {
+    console.error("Failed to delete Google Calendar event:", err);
+    return false;
+  }
 }
 
 /**
@@ -519,16 +564,18 @@ export async function deleteLiveGoogleTask(
   taskId: string,
   overrideCreds?: Partial<IntegrationCredentials>
 ): Promise<boolean> {
-  const tokenResult = await getValidGoogleAccessToken(overrideCreds);
-  const token = tokenResult.token;
-  if (!token) return false;
-
-  const rawId = taskId.replace(/^gtask-/, "");
-  const res = await fetch(`https://tasks.googleapis.com/tasks/v1/lists/@default/tasks/${encodeURIComponent(rawId)}`, {
-    method: "DELETE",
-    headers: { Authorization: `Bearer ${token}` },
-  });
-
-  return res.ok;
+  try {
+    const rawId = taskId.replace(/^gtask-/, "");
+    const { res } = await fetchWithGoogleAuth(
+      `https://tasks.googleapis.com/tasks/v1/lists/@default/tasks/${encodeURIComponent(rawId)}`,
+      { method: "DELETE" },
+      overrideCreds
+    );
+    return res.ok || res.status === 404 || res.status === 410;
+  } catch (err) {
+    console.error("Failed to delete Google Task:", err);
+    return false;
+  }
 }
+
 

@@ -34,7 +34,11 @@ export function CreateEventModal({
   defaultIsAllDay = false,
   onCreated,
 }: CreateEventModalProps) {
-  const { addItem } = useNexusStore();
+  const { addItem, integrations } = useNexusStore();
+
+  const isGoogleCalendarConnected = Boolean(
+    integrations?.find((i) => i.provider === "google_calendar")?.isConnected
+  );
 
   const [title, setTitle] = useState("");
   const [dateStr, setDateStr] = useState(format(defaultDate || new Date(), "yyyy-MM-dd"));
@@ -116,7 +120,12 @@ export function CreateEventModal({
       },
     });
 
-    setFeedback(`✓ Created ${isAllDay ? "all-day event" : "event"} "${trimmedTitle}" for ${dateStr}`);
+    if (isGoogleCalendarConnected) {
+      setFeedback(`✓ Created "${trimmedTitle}" and syncing live to Google Calendar...`);
+    } else {
+      setFeedback(`✓ Created "${trimmedTitle}" in NEXUS (Local only — connect Google in Settings to sync to Google Calendar)`);
+    }
+
     if (onCreated) {
       onCreated(trimmedTitle, dateStr);
     }
@@ -126,7 +135,7 @@ export function CreateEventModal({
       setTitle("");
       setDescription("");
       onClose();
-    }, 1000);
+    }, 1800);
   };
 
   return (
@@ -303,8 +312,25 @@ export function CreateEventModal({
             </div>
           )}
 
+          {/* Live Sync Status */}
+          <div className="flex items-center justify-between text-[11px] pt-2 border-t border-hairline-subtle">
+            {isGoogleCalendarConnected ? (
+              <div className="flex items-center gap-1.5 text-olive font-mono text-[10px]">
+                <span className="w-1.5 h-1.5 rounded-full bg-olive animate-pulse" />
+                <span>⚡ Google Calendar 2-Way Live Sync Active</span>
+              </div>
+            ) : (
+              <div className="flex items-center gap-1.5 text-ink-muted text-[10px]">
+                <span>Google account not connected (event saved locally in NEXUS).</span>
+                <a href="/settings?tab=google" className="text-olive hover:underline font-medium">
+                  Connect Google &rarr;
+                </a>
+              </div>
+            )}
+          </div>
+
           {/* Action Buttons */}
-          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-hairline">
+          <div className="flex items-center justify-end gap-2.5 pt-2">
             <Button
               type="button"
               variant="outline"

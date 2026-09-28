@@ -21,6 +21,39 @@ function getTmpCredsPath(): string {
   return path.join(os.tmpdir(), "nexus_credentials.json");
 }
 
+export function encodeCredentials(creds: IntegrationCredentials): string {
+  try {
+    const json = JSON.stringify(creds);
+    return Buffer.from(json, "utf-8").toString("base64url");
+  } catch {
+    return "";
+  }
+}
+
+export function decodeCredentials(str?: string): Partial<IntegrationCredentials> {
+  if (!str) return {};
+  try {
+    const json = Buffer.from(str, "base64url").toString("utf-8");
+    return JSON.parse(json);
+  } catch {
+    return {};
+  }
+}
+
+function getCookieCreds(): Partial<IntegrationCredentials> {
+  try {
+    const { cookies } = require("next/headers");
+    const cookieStore = cookies();
+    const raw = cookieStore.get("nexus_auth_session")?.value;
+    if (raw) {
+      return decodeCredentials(raw);
+    }
+  } catch {
+    // cookies() unavailable outside request context or in scripts
+  }
+  return {};
+}
+
 export function getStoredCredentials(overrideCreds?: Partial<IntegrationCredentials>): IntegrationCredentials {
   const envCreds: IntegrationCredentials = {
     googleClientId: process.env.GOOGLE_CLIENT_ID || undefined,
@@ -55,6 +88,9 @@ export function getStoredCredentials(overrideCreds?: Partial<IntegrationCredenti
     // Ignore read errors
   }
 
+  // 3. Read from HttpOnly cookie session (persists across serverless cold starts & restarts)
+  const cookieCreds = getCookieCreds();
+
   const cleanedOverride: Partial<IntegrationCredentials> = {};
   if (overrideCreds) {
     for (const [k, v] of Object.entries(overrideCreds)) {
@@ -66,7 +102,7 @@ export function getStoredCredentials(overrideCreds?: Partial<IntegrationCredenti
     }
   }
 
-  return { ...envCreds, ...fileCreds, ...cleanedOverride };
+  return { ...envCreds, ...fileCreds, ...cookieCreds, ...cleanedOverride };
 }
 
 export function maskSecret(secret?: string): string {
@@ -156,5 +192,35 @@ export function clearNotionCredentials(): IntegrationCredentials {
 
   persistToDisk(existing);
   return existing;
+}
+
+export function attachCredentialsCookie<T extends { cookies: any }>(response: T, creds: IntegrationCredentials): T {
+  try {
+    response.cookies.set("nexus_auth_session", encodeCredentials(creds), {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 24 * 365, // 1 year
+    });
+  } catch (err) {
+    console.error("Failed to attach credentials cookie:", err);
+  }
+  return response;
+}
+
+export function clearCredentialsCookie<T extends { cookies: any }>(response: T): T {
+  try {
+    response.cookies.set("nexus_auth_session", "", {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 0,
+    });
+  } catch (err) {
+    console.error("Failed to clear credentials cookie:", err);
+  }
+  return response;
 }
 

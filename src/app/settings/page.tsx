@@ -73,6 +73,7 @@ export default function SettingsPage() {
   const [errorMsg, setErrorMsg] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [syncFeedback, setSyncFeedback] = useState<string | null>(null);
+  const [isTestingGoogle, setIsTestingGoogle] = useState(false);
 
   const fetchStatus = useCallback(async () => {
     try {
@@ -85,6 +86,29 @@ export default function SettingsPage() {
       console.error("Error fetching status:", err);
     }
   }, []);
+
+  const handleTestGoogle = async () => {
+    setIsTestingGoogle(true);
+    setStatusMsg("");
+    setErrorMsg("");
+    try {
+      const res = await fetch("/api/integrations/push", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "test" }),
+      });
+      const data = await res.json();
+      if (data.connected && data.success) {
+        setStatusMsg("✓ " + data.message);
+      } else {
+        setErrorMsg("⚠️ " + (data.message || "Google integration test failed."));
+      }
+    } catch (e: any) {
+      setErrorMsg("Test failed: " + e.message);
+    } finally {
+      setIsTestingGoogle(false);
+    }
+  };
 
   // Handle initial mount, legacy secret purge, and OAuth callback return
   useEffect(() => {
@@ -626,6 +650,20 @@ export default function SettingsPage() {
                     <ExternalLink className="w-3.5 h-3.5" />
                     <span>{integrationStatus?.google?.connected ? "Switch / Reconnect Google (OAuth)" : "Connect with Google Account (OAuth)"}</span>
                   </button>
+                )}
+
+                {integrationStatus?.google?.connected && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={isTestingGoogle}
+                    onClick={handleTestGoogle}
+                    className="text-xs h-8 text-olive border-olive/30 hover:bg-olive-light/20 flex items-center gap-1.5"
+                  >
+                    <RefreshCw className={`w-3.5 h-3.5 ${isTestingGoogle ? "animate-spin" : ""}`} />
+                    <span>{isTestingGoogle ? "Testing Connection..." : "Test Google Connection"}</span>
+                  </Button>
                 )}
 
                 {(integrationStatus?.google?.connected || googleRefreshToken || googleAccessToken) && (

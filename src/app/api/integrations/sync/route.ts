@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { fetchLiveGoogleTasks, fetchLiveGoogleCalendarEvents } from "@/lib/integrations/googleApi";
 import { fetchLiveNotionItems } from "@/lib/integrations/notionApi";
-import { getStoredCredentials, IntegrationCredentials } from "@/lib/integrations/config";
+import { getStoredCredentials, attachCredentialsCookie, IntegrationCredentials } from "@/lib/integrations/config";
 import { UnifiedItem } from "@/lib/types";
 
 export async function POST(req: Request) {
@@ -60,7 +60,7 @@ export async function POST(req: Request) {
     }
   }
 
-  return NextResponse.json({
+  const res = NextResponse.json({
     success: errors.length === 0,
     syncedAt: new Date().toISOString(),
     totalItems: allItems.length,
@@ -68,4 +68,6 @@ export async function POST(req: Request) {
     errors,
     items: allItems,
   });
+
+  return attachCredentialsCookie(res, creds);
 }

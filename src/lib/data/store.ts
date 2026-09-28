@@ -114,6 +114,31 @@ export function useNexusStore() {
 
         memoryState.isLiveSynced = true;
         localStorage.setItem(STORAGE_KEY_IS_LIVE, "true");
+
+        // Query live integration connection status from server & cookies
+        fetch("/api/integrations/status")
+          .then((res) => res.json())
+          .then((status) => {
+            if (status) {
+              memoryState.integrations = memoryState.integrations.map((integ) => {
+                if (integ.provider === "google_calendar" || integ.provider === "google_tasks") {
+                  return {
+                    ...integ,
+                    isConnected: Boolean(status.google?.connected),
+                  };
+                }
+                if (integ.provider === "notion") {
+                  return {
+                    ...integ,
+                    isConnected: Boolean(status.notion?.connected),
+                  };
+                }
+                return integ;
+              });
+              notifyListeners();
+            }
+          })
+          .catch(() => {});
       } catch (err) {
         console.warn("NEXUS: Failed to load cached state", err);
       }
@@ -242,6 +267,24 @@ export function useNexusStore() {
                     externalId: data.externalId || data.googleId.replace(/^(gcal|gtask)-/, ""),
                     source: isCalendarEvent ? "google_calendar" : "google_tasks",
                     url: data.url || i.url,
+                    metadata: {
+                      ...(i.metadata || {}),
+                      syncStatus: "synced_to_google",
+                    },
+                  }
+                : i
+            );
+            localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(memoryState.items));
+            notifyListeners();
+          } else if (data.notConnected) {
+            memoryState.items = memoryState.items.map((i) =>
+              i.id === tempId
+                ? {
+                    ...i,
+                    metadata: {
+                      ...(i.metadata || {}),
+                      syncStatus: "local_only",
+                    },
                   }
                 : i
             );
@@ -585,6 +628,34 @@ export function useNexusStore() {
     notifyListeners();
   }, []);
 
+  const checkIntegrationStatus = useCallback(async () => {
+    try {
+      const res = await fetch("/api/integrations/status");
+      if (res.ok) {
+        const status = await res.json();
+        memoryState.integrations = memoryState.integrations.map((integ) => {
+          if (integ.provider === "google_calendar" || integ.provider === "google_tasks") {
+            return {
+              ...integ,
+              isConnected: Boolean(status.google?.connected),
+            };
+          }
+          if (integ.provider === "notion") {
+            return {
+              ...integ,
+              isConnected: Boolean(status.notion?.connected),
+            };
+          }
+          return integ;
+        });
+        notifyListeners();
+        return status;
+      }
+    } catch (e) {
+      console.warn("Failed to check integration status", e);
+    }
+  }, []);
+
   return {
     items: memoryState.items,
     projects: memoryState.projects,
@@ -610,5 +681,6 @@ export function useNexusStore() {
     resetToDemo,
     disconnectGoogle,
     disconnectNotion,
+    checkIntegrationStatus,
   };
 }
