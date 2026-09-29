@@ -23,6 +23,47 @@ export type ItemStatus = "pending" | "in_progress" | "completed";
 
 export type DashboardMode = "default" | "exam" | "build";
 
+export type AccountType = "personal" | "university" | "work" | "other";
+
+export type AccountStatus = "active" | "reauth_required" | "error" | "disconnected";
+
+export type GoogleServiceType = "calendar" | "tasks" | "classroom" | "drive";
+
+export type GlobalAccountFilter = "all" | AccountType | string;
+
+export interface AccountIntegrationService {
+  id: string;
+  connectedAccountId: string;
+  provider: "google" | "notion" | "github";
+  service: GoogleServiceType | "database";
+  status: "active" | "disabled" | "error" | "reauth_required";
+  scopes?: string[];
+  lastSyncAt?: string;
+  lastSuccessAt?: string;
+  lastErrorAt?: string;
+  lastErrorMessage?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface ConnectedAccount {
+  id: string;
+  userId?: string;
+  provider: "google" | "notion" | "github";
+  providerAccountId?: string;
+  email: string;
+  displayName?: string;
+  avatarUrl?: string;
+  accountType: AccountType;
+  status: AccountStatus;
+  isDefault: boolean;
+  services?: GoogleServiceType[];
+  lastErrorMessage?: string;
+  connectedAt: string;
+  lastUsedAt: string;
+  metadata?: Record<string, any>;
+  integrations?: AccountIntegrationService[];
+}
+
 export type SmartDomain =
   | "exam"
   | "assignment"
@@ -35,6 +76,9 @@ export interface UnifiedItem {
   id: string;
   externalId?: string;
   source: Source;
+  connectedAccountId?: string;
+  accountType?: AccountType;
+  accountEmail?: string;
   title: string;
   description?: string;
   category: Category;

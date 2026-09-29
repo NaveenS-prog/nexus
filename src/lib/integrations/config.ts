@@ -2,13 +2,53 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 
+export type AccountType = "personal" | "university" | "work" | "other";
+export type GoogleServiceType = "calendar" | "tasks" | "classroom" | "drive";
+
+export interface GoogleAccountCredentials {
+  id: string; // connected_account_id
+  provider?: "google";
+  providerAccountId?: string; // Google user sub/ID
+  email: string;
+  displayName?: string;
+  avatarUrl?: string;
+  accountType: AccountType;
+  status: "active" | "reauth_required" | "error" | "disconnected";
+  refreshToken: string;
+  accessToken?: string;
+  tokenExpiry?: number;
+  clientId?: string;
+  clientSecret?: string;
+  isDefault?: boolean;
+  services?: GoogleServiceType[];
+  lastErrorMessage?: string;
+  connectedAt: string;
+  lastUsedAt: string;
+  scopes?: string[];
+  enabledServices?: {
+    calendar?: boolean;
+    tasks?: boolean;
+    classroom?: boolean;
+    drive?: boolean;
+  };
+  metadata?: Record<string, any>;
+}
+
 export interface IntegrationCredentials {
+  // Global OAuth Client identifiers
   googleClientId?: string;
   googleClientSecret?: string;
+
+  // Multi-Account Store: Keyed by connectedAccountId
+  googleAccounts?: Record<string, GoogleAccountCredentials>;
+
+  // Legacy single-account fallback fields
   googleRefreshToken?: string;
   googleAccessToken?: string;
   googleTokenExpiry?: number;
-  
+  googleAccountEmail?: string;
+
+  // Notion credentials
   notionApiKey?: string;
   notionDatabaseId?: string;
 }
@@ -91,9 +131,17 @@ export function getStoredCredentials(overrideCreds?: Partial<IntegrationCredenti
   // 3. Read from HttpOnly cookie session (persists across serverless cold starts & restarts)
   const cookieCreds = getCookieCreds();
 
+  // Merge googleAccounts dictionaries across sources
+  const mergedAccounts: Record<string, GoogleAccountCredentials> = {
+    ...(fileCreds.googleAccounts || {}),
+    ...(cookieCreds.googleAccounts || {}),
+    ...(overrideCreds?.googleAccounts || {}),
+  };
+
   const cleanedOverride: Partial<IntegrationCredentials> = {};
   if (overrideCreds) {
     for (const [k, v] of Object.entries(overrideCreds)) {
+      if (k === "googleAccounts") continue;
       if (typeof v === "string" && v.trim() !== "") {
         (cleanedOverride as any)[k] = v.trim();
       } else if (typeof v === "number" && !isNaN(v)) {
@@ -102,7 +150,52 @@ export function getStoredCredentials(overrideCreds?: Partial<IntegrationCredenti
     }
   }
 
-  return { ...envCreds, ...fileCreds, ...cookieCreds, ...cleanedOverride };
+  const merged: IntegrationCredentials = {
+    ...envCreds,
+    ...fileCreds,
+    ...cookieCreds,
+    ...cleanedOverride,
+    googleAccounts: mergedAccounts,
+  };
+
+  // 4. Backward Compatibility & Automatic Migration:
+  // If no multi-accounts exist yet, but legacy single-account googleRefreshToken is present,
+  // automatically create a default Personal Google Account record!
+  const accountKeys = Object.keys(mergedAccounts);
+  if (accountKeys.length === 0 && merged.googleRefreshToken) {
+    const defaultId = "acct-google-primary";
+    const migratedAccount: GoogleAccountCredentials = {
+      id: defaultId,
+      email: merged.googleAccountEmail || "primary@gmail.com",
+      displayName: "Primary Google Account",
+      accountType: "personal",
+      status: "active",
+      refreshToken: merged.googleRefreshToken,
+      accessToken: merged.googleAccessToken,
+      tokenExpiry: merged.googleTokenExpiry,
+      isDefault: true,
+      connectedAt: new Date().toISOString(),
+      lastUsedAt: new Date().toISOString(),
+      enabledServices: {
+        calendar: true,
+        tasks: true,
+        classroom: false,
+        drive: false,
+      },
+    };
+    merged.googleAccounts = { [defaultId]: migratedAccount };
+  } else if (accountKeys.length > 0) {
+    // Keep single-account fallback fields synced to the default account
+    const defaultAcc = Object.values(merged.googleAccounts!).find((a) => a.isDefault) || Object.values(merged.googleAccounts!)[0];
+    if (defaultAcc) {
+      merged.googleRefreshToken = defaultAcc.refreshToken;
+      merged.googleAccessToken = defaultAcc.accessToken;
+      merged.googleTokenExpiry = defaultAcc.tokenExpiry;
+      merged.googleAccountEmail = defaultAcc.email;
+    }
+  }
+
+  return merged;
 }
 
 export function maskSecret(secret?: string): string {
@@ -162,8 +255,9 @@ export function saveStoredCredentials(creds: Partial<IntegrationCredentials>): I
 
   for (const [k, v] of Object.entries(creds)) {
     if (v === null || v === "") {
-      // Explicit deletion
       delete (merged as any)[k];
+    } else if (k === "googleAccounts" && typeof v === "object") {
+      merged.googleAccounts = { ...(merged.googleAccounts || {}), ...(v as any) };
     } else if (v !== undefined) {
       (merged as any)[k] = v;
     }
@@ -173,6 +267,105 @@ export function saveStoredCredentials(creds: Partial<IntegrationCredentials>): I
   return merged;
 }
 
+/**
+ * Returns all connected Google accounts from credentials.
+ */
+export function getConnectedGoogleAccounts(overrideCreds?: Partial<IntegrationCredentials>): GoogleAccountCredentials[] {
+  const creds = getStoredCredentials(overrideCreds);
+  if (!creds.googleAccounts) return [];
+  return Object.values(creds.googleAccounts);
+}
+
+/**
+ * Retrieves a specific connected Google account by its accountId.
+ */
+export function getGoogleAccountById(accountId: string, overrideCreds?: Partial<IntegrationCredentials>): GoogleAccountCredentials | null {
+  const creds = getStoredCredentials(overrideCreds);
+  if (!creds.googleAccounts) return null;
+  return creds.googleAccounts[accountId] || null;
+}
+
+/**
+ * Retrieves a connected Google account by its email address.
+ */
+export function getGoogleAccountByEmail(email: string, overrideCreds?: Partial<IntegrationCredentials>): GoogleAccountCredentials | null {
+  const creds = getStoredCredentials(overrideCreds);
+  if (!creds.googleAccounts) return null;
+  const normalized = email.trim().toLowerCase();
+  return Object.values(creds.googleAccounts).find((a) => a.email.toLowerCase() === normalized) || null;
+}
+
+/**
+ * Saves or updates a specific connected Google account.
+ */
+export function saveGoogleAccount(account: GoogleAccountCredentials): IntegrationCredentials {
+  const existing = getStoredCredentials();
+  const accounts = { ...(existing.googleAccounts || {}) };
+
+  // If this account is marked as default, unset default on other accounts
+  if (account.isDefault) {
+    for (const key of Object.keys(accounts)) {
+      if (key !== account.id) {
+        accounts[key] = { ...accounts[key], isDefault: false };
+      }
+    }
+  } else if (Object.keys(accounts).length === 0) {
+    account.isDefault = true;
+  }
+
+  accounts[account.id] = account;
+
+  const toSave: Partial<IntegrationCredentials> = {
+    googleAccounts: accounts,
+    googleRefreshToken: account.isDefault ? account.refreshToken : existing.googleRefreshToken,
+    googleAccessToken: account.isDefault ? account.accessToken : existing.googleAccessToken,
+    googleTokenExpiry: account.isDefault ? account.tokenExpiry : existing.googleTokenExpiry,
+    googleAccountEmail: account.isDefault ? account.email : existing.googleAccountEmail,
+  };
+
+  return saveStoredCredentials(toSave);
+}
+
+/**
+ * Removes a specific connected Google account by id.
+ */
+export function removeGoogleAccount(accountId: string): IntegrationCredentials {
+  const existing = getStoredCredentials();
+  const accounts = { ...(existing.googleAccounts || {}) };
+  delete accounts[accountId];
+
+  // If we deleted the default account, make another account the default if one exists
+  const remaining = Object.values(accounts);
+  if (remaining.length > 0 && !remaining.some((a) => a.isDefault)) {
+    remaining[0].isDefault = true;
+    accounts[remaining[0].id] = remaining[0];
+  }
+
+  const toSave: Partial<IntegrationCredentials> = {
+    googleAccounts: accounts,
+    googleRefreshToken: remaining.length > 0 ? remaining[0].refreshToken : "",
+    googleAccessToken: remaining.length > 0 ? remaining[0].accessToken : "",
+    googleTokenExpiry: remaining.length > 0 ? remaining[0].tokenExpiry : 0,
+    googleAccountEmail: remaining.length > 0 ? remaining[0].email : "",
+  };
+
+  return saveStoredCredentials(toSave);
+}
+
+/**
+ * Updates properties (such as accountType or enabledServices) for a connected Google account.
+ */
+export function updateGoogleAccount(accountId: string, updates: Partial<GoogleAccountCredentials>): IntegrationCredentials {
+  const account = getGoogleAccountById(accountId);
+  if (!account) return getStoredCredentials();
+  const updatedAccount: GoogleAccountCredentials = {
+    ...account,
+    ...updates,
+    lastUsedAt: new Date().toISOString(),
+  };
+  return saveGoogleAccount(updatedAccount);
+}
+
 export function clearGoogleCredentials(): IntegrationCredentials {
   const existing = getStoredCredentials();
   delete existing.googleAccessToken;
@@ -180,6 +373,8 @@ export function clearGoogleCredentials(): IntegrationCredentials {
   delete existing.googleTokenExpiry;
   delete existing.googleClientId;
   delete existing.googleClientSecret;
+  delete existing.googleAccounts;
+  delete existing.googleAccountEmail;
 
   persistToDisk(existing);
   return existing;
@@ -223,4 +418,3 @@ export function clearCredentialsCookie<T extends { cookies: any }>(response: T):
   }
   return response;
 }
-

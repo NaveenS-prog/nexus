@@ -34,7 +34,15 @@ interface CommandPaletteProps {
 
 export function CommandPalette({ isOpen, onClose, onOpenBrainDump }: CommandPaletteProps) {
   const router = useRouter();
-  const { items, projects, addItem, syncAll } = useNexusStore();
+  const { 
+    items, 
+    projects, 
+    addItem, 
+    syncAll, 
+    setAccountFilter, 
+    connectedAccounts, 
+    selectedAccountFilter 
+  } = useNexusStore();
   const [search, setSearch] = useState("");
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
@@ -121,6 +129,34 @@ export function CommandPalette({ isOpen, onClose, onOpenBrainDump }: CommandPale
     // 0. If slot preview is active, pressing Enter schedules it!
     if (slotData?.slot) {
       handleCommitSlot(slotData.slot);
+      return;
+    }
+
+    if (trimmed.startsWith("/account ")) {
+      const target = trimmed.replace("/account ", "").trim().toLowerCase();
+      if (target === "all" || target === "unified") {
+        setAccountFilter("all");
+        showToast("✓ Workspace filter: All Accounts (Unified)");
+      } else if (target === "personal" || target === "life") {
+        setAccountFilter("personal");
+        showToast("✓ Workspace filter: Personal Account");
+      } else if (target === "university" || target === "academic" || target === "student") {
+        setAccountFilter("university");
+        showToast("✓ Workspace filter: University Account");
+      } else if (target === "work") {
+        setAccountFilter("work");
+        showToast("✓ Workspace filter: Work Account");
+      } else {
+        const match = connectedAccounts.find(
+          (a) => a.email.toLowerCase().includes(target) || (a.displayName && a.displayName.toLowerCase().includes(target))
+        );
+        if (match) {
+          setAccountFilter(match.id);
+          showToast(`✓ Workspace filter: ${match.displayName || match.email}`);
+        } else {
+          showToast(`Account "${target}" not found.`);
+        }
+      }
       return;
     }
 
@@ -387,6 +423,60 @@ export function CommandPalette({ isOpen, onClose, onOpenBrainDump }: CommandPale
                 <RefreshCw className="w-4 h-4 text-ink-secondary" />
                 <span className="font-medium">Sync All Integrations Now</span>
               </Command.Item>
+            </Command.Group>
+
+            {/* Account Workspace Filters */}
+            <Command.Group heading="Account Workspaces" className="[&_[cmdk-group-heading]]:text-[10px] [&_[cmdk-group-heading]]:font-mono [&_[cmdk-group-heading]]:uppercase [&_[cmdk-group-heading]]:tracking-wider [&_[cmdk-group-heading]]:text-ink-muted [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:py-1.5">
+              <Command.Item
+                onSelect={() => {
+                  setAccountFilter("all");
+                  showToast("✓ Switched to All Accounts (Unified)");
+                }}
+                className="flex items-center gap-2.5 px-3 py-2 rounded-md text-xs text-ink-secondary hover:text-ink hover:bg-canvas-secondary cursor-pointer transition-colors"
+              >
+                <span className="w-2 h-2 rounded-full bg-ink-muted" />
+                <span>Switch to: All Accounts (Unified)</span>
+                {selectedAccountFilter === "all" && <span className="ml-auto text-[10px] text-olive font-mono">ACTIVE</span>}
+              </Command.Item>
+
+              <Command.Item
+                onSelect={() => {
+                  setAccountFilter("personal");
+                  showToast("✓ Filtered to Personal Account");
+                }}
+                className="flex items-center gap-2.5 px-3 py-2 rounded-md text-xs text-ink-secondary hover:text-ink hover:bg-canvas-secondary cursor-pointer transition-colors"
+              >
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span>Switch to: Personal Account</span>
+                {selectedAccountFilter === "personal" && <span className="ml-auto text-[10px] text-olive font-mono">ACTIVE</span>}
+              </Command.Item>
+
+              <Command.Item
+                onSelect={() => {
+                  setAccountFilter("university");
+                  showToast("✓ Filtered to University Account");
+                }}
+                className="flex items-center gap-2.5 px-3 py-2 rounded-md text-xs text-ink-secondary hover:text-ink hover:bg-canvas-secondary cursor-pointer transition-colors"
+              >
+                <span className="w-2 h-2 rounded-full bg-purple-500" />
+                <span>Switch to: University / Academic</span>
+                {selectedAccountFilter === "university" && <span className="ml-auto text-[10px] text-olive font-mono">ACTIVE</span>}
+              </Command.Item>
+
+              {connectedAccounts.map((acc) => (
+                <Command.Item
+                  key={acc.id}
+                  onSelect={() => {
+                    setAccountFilter(acc.id);
+                    showToast(`✓ Filtered to ${acc.displayName || acc.email}`);
+                  }}
+                  className="flex items-center gap-2.5 px-3 py-2 rounded-md text-xs text-ink-secondary hover:text-ink hover:bg-canvas-secondary cursor-pointer transition-colors"
+                >
+                  <span className={`w-2 h-2 rounded-full ${acc.accountType === "university" ? "bg-purple-500" : "bg-emerald-500"}`} />
+                  <span className="truncate">{acc.displayName || acc.email} ({acc.accountType})</span>
+                  {selectedAccountFilter === acc.id && <span className="ml-auto text-[10px] text-olive font-mono">ACTIVE</span>}
+                </Command.Item>
+              ))}
             </Command.Group>
 
             {/* Navigation */}

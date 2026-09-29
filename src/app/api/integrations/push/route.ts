@@ -7,7 +7,12 @@ import {
   deleteLiveGoogleTask,
   getValidGoogleAccessToken,
 } from "@/lib/integrations/googleApi";
-import { getStoredCredentials, attachCredentialsCookie, IntegrationCredentials } from "@/lib/integrations/config";
+import { 
+  getStoredCredentials, 
+  attachCredentialsCookie, 
+  IntegrationCredentials,
+  getConnectedGoogleAccounts 
+} from "@/lib/integrations/config";
 
 export async function POST(req: Request) {
   try {
@@ -23,11 +28,14 @@ export async function POST(req: Request) {
     }
 
     const creds = getStoredCredentials(clientCreds);
-    const isGoogleConnected = Boolean(
+    const connectedAccounts = getConnectedGoogleAccounts(creds);
+    const isGoogleConnected = connectedAccounts.length > 0 || Boolean(
       creds.googleAccessToken || (creds.googleRefreshToken && (creds.googleClientId || process.env.GOOGLE_CLIENT_ID))
     );
 
-    const { action, type, item, isCompleted, id } = body;
+    const { action, type, item, isCompleted, id, accountId: reqAccountId } = body;
+    // Resolve target account ID from request or item metadata
+    const targetAccountId = reqAccountId || item?.connectedAccountId;
 
     // 0. TEST CONNECTION ACTION
     if (action === "test") {
@@ -35,19 +43,25 @@ export async function POST(req: Request) {
         return NextResponse.json({
           success: false,
           connected: false,
-          message: "Google account is not connected. Please enter your Google OAuth credentials or connect in Settings.",
+          message: "Google account is not connected. Please connect your Google account in Settings.",
         });
       }
 
       try {
-        const tokenResult = await getValidGoogleAccessToken(creds);
+        const tokenResult = await getValidGoogleAccessToken(targetAccountId, creds);
         if (tokenResult.token) {
           const res = NextResponse.json({
             success: true,
             connected: true,
-            message: "Google Calendar & Tasks connection active and verified!",
+            message: `Google connection active and verified${targetAccountId ? ` for account (${targetAccountId})` : ""}!`,
           });
           return attachCredentialsCookie(res, creds);
+        } else {
+          return NextResponse.json({
+            success: false,
+            connected: false,
+            message: tokenResult.error || "Failed to obtain valid Google access token.",
+          });
         }
       } catch (err: any) {
         return NextResponse.json({
@@ -76,7 +90,7 @@ export async function POST(req: Request) {
           dueAt: item.dueAt,
           location: item.metadata?.location,
           isAllDay: item.metadata?.isAllDay,
-        }, creds);
+        }, targetAccountId, creds);
 
         if (result.success && result.id) {
           const res = NextResponse.json({
@@ -99,7 +113,7 @@ export async function POST(req: Request) {
           title: item.title,
           description: item.description,
           dueAt: item.dueAt,
-        }, creds);
+        }, targetAccountId, creds);
 
         if (result.success && result.id) {
           const res = NextResponse.json({
@@ -122,7 +136,7 @@ export async function POST(req: Request) {
     if (action === "toggle_status") {
       const targetId = id || item?.id;
       if (targetId) {
-        const ok = await updateLiveGoogleTaskStatus(targetId, Boolean(isCompleted), creds);
+        const ok = await updateLiveGoogleTaskStatus(targetId, Boolean(isCompleted), targetAccountId, creds);
         const res = NextResponse.json({ success: ok });
         return attachCredentialsCookie(res, creds);
       }
@@ -133,11 +147,11 @@ export async function POST(req: Request) {
       const targetId = id || item?.id;
       if (targetId) {
         if (targetId.startsWith("gcal-")) {
-          const ok = await deleteLiveGoogleCalendarEvent(targetId, creds);
+          const ok = await deleteLiveGoogleCalendarEvent(targetId, targetAccountId, creds);
           const res = NextResponse.json({ success: ok });
           return attachCredentialsCookie(res, creds);
         } else if (targetId.startsWith("gtask-")) {
-          const ok = await deleteLiveGoogleTask(targetId, creds);
+          const ok = await deleteLiveGoogleTask(targetId, targetAccountId, creds);
           const res = NextResponse.json({ success: ok });
           return attachCredentialsCookie(res, creds);
         }
@@ -150,4 +164,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }
-

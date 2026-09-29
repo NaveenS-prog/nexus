@@ -25,7 +25,15 @@ import { format, parseISO, isSameDay, isTomorrow, addDays } from "date-fns";
 import { cn } from "@/components/ui/badge";
 
 export default function TasksPage() {
-  const { items, addItem, toggleItemCompletion, deleteItem, integrations } = useNexusStore();
+  const { 
+    items, 
+    addItem, 
+    toggleItemCompletion, 
+    deleteItem, 
+    integrations,
+    connectedAccounts,
+    selectedAccountFilter
+  } = useNexusStore();
   const [selectedFilter, setSelectedFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [newTitle, setNewTitle] = useState("");
@@ -34,11 +42,13 @@ export default function TasksPage() {
   const [hasSpecificTime, setHasSpecificTime] = useState<boolean>(false);
   const [newCategory, setNewCategory] = useState<Category>("personal");
   const [newPriority, setNewPriority] = useState<Priority>("medium");
+  const [selectedTargetAccountId, setSelectedTargetAccountId] = useState<string>("");
   const [selectedItem, setSelectedItem] = useState<UnifiedItem | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [syncNote, setSyncNote] = useState<{ text: string; isError?: boolean } | null>(null);
 
   const isGoogleTasksConnected = Boolean(
+    connectedAccounts.some((a) => a.services?.includes("tasks")) ||
     integrations?.find((i) => i.provider === "google_tasks")?.isConnected
   );
 
@@ -47,6 +57,19 @@ export default function TasksPage() {
     return items.filter((item) => {
       if (!isActionableTaskOrAssignment(item) || isBirthdayItem(item) || smartTriageItem(item).domain === "class_lecture") {
         return false;
+      }
+
+      // Filter by selected workspace account
+      if (selectedAccountFilter !== "all") {
+        if (selectedAccountFilter === "personal") {
+          if (item.accountType && item.accountType !== "personal") return false;
+        } else if (selectedAccountFilter === "university") {
+          if (item.accountType && item.accountType !== "university") return false;
+        } else if (selectedAccountFilter === "work") {
+          if (item.accountType && item.accountType !== "work") return false;
+        } else {
+          if (item.connectedAccountId && item.connectedAccountId !== selectedAccountFilter) return false;
+        }
       }
 
       if (searchQuery.trim()) {
@@ -82,7 +105,7 @@ export default function TasksPage() {
       const timeB = (isEventB ? (b.startAt || b.dueAt) : (b.dueAt || b.startAt)) || "9999";
       return timeA.localeCompare(timeB);
     });
-  }, [items, selectedFilter, searchQuery]);
+  }, [items, selectedFilter, searchQuery, selectedAccountFilter]);
 
   const handleCreateTask = (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,6 +120,8 @@ export default function TasksPage() {
       }
     }
 
+    const targetAccount = connectedAccounts.find((a) => a.id === selectedTargetAccountId);
+
     addItem({
       source: "nexus",
       title: newTitle.trim(),
@@ -105,6 +130,9 @@ export default function TasksPage() {
       status: "pending",
       estimatedMinutes: 30,
       dueAt: computedDueAt,
+      connectedAccountId: targetAccount?.id,
+      accountType: targetAccount?.accountType || (newCategory === "academic" ? "university" : "personal"),
+      accountEmail: targetAccount?.email,
       metadata: {
         isAllDay: !hasSpecificTime,
       },
@@ -283,6 +311,23 @@ export default function TasksPage() {
             <option value="high">High Priority</option>
             <option value="critical">Critical Priority</option>
           </select>
+
+          {/* Connected Google Account Selector */}
+          {connectedAccounts.length > 0 && (
+            <select
+              value={selectedTargetAccountId}
+              onChange={(e) => setSelectedTargetAccountId(e.target.value)}
+              className="bg-canvas-secondary/70 hover:bg-canvas-secondary border border-hairline rounded-sm px-2 py-1 text-xs text-ink-secondary outline-none font-mono cursor-pointer transition-colors"
+              title="Target Account"
+            >
+              <option value="">Auto-Assign Account</option>
+              {connectedAccounts.map((acc) => (
+                <option key={acc.id} value={acc.id}>
+                  {acc.displayName || acc.email} ({acc.accountType})
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
         {/* Row 3: Quick Shortcuts & Live Due Date Preview */}
@@ -476,6 +521,21 @@ export default function TasksPage() {
                       {item.courseName && <span className="text-ink-secondary">{item.courseName}</span>}
                       <span>·</span>
                       <span className="capitalize">{item.category}</span>
+                      {item.accountType && (
+                        <>
+                          <span>·</span>
+                          <span className={cn(
+                            "text-[9px] font-mono px-1 py-0.2 rounded uppercase font-bold",
+                            item.accountType === "university"
+                              ? "bg-purple-500/15 text-purple-700 dark:text-purple-400 border border-purple-500/30"
+                              : item.accountType === "work"
+                              ? "bg-blue-500/15 text-blue-700 dark:text-blue-400 border border-blue-500/30"
+                              : "bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border border-emerald-500/30"
+                          )}>
+                            {item.accountType}
+                          </span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </div>

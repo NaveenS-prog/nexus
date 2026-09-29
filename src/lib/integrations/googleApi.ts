@@ -1,5 +1,13 @@
 import { UnifiedItem } from "../types";
-import { getStoredCredentials, saveStoredCredentials, IntegrationCredentials } from "./config";
+import { 
+  getStoredCredentials, 
+  saveStoredCredentials, 
+  IntegrationCredentials,
+  getGoogleAccountById,
+  updateGoogleAccount,
+  getConnectedGoogleAccounts,
+  GoogleAccountCredentials
+} from "./config";
 import { addDays, addMinutes, differenceInMinutes, format, parseISO, subDays } from "date-fns";
 import { isBirthdayItem } from "@/lib/nlp/itemClassifier";
 
@@ -8,19 +16,40 @@ export interface TokenResult {
   refreshed: boolean;
   newAccessToken?: string;
   newExpiry?: number;
+  error?: string;
 }
 
 /**
  * Directly refreshes the Google OAuth access token using the refresh_token.
+ * Supports account-specific token refresh with independent error isolation.
  */
 export async function refreshGoogleAccessToken(
-  creds: IntegrationCredentials
+  creds?: IntegrationCredentials,
+  accountId?: string
 ): Promise<{ accessToken: string; tokenExpiry: number } | null> {
-  const refreshToken = creds.googleRefreshToken;
-  const clientId = creds.googleClientId || process.env.GOOGLE_CLIENT_ID;
-  const clientSecret = creds.googleClientSecret || process.env.GOOGLE_CLIENT_SECRET;
+  const currentCreds = creds || getStoredCredentials();
+  
+  // Resolve target account if accountId provided
+  let targetAccount: GoogleAccountCredentials | undefined | null = undefined;
+  if (accountId) {
+    targetAccount = getGoogleAccountById(accountId);
+  } else {
+    // If no accountId, check if any connected account matches
+    const accounts = getConnectedGoogleAccounts(currentCreds);
+    targetAccount = accounts.find((a) => a.isDefault) || accounts[0];
+  }
+
+  const refreshToken = targetAccount?.refreshToken || currentCreds.googleRefreshToken;
+  const clientId = targetAccount?.clientId || currentCreds.googleClientId || process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = targetAccount?.clientSecret || currentCreds.googleClientSecret || process.env.GOOGLE_CLIENT_SECRET;
 
   if (!refreshToken || !clientId || !clientSecret) {
+    if (targetAccount?.id) {
+      updateGoogleAccount(targetAccount.id, {
+        status: "reauth_required",
+        lastErrorMessage: "Missing refresh token or client credentials",
+      });
+    }
     return null;
   }
 
@@ -38,7 +67,17 @@ export async function refreshGoogleAccessToken(
 
     if (!res.ok) {
       const errText = await res.text();
-      console.error("Failed to refresh Google access token:", errText);
+      console.error(`Failed to refresh Google access token for account ${targetAccount?.email || accountId || "default"}:`, errText);
+      
+      if (res.status === 400 || errText.includes("invalid_grant")) {
+        // Isolate failure to this specific account
+        if (targetAccount?.id) {
+          updateGoogleAccount(targetAccount.id, {
+            status: "reauth_required",
+            lastErrorMessage: "Authorization expired or revoked. Please re-authenticate.",
+          });
+        }
+      }
       return null;
     }
 
@@ -47,6 +86,18 @@ export async function refreshGoogleAccessToken(
     const expiresIn = data.expires_in || 3600;
     const tokenExpiry = Date.now() + expiresIn * 1000;
 
+    // Update target account credentials independently
+    if (targetAccount?.id) {
+      updateGoogleAccount(targetAccount.id, {
+        accessToken: newAccessToken,
+        tokenExpiry,
+        status: "active",
+        lastErrorMessage: undefined,
+        lastUsedAt: new Date().toISOString(),
+      });
+    }
+
+    // Also update legacy single-account slots for backward compatibility
     saveStoredCredentials({
       googleAccessToken: newAccessToken,
       googleTokenExpiry: tokenExpiry,
@@ -56,30 +107,75 @@ export async function refreshGoogleAccessToken(
     });
 
     return { accessToken: newAccessToken, tokenExpiry };
-  } catch (err) {
+  } catch (err: any) {
     console.error("Error refreshing Google access token:", err);
+    if (targetAccount?.id) {
+      updateGoogleAccount(targetAccount.id, {
+        status: "error",
+        lastErrorMessage: err.message || "Network error refreshing token",
+      });
+    }
     return null;
   }
 }
 
 /**
  * Returns a valid, non-expired Google Access Token, automatically refreshing if needed.
+ * Optionally targets a specific connected account.
  */
 export async function getValidGoogleAccessToken(
+  accountId?: string,
   overrideCreds?: Partial<IntegrationCredentials>
 ): Promise<TokenResult> {
   const creds = getStoredCredentials(overrideCreds);
 
-  // Check if existing token is valid for at least 3 more minutes
-  const isExpiringSoon = !creds.googleTokenExpiry || creds.googleTokenExpiry <= Date.now() + 180000;
+  // If specific account requested
+  if (accountId) {
+    const account = getGoogleAccountById(accountId);
+    if (!account) {
+      return { token: null, refreshed: false, error: `Account ${accountId} not found` };
+    }
 
-  if (creds.googleAccessToken && !isExpiringSoon) {
-    return { token: creds.googleAccessToken, refreshed: false };
+    const isExpiringSoon = !account.tokenExpiry || account.tokenExpiry <= Date.now() + 180000;
+    if (account.accessToken && !isExpiringSoon) {
+      return { token: account.accessToken, refreshed: false };
+    }
+
+    if (account.refreshToken) {
+      const refreshed = await refreshGoogleAccessToken(creds, accountId);
+      if (refreshed) {
+        return {
+          token: refreshed.accessToken,
+          refreshed: true,
+          newAccessToken: refreshed.accessToken,
+          newExpiry: refreshed.tokenExpiry,
+        };
+      }
+    }
+
+    if (account.accessToken) {
+      return { token: account.accessToken, refreshed: false };
+    }
+
+    return { token: null, refreshed: false, error: "Token expired and refresh failed" };
   }
 
-  // Token is expired, expiring soon, or missing: attempt refresh using refresh_token
-  if (creds.googleRefreshToken) {
-    const refreshed = await refreshGoogleAccessToken(creds);
+  // Fallback to default or legacy single-account credentials
+  const accounts = getConnectedGoogleAccounts(creds);
+  const defaultAccount = accounts.find((a) => a.isDefault) || accounts[0];
+
+  const targetAccessToken = defaultAccount?.accessToken || creds.googleAccessToken;
+  const targetExpiry = defaultAccount?.tokenExpiry || creds.googleTokenExpiry;
+  const targetRefreshToken = defaultAccount?.refreshToken || creds.googleRefreshToken;
+
+  const isExpiringSoon = !targetExpiry || targetExpiry <= Date.now() + 180000;
+
+  if (targetAccessToken && !isExpiringSoon) {
+    return { token: targetAccessToken, refreshed: false };
+  }
+
+  if (targetRefreshToken) {
+    const refreshed = await refreshGoogleAccessToken(creds, defaultAccount?.id);
     if (refreshed) {
       return {
         token: refreshed.accessToken,
@@ -90,9 +186,8 @@ export async function getValidGoogleAccessToken(
     }
   }
 
-  // Fallback to existing token if refresh is not possible (better to try than fail immediately)
-  if (creds.googleAccessToken) {
-    return { token: creds.googleAccessToken, refreshed: false };
+  if (targetAccessToken) {
+    return { token: targetAccessToken, refreshed: false };
   }
 
   return { token: null, refreshed: false };
@@ -107,17 +202,21 @@ export interface LivePushResult {
 
 /**
  * Universal authenticated fetch for Google APIs with automatic 401 retry and emergency token refresh.
+ * Routes requests to the credentials of a specific connected account.
  */
 export async function fetchWithGoogleAuth(
   url: string,
   options: RequestInit = {},
+  accountId?: string,
   overrideCreds?: Partial<IntegrationCredentials>
 ): Promise<{ res: Response; token: string }> {
-  let tokenResult = await getValidGoogleAccessToken(overrideCreds);
+  let tokenResult = await getValidGoogleAccessToken(accountId, overrideCreds);
   let token = tokenResult.token;
 
   if (!token) {
-    throw new Error("No Google authorization token found. Please connect your Google account in Settings.");
+    throw new Error(
+      `No Google authorization token found${accountId ? ` for account (${accountId})` : ""}. Please connect your Google account in Settings.`
+    );
   }
 
   const buildHeaders = (authToken: string) => {
@@ -131,25 +230,32 @@ export async function fetchWithGoogleAuth(
   // If 401 Unauthorized, automatically attempt token refresh and retry once
   if (res.status === 401) {
     const creds = getStoredCredentials(overrideCreds);
-    if (creds.googleRefreshToken) {
-      console.warn("Google API returned 401: attempting emergency token refresh...");
-      const refreshed = await refreshGoogleAccessToken(creds);
-      if (refreshed?.accessToken) {
-        token = refreshed.accessToken;
-        res = await fetch(url, { ...options, headers: buildHeaders(token) });
-      }
+    console.warn(`Google API returned 401 for ${url}: attempting emergency token refresh...`);
+    const refreshed = await refreshGoogleAccessToken(creds, accountId);
+    if (refreshed?.accessToken) {
+      token = refreshed.accessToken;
+      res = await fetch(url, { ...options, headers: buildHeaders(token) });
     }
   }
 
   return { res, token };
 }
 
+/**
+ * Fetches live Google Tasks for an account and tags items with account identity metadata.
+ */
 export async function fetchLiveGoogleTasks(
+  accountId?: string,
   overrideCreds?: Partial<IntegrationCredentials>
 ): Promise<UnifiedItem[]> {
+  const account = accountId ? getGoogleAccountById(accountId) : undefined;
+  const accountType = account?.accountType || "personal";
+  const accountEmail = account?.email;
+
   const { res } = await fetchWithGoogleAuth(
     "https://tasks.googleapis.com/tasks/v1/lists/@default/tasks?showCompleted=true&showHidden=true&maxResults=100",
     {},
+    accountId,
     overrideCreds
   );
 
@@ -165,11 +271,12 @@ export async function fetchLiveGoogleTasks(
     const isCompleted = item.status === "completed";
     let taskDueAt: string | undefined = undefined;
     if (item.due) {
-      // Google Tasks returns due timestamps anchored to 00:00:00Z.
-      // Anchor it directly to 23:59:59 of that specific calendar date to prevent cross-timezone date shifts.
       const datePart = item.due.includes("T") ? item.due.split("T")[0] : item.due;
       taskDueAt = `${datePart}T23:59:59`;
     }
+
+    const typeBadge = accountType === "university" ? "University" : "Personal";
+    const tags = ["Google Tasks", typeBadge];
 
     return {
       id: `gtask-${item.id}`,
@@ -177,12 +284,15 @@ export async function fetchLiveGoogleTasks(
       source: "google_tasks",
       title: item.title || "Untitled Task",
       description: item.notes || undefined,
-      category: "personal",
+      category: accountType === "university" ? "academic" : "personal",
       priority: taskDueAt && new Date(taskDueAt).getTime() < Date.now() + 86400000 * 2 ? "high" : "medium",
       status: isCompleted ? "completed" : "pending",
       dueAt: taskDueAt,
       estimatedMinutes: 30,
-      tags: ["Google Tasks"],
+      tags,
+      connectedAccountId: account?.id || accountId,
+      accountType,
+      accountEmail,
       createdAt: item.updated || new Date().toISOString(),
       updatedAt: item.updated || new Date().toISOString(),
     };
@@ -194,14 +304,22 @@ export interface GoogleCalendarSyncResult {
   newCreds?: Partial<IntegrationCredentials>;
 }
 
+/**
+ * Fetches live Google Calendar events for an account and tags items with account identity metadata.
+ */
 export async function fetchLiveGoogleCalendarEvents(
+  accountId?: string,
   overrideCreds?: Partial<IntegrationCredentials>
 ): Promise<GoogleCalendarSyncResult> {
-  const tokenResult = await getValidGoogleAccessToken(overrideCreds);
+  const account = accountId ? getGoogleAccountById(accountId) : undefined;
+  const accountType = account?.accountType || "personal";
+  const accountEmail = account?.email;
+
+  const tokenResult = await getValidGoogleAccessToken(accountId, overrideCreds);
   let token = tokenResult.token;
 
   if (!token) {
-    throw new Error("No Google authorization token found. Please connect your Google Calendar in Settings.");
+    throw new Error(`No Google authorization token found${accountEmail ? ` for ${accountEmail}` : ""}. Please connect Google Calendar in Settings.`);
   }
 
   const creds = getStoredCredentials(overrideCreds);
@@ -209,12 +327,10 @@ export async function fetchLiveGoogleCalendarEvents(
     ? { googleAccessToken: tokenResult.newAccessToken, googleTokenExpiry: tokenResult.newExpiry }
     : undefined;
 
-  // Broad search window: from 90 days ago to 365 days into the future
   const now = new Date();
   const timeMin = addDays(now, -90).toISOString();
   const timeMax = addDays(now, 365).toISOString();
 
-  // Helper to fetch events from a calendar ID with auto-retry on 401
   const fetchCalendarEvents = async (calId: string, currentToken: string) => {
     const url = new URL(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calId)}/events`);
     url.searchParams.append("timeMin", timeMin);
@@ -228,10 +344,9 @@ export async function fetchLiveGoogleCalendarEvents(
       headers: { Authorization: `Bearer ${currentToken}` },
     });
 
-    // If 401 Unauthorized, perform immediate emergency refresh
-    if (res.status === 401 && creds.googleRefreshToken) {
+    if (res.status === 401) {
       console.warn(`Google Calendar API returned 401 for ${calId}: attempting emergency token refresh...`);
-      const refreshResult = await refreshGoogleAccessToken(creds);
+      const refreshResult = await refreshGoogleAccessToken(creds, accountId);
       if (refreshResult) {
         currentToken = refreshResult.accessToken;
         token = refreshResult.accessToken;
@@ -239,7 +354,6 @@ export async function fetchLiveGoogleCalendarEvents(
           googleAccessToken: refreshResult.accessToken,
           googleTokenExpiry: refreshResult.tokenExpiry,
         };
-        // Retry with fresh token
         res = await fetch(url.toString(), {
           headers: { Authorization: `Bearer ${currentToken}` },
         });
@@ -255,7 +369,6 @@ export async function fetchLiveGoogleCalendarEvents(
     return data.items || [];
   };
 
-  // Discover all calendars associated with the user account
   let targetCalendars = ["primary"];
   try {
     const calListRes = await fetch("https://www.googleapis.com/calendar/v3/users/me/calendarList?maxResults=50", {
@@ -271,8 +384,8 @@ export async function fetchLiveGoogleCalendarEvents(
         targetCalendars = ["primary", ...additional];
       }
     }
-  } catch (err) {
-    // If listing calendar list fails, continue with primary calendar
+  } catch {
+    // Continue with primary calendar
   }
 
   const rawEventsList: any[] = [];
@@ -288,7 +401,6 @@ export async function fetchLiveGoogleCalendarEvents(
         }
       }
     } catch (err: any) {
-      // If primary calendar fails, throw error; if secondary calendar fails, continue
       if (calId === "primary") {
         throw err;
       } else {
@@ -323,10 +435,6 @@ export async function fetchLiveGoogleCalendarEvents(
 
     if (isAllDay && event.start?.date) {
       eventStartAt = `${event.start.date}T00:00:00`;
-
-      // CRITICAL FIX: Google Calendar all-day event end.date is strictly EXCLUSIVE (1 day after the event).
-      // For example, a single-day event on Sep 29 has start.date="2026-09-29" and end.date="2026-09-30".
-      // We must compute the inclusive end date by subtracting 1 day from end.date.
       let inclusiveEndDate = event.start.date;
       if (event.end?.date) {
         try {
@@ -346,26 +454,34 @@ export async function fetchLiveGoogleCalendarEvents(
       eventDueAt = endStr ? new Date(endStr).toISOString() : undefined;
     }
 
+    const typeBadge = accountType === "university" ? "University" : "Personal";
+    const tags = isExam
+      ? ["Exam", "Calendar", typeBadge]
+      : isBirthday
+      ? ["Birthday", "Calendar", typeBadge]
+      : isAllDay
+      ? ["Calendar", "All Day", typeBadge]
+      : ["Calendar", typeBadge];
+
+    const category = isExam ? "academic" : (accountType === "university" ? "academic" : (isBirthday ? "personal" : "calendar"));
+
     return {
       id: `gcal-${event.id}`,
       externalId: event.id,
       source: "google_calendar",
       title: summary,
       description: desc,
-      category: isExam ? "academic" : (isBirthday ? "personal" : "calendar"),
+      category,
       priority: isExam ? "critical" : (isBirthday ? "low" : "medium"),
       status: "pending",
       startAt: eventStartAt,
       dueAt: eventDueAt,
       estimatedMinutes: isAllDay ? (isExam ? 90 : 480) : estimatedMinutes,
       url: event.htmlLink,
-      tags: isExam
-        ? ["Exam", "Calendar"]
-        : isBirthday
-        ? ["Birthday", "Calendar"]
-        : isAllDay
-        ? ["Calendar", "All Day"]
-        : ["Calendar"],
+      tags,
+      connectedAccountId: account?.id || accountId,
+      accountType,
+      accountEmail,
       metadata: { isAllDay, location: event.location, hangoutLink: event.hangoutLink },
       createdAt: event.created || new Date().toISOString(),
       updatedAt: event.updated || new Date().toISOString(),
@@ -373,6 +489,113 @@ export async function fetchLiveGoogleCalendarEvents(
   });
 
   return { items, newCreds };
+}
+
+/**
+ * Fetches Google Classroom courses and coursework (assignments) for a connected account.
+ */
+export async function fetchLiveGoogleClassroomItems(
+  accountId: string,
+  overrideCreds?: Partial<IntegrationCredentials>
+): Promise<UnifiedItem[]> {
+  const account = getGoogleAccountById(accountId);
+  const accountEmail = account?.email;
+
+  // 1. Fetch active courses
+  const { res: coursesRes } = await fetchWithGoogleAuth(
+    "https://classroom.googleapis.com/v1/courses?courseStates=ACTIVE&pageSize=20",
+    {},
+    accountId,
+    overrideCreds
+  );
+
+  if (!coursesRes.ok) {
+    const errText = await coursesRes.text();
+    // If user is not a student or Classroom API isn't enabled for this account, log and return empty
+    console.warn(`Classroom API note for ${accountEmail || accountId} (${coursesRes.status}):`, errText);
+    return [];
+  }
+
+  const coursesData = await coursesRes.json();
+  const courses: Array<{ id: string; name: string; section?: string }> = coursesData.courses || [];
+
+  if (courses.length === 0) {
+    return [];
+  }
+
+  const classroomItems: UnifiedItem[] = [];
+
+  // 2. Fetch published coursework for each course
+  for (const course of courses) {
+    try {
+      const { res: workRes } = await fetchWithGoogleAuth(
+        `https://classroom.googleapis.com/v1/courses/${encodeURIComponent(course.id)}/courseWork?courseWorkStates=PUBLISHED&pageSize=30`,
+        {},
+        accountId,
+        overrideCreds
+      );
+
+      if (!workRes.ok) continue;
+
+      const workData = await workRes.json();
+      const courseWorkList: any[] = workData.courseWork || [];
+
+      for (const work of courseWorkList) {
+        let dueAt: string | undefined = undefined;
+
+        if (work.dueDate) {
+          const year = work.dueDate.year;
+          const month = String(work.dueDate.month).padStart(2, "0");
+          const day = String(work.dueDate.day).padStart(2, "0");
+
+          let hours = "23";
+          let minutes = "59";
+          let seconds = "59";
+
+          if (work.dueTime) {
+            hours = String(work.dueTime.hours ?? 23).padStart(2, "0");
+            minutes = String(work.dueTime.minutes ?? 59).padStart(2, "0");
+            seconds = String(work.dueTime.seconds ?? 0).padStart(2, "0");
+          }
+
+          dueAt = `${year}-${month}-${day}T${hours}:${minutes}:${seconds}`;
+        }
+
+        const isDueSoon = dueAt && new Date(dueAt).getTime() < Date.now() + 86400000 * 2;
+        const priority = isDueSoon ? "critical" : "high";
+
+        classroomItems.push({
+          id: `gclassroom-${work.id}`,
+          externalId: work.id,
+          source: "google_classroom",
+          title: work.title || "Coursework Deliverable",
+          description: work.description ? `[${course.name}] ${work.description}` : `Classroom assignment for ${course.name}`,
+          category: "academic",
+          priority,
+          status: "pending",
+          dueAt,
+          estimatedMinutes: 60,
+          url: work.alternateLink,
+          tags: ["Google Classroom", course.name, "University", "Assignment"],
+          connectedAccountId: accountId,
+          accountType: "university",
+          accountEmail,
+          metadata: {
+            courseId: course.id,
+            courseName: course.name,
+            maxPoints: work.maxPoints,
+            workType: work.workType,
+          },
+          createdAt: work.creationTime || new Date().toISOString(),
+          updatedAt: work.updateTime || new Date().toISOString(),
+        });
+      }
+    } catch (courseErr) {
+      console.warn(`Failed to fetch coursework for course ${course.name} (${course.id}):`, courseErr);
+    }
+  }
+
+  return classroomItems;
 }
 
 /**
@@ -387,6 +610,7 @@ export async function createLiveGoogleCalendarEvent(
     location?: string;
     isAllDay?: boolean;
   },
+  accountId?: string,
   overrideCreds?: Partial<IntegrationCredentials>
 ): Promise<LivePushResult> {
   try {
@@ -439,6 +663,7 @@ export async function createLiveGoogleCalendarEvent(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       },
+      accountId,
       overrideCreds
     );
 
@@ -465,6 +690,7 @@ export async function createLiveGoogleTask(
     description?: string;
     dueAt?: string;
   },
+  accountId?: string,
   overrideCreds?: Partial<IntegrationCredentials>
 ): Promise<LivePushResult> {
   try {
@@ -487,6 +713,7 @@ export async function createLiveGoogleTask(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       },
+      accountId,
       overrideCreds
     );
 
@@ -510,6 +737,7 @@ export async function createLiveGoogleTask(
 export async function updateLiveGoogleTaskStatus(
   taskId: string,
   isCompleted: boolean,
+  accountId?: string,
   overrideCreds?: Partial<IntegrationCredentials>
 ): Promise<boolean> {
   try {
@@ -526,6 +754,7 @@ export async function updateLiveGoogleTaskStatus(
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body),
       },
+      accountId,
       overrideCreds
     );
 
@@ -541,6 +770,7 @@ export async function updateLiveGoogleTaskStatus(
  */
 export async function deleteLiveGoogleCalendarEvent(
   eventId: string,
+  accountId?: string,
   overrideCreds?: Partial<IntegrationCredentials>
 ): Promise<boolean> {
   try {
@@ -548,6 +778,7 @@ export async function deleteLiveGoogleCalendarEvent(
     const { res } = await fetchWithGoogleAuth(
       `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(rawId)}`,
       { method: "DELETE" },
+      accountId,
       overrideCreds
     );
     return res.ok || res.status === 404 || res.status === 410;
@@ -562,6 +793,7 @@ export async function deleteLiveGoogleCalendarEvent(
  */
 export async function deleteLiveGoogleTask(
   taskId: string,
+  accountId?: string,
   overrideCreds?: Partial<IntegrationCredentials>
 ): Promise<boolean> {
   try {
@@ -569,6 +801,7 @@ export async function deleteLiveGoogleTask(
     const { res } = await fetchWithGoogleAuth(
       `https://tasks.googleapis.com/tasks/v1/lists/@default/tasks/${encodeURIComponent(rawId)}`,
       { method: "DELETE" },
+      accountId,
       overrideCreds
     );
     return res.ok || res.status === 404 || res.status === 410;
@@ -577,5 +810,3 @@ export async function deleteLiveGoogleTask(
     return false;
   }
 }
-
-

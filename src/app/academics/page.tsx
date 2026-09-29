@@ -396,11 +396,21 @@ export default function AcademicsPage() {
                         {item.title}
                       </span>
 
-                      <div className="flex items-center gap-2 mt-1 text-[11px] text-ink-muted font-mono">
+                      <div className="flex items-center gap-2 mt-1 text-[11px] text-ink-muted font-mono flex-wrap">
                         <span className="text-ink-secondary">{courseTitle}</span>
                         <span>
                           Due: {formatSafeAssignmentDue(item.dueAt, item.metadata?.isAllDay)}
                         </span>
+                        {item.source === "google_classroom" && (
+                          <span className="px-1.5 py-0.2 rounded bg-purple-500/15 text-purple-700 dark:text-purple-400 font-bold border border-purple-500/30 text-[9px] uppercase">
+                            Google Classroom
+                          </span>
+                        )}
+                        {item.accountEmail && (
+                          <span className="text-[10px] text-ink-faint truncate max-w-[180px]">
+                            {item.accountEmail}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </div>

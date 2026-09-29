@@ -43,7 +43,7 @@ import {
 const HOUR_HEIGHT = 80; // pixels per hour in timeline grid (1 min = 1.33px)
 
 export default function CalendarPage() {
-  const { items, addItem, toggleItemCompletion, deleteItem, syncAll, isSyncing, purgeDemoData } = useNexusStore();
+  const { items, addItem, toggleItemCompletion, deleteItem, syncAll, isSyncing, purgeDemoData, selectedAccountFilter } = useNexusStore();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [viewMode, setViewMode] = useState<"day" | "week">("day");
   const [filterType, setFilterType] = useState<"events" | "exams" | "classes" | "personal" | "all">("events");
@@ -84,6 +84,19 @@ export default function CalendarPage() {
       const triage = smartTriageItem(item);
       const isExam = isExamItem(item) || triage.domain === "exam" || item.tags?.includes("Exam");
 
+      // Filter by selected workspace account
+      if (selectedAccountFilter !== "all") {
+        if (selectedAccountFilter === "personal") {
+          if (item.accountType && item.accountType !== "personal") return false;
+        } else if (selectedAccountFilter === "university") {
+          if (item.accountType && item.accountType !== "university") return false;
+        } else if (selectedAccountFilter === "work") {
+          if (item.accountType && item.accountType !== "work") return false;
+        } else {
+          if (item.connectedAccountId && item.connectedAccountId !== selectedAccountFilter) return false;
+        }
+      }
+
       if (filterType === "exams") {
         return isExam;
       }
@@ -98,7 +111,7 @@ export default function CalendarPage() {
       }
       return true; // "all"
     });
-  }, [items, hasLiveItems, filterType]);
+  }, [items, hasLiveItems, filterType, selectedAccountFilter]);
 
   // Filter items for the selected day
   const dayItems = useMemo(() => {
@@ -467,7 +480,7 @@ export default function CalendarPage() {
           <Button
             size="sm"
             variant="outline"
-            onClick={syncAll}
+            onClick={() => syncAll()}
             disabled={isSyncing}
             className="h-7 text-xs border-hairline text-ink-secondary hover:text-ink hover:bg-canvas-secondary flex items-center gap-1.5"
             title="Refresh schedule from Google Calendar"

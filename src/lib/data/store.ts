@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { 
   UnifiedItem, 
   Project, 
@@ -8,7 +8,10 @@ import {
   NotificationItem, 
   IntegrationStatus, 
   FocusSession,
-  ItemStatus
+  ItemStatus,
+  ConnectedAccount,
+  GlobalAccountFilter,
+  AccountType
 } from "../types";
 import { 
   MOCK_UNIFIED_ITEMS, 
@@ -20,6 +23,7 @@ import {
 } from "./mockData";
 import { smartTriageItem } from "../nlp/itemClassifier";
 import { scanAndAutoAssignExamTasks, normalizeExamOrTaskTitle } from "../calendar/examScanner";
+import { addDays, format } from "date-fns";
 
 const STORAGE_KEY_ITEMS = "nexus_items_v1";
 const STORAGE_KEY_PROJECTS = "nexus_projects_v1";
@@ -27,6 +31,8 @@ const STORAGE_KEY_MODE = "nexus_mode_v1";
 const STORAGE_KEY_FOCUS = "nexus_focus_sessions_v1";
 const STORAGE_KEY_NOTIFS = "nexus_notifications_v1";
 const STORAGE_KEY_IS_LIVE = "nexus_is_live_v1";
+const STORAGE_KEY_CONNECTED_ACCOUNTS = "nexus_connected_accounts_v1";
+const STORAGE_KEY_ACCOUNT_FILTER = "nexus_account_filter_v1";
 
 let memoryState: {
   items: UnifiedItem[];
@@ -35,6 +41,8 @@ let memoryState: {
   notifications: NotificationItem[];
   focusSessions: FocusSession[];
   integrations: IntegrationStatus[];
+  connectedAccounts: ConnectedAccount[];
+  selectedAccountFilter: GlobalAccountFilter;
   isSyncing: boolean;
   lastSyncedText: string;
   isLiveSynced: boolean;
@@ -47,6 +55,8 @@ let memoryState: {
   notifications: [],
   focusSessions: [],
   integrations: MOCK_INTEGRATIONS,
+  connectedAccounts: [],
+  selectedAccountFilter: "all",
   isSyncing: false,
   lastSyncedText: "Never",
   isLiveSynced: false,
@@ -64,14 +74,12 @@ export function useNexusStore() {
   const [, setTick] = useState(0);
 
   useEffect(() => {
-    // Hydrate from localStorage if available, thoroughly stripping any mock items
     if (typeof window !== "undefined") {
       try {
         const savedItems = localStorage.getItem(STORAGE_KEY_ITEMS);
         if (savedItems) {
           const parsed = JSON.parse(savedItems);
           if (Array.isArray(parsed)) {
-            // Strip out ANY legacy hardcoded fallback items (evt-*), demo items, or mock items
             const realOnly = parsed.filter(
               (i: any) =>
                 !i.id?.startsWith("evt-") &&
@@ -82,14 +90,11 @@ export function useNexusStore() {
                 !i.externalId?.startsWith("gcal-lunch")
             );
 
-            // Automatically scan all real events, deduplicate items and purge duplicate tasks
             const { items: scannedItems } = scanAndAutoAssignExamTasks(realOnly);
-
             memoryState.items = scannedItems;
             localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(scannedItems));
           }
         } else {
-          // Zero hardcoded items: start completely empty for clean/new accounts
           memoryState.items = [];
         }
 
@@ -106,7 +111,16 @@ export function useNexusStore() {
         const savedMode = localStorage.getItem(STORAGE_KEY_MODE);
         if (savedMode) memoryState.mode = savedMode as DashboardMode;
 
-        // Ensure mock notifications & mock focus sessions are purged
+        const savedFilter = localStorage.getItem(STORAGE_KEY_ACCOUNT_FILTER);
+        if (savedFilter) memoryState.selectedAccountFilter = savedFilter as GlobalAccountFilter;
+
+        const savedAccounts = localStorage.getItem(STORAGE_KEY_CONNECTED_ACCOUNTS);
+        if (savedAccounts) {
+          try {
+            memoryState.connectedAccounts = JSON.parse(savedAccounts);
+          } catch {}
+        }
+
         memoryState.notifications = [];
         memoryState.focusSessions = [];
         localStorage.removeItem(STORAGE_KEY_NOTIFS);
@@ -115,11 +129,16 @@ export function useNexusStore() {
         memoryState.isLiveSynced = true;
         localStorage.setItem(STORAGE_KEY_IS_LIVE, "true");
 
-        // Query live integration connection status from server & cookies
+        // Query live integration connection status and multi-account inventory
         fetch("/api/integrations/status")
           .then((res) => res.json())
           .then((status) => {
             if (status) {
+              if (status.connectedAccounts && Array.isArray(status.connectedAccounts)) {
+                memoryState.connectedAccounts = status.connectedAccounts;
+                localStorage.setItem(STORAGE_KEY_CONNECTED_ACCOUNTS, JSON.stringify(status.connectedAccounts));
+              }
+
               memoryState.integrations = memoryState.integrations.map((integ) => {
                 if (integ.provider === "google_calendar" || integ.provider === "google_tasks") {
                   return {
@@ -176,6 +195,14 @@ export function useNexusStore() {
     notifyListeners();
   }, []);
 
+  const setAccountFilter = useCallback((filter: GlobalAccountFilter) => {
+    memoryState.selectedAccountFilter = filter;
+    if (typeof window !== "undefined") {
+      localStorage.setItem(STORAGE_KEY_ACCOUNT_FILTER, filter);
+    }
+    notifyListeners();
+  }, []);
+
   const toggleItemCompletion = useCallback((id: string) => {
     let toggledItem: UnifiedItem | undefined = undefined;
     const updated = memoryState.items.map((item) => {
@@ -192,7 +219,6 @@ export function useNexusStore() {
     });
     saveItems(updated);
 
-    // 2-way sync with Google Tasks in the background
     if (toggledItem && ((toggledItem as UnifiedItem).source === "google_tasks" || id.startsWith("gtask-"))) {
       fetch("/api/integrations/push", {
         method: "POST",
@@ -200,6 +226,7 @@ export function useNexusStore() {
         body: JSON.stringify({
           action: "toggle_status",
           id,
+          accountId: (toggledItem as UnifiedItem).connectedAccountId,
           isCompleted: (toggledItem as UnifiedItem).status === "completed",
         }),
       }).catch((e) => console.warn("Background Google Tasks status sync failed", e));
@@ -207,7 +234,6 @@ export function useNexusStore() {
   }, []);
 
   const addItem = useCallback((item: Omit<UnifiedItem, "id" | "createdAt" | "updatedAt">) => {
-    // Run autonomous smart triage across life & academic domains
     const triage = smartTriageItem({
       title: item.title,
       description: item.description,
@@ -232,6 +258,29 @@ export function useNexusStore() {
     const idPrefix = isCalendarEvent ? "manual-calendar" : "nexus-task";
     const tempId = `${idPrefix}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
+    // Resolve target account based on item or current global account filter
+    let targetAccountType: AccountType | undefined = item.accountType;
+    let targetAccountId = item.connectedAccountId;
+    let targetAccountEmail = item.accountEmail;
+
+    if (!targetAccountType && memoryState.selectedAccountFilter !== "all") {
+      if (["personal", "university", "work", "other"].includes(memoryState.selectedAccountFilter)) {
+        targetAccountType = memoryState.selectedAccountFilter as AccountType;
+        const match = memoryState.connectedAccounts.find((a) => a.accountType === targetAccountType);
+        if (match) {
+          targetAccountId = match.id;
+          targetAccountEmail = match.email;
+        }
+      } else {
+        const match = memoryState.connectedAccounts.find((a) => a.id === memoryState.selectedAccountFilter);
+        if (match) {
+          targetAccountId = match.id;
+          targetAccountType = match.accountType;
+          targetAccountEmail = match.email;
+        }
+      }
+    }
+
     const newItem: UnifiedItem = {
       ...item,
       category: autoCategory,
@@ -239,13 +288,16 @@ export function useNexusStore() {
       smartDomain: triage.domain,
       tags: mergedTags,
       id: tempId,
+      connectedAccountId: targetAccountId,
+      accountType: targetAccountType || (autoCategory === "academic" ? "university" : "personal"),
+      accountEmail: targetAccountEmail,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
     const updated = [newItem, ...memoryState.items];
     saveItems(updated);
 
-    // 2-way live push to Google Calendar or Google Tasks in background
+    // Live push to Google Calendar or Google Tasks targeting the specific connected account
     if (typeof window !== "undefined") {
       fetch("/api/integrations/push", {
         method: "POST",
@@ -254,6 +306,7 @@ export function useNexusStore() {
           action: "create",
           type: isCalendarEvent ? "event" : "task",
           item: newItem,
+          accountId: targetAccountId,
         }),
       })
         .then((res) => res.json())
@@ -310,7 +363,6 @@ export function useNexusStore() {
     const updated = memoryState.items.filter((item) => item.id !== id);
     saveItems(updated);
 
-    // 2-way sync delete with Google Calendar / Google Tasks
     if (itemToDelete && (id.startsWith("gcal-") || id.startsWith("gtask-"))) {
       fetch("/api/integrations/push", {
         method: "POST",
@@ -318,6 +370,7 @@ export function useNexusStore() {
         body: JSON.stringify({
           action: "delete",
           id,
+          accountId: itemToDelete.connectedAccountId,
         }),
       }).catch((e) => console.warn("Background Google delete failed", e));
     }
@@ -335,46 +388,20 @@ export function useNexusStore() {
     notifyListeners();
   }, []);
 
-  const syncAll = useCallback(async () => {
+  const syncAll = useCallback(async (targetAccountId?: string) => {
     memoryState.isSyncing = true;
     notifyListeners();
 
     try {
-      // Safe migration: if localStorage has any legacy credentials, save them to server before clearing
-      if (typeof window !== "undefined") {
-        const savedCreds = localStorage.getItem("nexus_credentials_v1");
-        if (savedCreds) {
-          try {
-            const parsed = JSON.parse(savedCreds);
-            if (parsed.googleClientSecret || parsed.googleRefreshToken || parsed.googleAccessToken || parsed.notionApiKey) {
-              await fetch("/api/integrations/save", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify(parsed),
-              });
-              delete parsed.googleClientSecret;
-              delete parsed.googleRefreshToken;
-              delete parsed.googleAccessToken;
-              delete parsed.notionApiKey;
-              localStorage.setItem("nexus_credentials_v1", JSON.stringify(parsed));
-            }
-          } catch {
-            // ignore
-          }
-        }
-      }
-
-      // Call live integrations sync endpoint (server uses its secure server-side credentials store)
       const res = await fetch("/api/integrations/sync", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
+        body: JSON.stringify({ accountId: targetAccountId }),
       });
 
       if (res.ok) {
         const data = await res.json();
 
-        // 2. Track sync errors vs success transparently
         if (data.errors && data.errors.length > 0) {
           const errMsg = data.errors.join("; ");
           memoryState.syncError = errMsg;
@@ -384,39 +411,40 @@ export function useNexusStore() {
             errMsg.toLowerCase().includes("no google authorization token") ||
             errMsg.toLowerCase().includes("invalid_grant");
           memoryState.needsReauth = isAuthErr;
-          memoryState.lastSyncedText = isAuthErr ? "Auth Expired" : "Sync Error";
+          memoryState.lastSyncedText = isAuthErr ? "Auth Required" : "Sync Notice";
         } else {
           memoryState.lastSyncedText = "Just now";
           memoryState.syncError = undefined;
           memoryState.needsReauth = false;
         }
 
-        // 3. Process live items from Google Calendar / Tasks / Notion
         if (data.items && Array.isArray(data.items)) {
           const gcalSynced = (data.stats?.googleCalendar ?? 0) > 0;
           const gtasksSynced = (data.stats?.googleTasks ?? 0) > 0;
+          const gclassSynced = (data.stats?.googleClassroom ?? 0) > 0;
           const notionSynced = (data.stats?.notion ?? 0) > 0;
 
-          // If no provider returned items (e.g. not connected), do NOT wipe existing cached items
-          if (!gcalSynced && !gtasksSynced && !notionSynced && data.items.length === 0) {
+          if (!gcalSynced && !gtasksSynced && !gclassSynced && !notionSynced && data.items.length === 0) {
             return;
           }
 
           const nonLiveItems = memoryState.items.filter((item) => {
-            // Strictly remove any legacy hardcoded fallback or mock items
             if (item.id.startsWith("evt-")) return false;
             if (item.id.startsWith("mock-")) return false;
             if (/^item-[0-9]{1,3}$/.test(item.id)) return false;
 
-            // Only purge previous calendar items if Google Calendar actually synced new items
             if (gcalSynced && (item.source === "google_calendar" || item.id.startsWith("gcal-"))) {
+              if (targetAccountId && item.connectedAccountId !== targetAccountId) return true;
               return false;
             }
-            // Only purge previous tasks if Google Tasks actually synced new items
             if (gtasksSynced && (item.source === "google_tasks" || item.id.startsWith("gtask-"))) {
+              if (targetAccountId && item.connectedAccountId !== targetAccountId) return true;
               return false;
             }
-            // Only purge previous notion items if Notion actually synced new items
+            if (gclassSynced && (item.source === "google_classroom" || item.id.startsWith("gclassroom-"))) {
+              if (targetAccountId && item.connectedAccountId !== targetAccountId) return true;
+              return false;
+            }
             if (notionSynced && (item.source === "notion" || item.id.startsWith("notion-"))) {
               return false;
             }
@@ -450,44 +478,17 @@ export function useNexusStore() {
             localStorage.setItem(STORAGE_KEY_IS_LIVE, "true");
           }
 
-          // If Notion items exist, automatically create/update an active Project entry
-          if (data.stats.notion > 0) {
-            const notionItems = merged.filter((i: any) => i.source === "notion");
-            const completedCount = notionItems.filter((i: any) => i.status === "completed").length;
-            const progress = notionItems.length > 0 ? Math.round((completedCount / notionItems.length) * 100) : 0;
-            const notionProj: Project = {
-              id: "notion-synced-db",
-              name: "Notion Projects Database",
-              description: "Live synced initiatives and tasks from your connected Notion database.",
-              status: "in_progress",
-              priority: "high",
-              progress,
-              tasksCount: notionItems.length,
-              completedTasksCount: completedCount,
-              notionUrl: "https://notion.so",
-              createdAt: new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            };
-            const others = memoryState.projects.filter((p) => p.id !== "notion-synced-db" && !p.id.startsWith("proj-"));
-            memoryState.projects = [notionProj, ...others];
-            if (typeof window !== "undefined") {
-              localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(memoryState.projects));
-            }
-          }
-
-          // Update integration counts
-          memoryState.integrations = memoryState.integrations.map((integ) => {
-            if (integ.provider === "google_tasks" && data.stats.googleTasks > 0) {
-              return { ...integ, itemCount: data.stats.googleTasks, isConnected: true, lastSyncedAt: "Just now" };
-            }
-            if (integ.provider === "google_calendar" && data.stats.googleCalendar > 0) {
-              return { ...integ, itemCount: data.stats.googleCalendar, isConnected: true, lastSyncedAt: "Just now" };
-            }
-            if (integ.provider === "notion" && data.stats.notion > 0) {
-              return { ...integ, itemCount: data.stats.notion, isConnected: true, lastSyncedAt: "Just now" };
-            }
-            return integ;
-          });
+          // Refresh status to update per-account sync metadata
+          fetch("/api/integrations/status")
+            .then((r) => r.json())
+            .then((s) => {
+              if (s?.connectedAccounts) {
+                memoryState.connectedAccounts = s.connectedAccounts;
+                localStorage.setItem(STORAGE_KEY_CONNECTED_ACCOUNTS, JSON.stringify(s.connectedAccounts));
+                notifyListeners();
+              }
+            })
+            .catch(() => {});
         }
       } else {
         memoryState.lastSyncedText = "Sync failed";
@@ -503,35 +504,266 @@ export function useNexusStore() {
     }
   }, []);
 
-  const disconnectGoogle = useCallback(async () => {
-    if (typeof window !== "undefined") {
-      const curCredsStr = localStorage.getItem("nexus_credentials_v1");
-      if (curCredsStr) {
-        try {
-          const curCreds = JSON.parse(curCredsStr);
-          delete curCreds.googleAccessToken;
-          delete curCreds.googleRefreshToken;
-          delete curCreds.googleTokenExpiry;
-          delete curCreds.googleClientId;
-          delete curCreds.googleClientSecret;
-          localStorage.setItem("nexus_credentials_v1", JSON.stringify(curCreds));
-        } catch {}
+  const disconnectAccount = useCallback(async (accountId: string) => {
+    try {
+      const res = await fetch(`/api/integrations/accounts?accountId=${encodeURIComponent(accountId)}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.accounts) {
+          memoryState.connectedAccounts = data.accounts;
+          localStorage.setItem(STORAGE_KEY_CONNECTED_ACCOUNTS, JSON.stringify(data.accounts));
+        }
+      }
+    } catch (err) {
+      console.error("Failed to disconnect account:", err);
+    }
+
+    // Purge items belonging to this disconnected account
+    const remaining = memoryState.items.filter((item) => item.connectedAccountId !== accountId);
+    saveItems(remaining);
+    notifyListeners();
+  }, []);
+
+  const updateAccount = useCallback(async (accountId: string, updates: Partial<ConnectedAccount>) => {
+    try {
+      const res = await fetch("/api/integrations/accounts", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          accountId,
+          ...updates,
+        }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.accounts) {
+          memoryState.connectedAccounts = data.accounts;
+          localStorage.setItem(STORAGE_KEY_CONNECTED_ACCOUNTS, JSON.stringify(data.accounts));
+          notifyListeners();
+        }
+      }
+    } catch (err) {
+      console.error("Failed to update account:", err);
+    }
+  }, []);
+
+  const loadDemoAccounts = useCallback(async () => {
+    try {
+      const res = await fetch("/api/integrations/accounts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "load_demo_accounts" }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data.accounts) {
+          memoryState.connectedAccounts = data.accounts;
+          localStorage.setItem(STORAGE_KEY_CONNECTED_ACCOUNTS, JSON.stringify(data.accounts));
+        }
+      }
+    } catch (err) {
+      console.warn("Demo accounts setup error:", err);
+    }
+
+    const now = new Date();
+    const todayStr = format(now, "yyyy-MM-dd");
+    const tomorrowStr = format(addDays(now, 1), "yyyy-MM-dd");
+    const inTwoDaysStr = format(addDays(now, 2), "yyyy-MM-dd");
+    const inFourDaysStr = format(addDays(now, 4), "yyyy-MM-dd");
+    const inFiveDaysStr = format(addDays(now, 5), "yyyy-MM-dd");
+
+    const demoItems: UnifiedItem[] = [
+      // 1. Personal Account: Calendar & Tasks
+      {
+        id: "demo-personal-event-1",
+        externalId: "pevt-1",
+        source: "google_calendar",
+        title: "Dentist Routine Cleaning & Checkup",
+        category: "personal",
+        priority: "medium",
+        status: "pending",
+        startAt: `${tomorrowStr}T10:00:00`,
+        dueAt: `${tomorrowStr}T11:00:00`,
+        estimatedMinutes: 60,
+        tags: ["Calendar", "Personal", "Health"],
+        connectedAccountId: "google-demo-personal",
+        accountType: "personal",
+        accountEmail: "personal.demo@example.local",
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      },
+      {
+        id: "demo-personal-task-1",
+        externalId: "ptsk-1",
+        source: "google_tasks",
+        title: "Renew car insurance policy",
+        description: "Compare online quotes and renew before end of month",
+        category: "personal",
+        priority: "high",
+        status: "pending",
+        dueAt: `${tomorrowStr}T23:59:59`,
+        estimatedMinutes: 30,
+        tags: ["Google Tasks", "Personal"],
+        connectedAccountId: "google-demo-personal",
+        accountType: "personal",
+        accountEmail: "personal.demo@example.local",
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      },
+      {
+        id: "demo-personal-task-2",
+        externalId: "ptsk-2",
+        source: "google_tasks",
+        title: "Buy organic groceries & dark roast coffee beans",
+        category: "personal",
+        priority: "medium",
+        status: "pending",
+        dueAt: `${todayStr}T23:59:59`,
+        estimatedMinutes: 45,
+        tags: ["Google Tasks", "Personal"],
+        connectedAccountId: "google-demo-personal",
+        accountType: "personal",
+        accountEmail: "personal.demo@example.local",
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      },
+
+      // 2. University Account: Classroom & Academic Calendar
+      {
+        id: "demo-uni-classroom-1",
+        externalId: "uwork-1",
+        source: "google_classroom",
+        title: "OS Lab 4: Page Replacement Algorithm (LRU & FIFO)",
+        description: "[Operating Systems CS301] Implement page replacement simulator and submit analysis report with graph visualizations.",
+        category: "academic",
+        priority: "critical",
+        status: "pending",
+        dueAt: `${inTwoDaysStr}T23:59:59`,
+        estimatedMinutes: 90,
+        url: "https://classroom.google.com",
+        tags: ["Google Classroom", "Operating Systems", "University", "Assignment"],
+        connectedAccountId: "google-demo-university",
+        accountType: "university",
+        accountEmail: "student.demo@university.example",
+        metadata: { courseName: "Operating Systems (CS301)", maxPoints: 100 },
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      },
+      {
+        id: "demo-uni-classroom-2",
+        externalId: "uwork-2",
+        source: "google_classroom",
+        title: "Database Normalization Milestone 2 (BCNF & 3NF Schema Decomposition)",
+        description: "[Database Systems CS304] Submit normalized relation diagrams and SQL DDL scripts.",
+        category: "academic",
+        priority: "high",
+        status: "pending",
+        dueAt: `${inFourDaysStr}T23:59:59`,
+        estimatedMinutes: 75,
+        url: "https://classroom.google.com",
+        tags: ["Google Classroom", "Database Systems", "University", "Assignment"],
+        connectedAccountId: "google-demo-university",
+        accountType: "university",
+        accountEmail: "student.demo@university.example",
+        metadata: { courseName: "Database Systems (CS304)", maxPoints: 50 },
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      },
+      {
+        id: "demo-uni-event-exam",
+        externalId: "uevt-exam",
+        source: "google_calendar",
+        title: "Midterm Exam: Theory of Computation & Automata (CS305)",
+        description: "Midterm evaluation covering Regular Languages, NFAs/DFAs, and Context-Free Grammars. Room 302.",
+        category: "academic",
+        priority: "critical",
+        status: "pending",
+        startAt: `${inFiveDaysStr}T09:30:00`,
+        dueAt: `${inFiveDaysStr}T11:30:00`,
+        estimatedMinutes: 120,
+        tags: ["Exam", "Calendar", "University"],
+        connectedAccountId: "google-demo-university",
+        accountType: "university",
+        accountEmail: "student.demo@university.example",
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      },
+      {
+        id: "demo-uni-event-lecture",
+        externalId: "uevt-lecture",
+        source: "google_calendar",
+        title: "Computer Networks CS303: TCP BBR & Congestion Control",
+        description: "Prof. Anderson - Hall B. Bring laptop for Wireshark packet capture demo.",
+        category: "academic",
+        priority: "medium",
+        status: "pending",
+        startAt: `${tomorrowStr}T14:00:00`,
+        dueAt: `${tomorrowStr}T15:30:00`,
+        estimatedMinutes: 90,
+        tags: ["Lecture", "Calendar", "University"],
+        connectedAccountId: "google-demo-university",
+        accountType: "university",
+        accountEmail: "student.demo@university.example",
+        createdAt: now.toISOString(),
+        updatedAt: now.toISOString(),
+      },
+    ];
+
+    if (memoryState.connectedAccounts.length === 0) {
+      memoryState.connectedAccounts = [
+        {
+          id: "google-demo-personal",
+          provider: "google",
+          providerAccountId: "demo-personal-001",
+          email: "personal.demo@example.local",
+          displayName: "Personal Account",
+          accountType: "personal",
+          status: "active",
+          isDefault: true,
+          services: ["calendar", "tasks", "drive"],
+          connectedAt: now.toISOString(),
+          lastUsedAt: now.toISOString(),
+        },
+        {
+          id: "google-demo-university",
+          provider: "google",
+          providerAccountId: "demo-university-002",
+          email: "student.demo@university.example",
+          displayName: "University Account",
+          accountType: "university",
+          status: "active",
+          isDefault: false,
+          services: ["classroom", "calendar", "drive", "tasks"],
+          connectedAt: now.toISOString(),
+          lastUsedAt: now.toISOString(),
+        },
+      ];
+      if (typeof window !== "undefined") {
+        localStorage.setItem(STORAGE_KEY_CONNECTED_ACCOUNTS, JSON.stringify(memoryState.connectedAccounts));
       }
     }
+
+    saveItems(demoItems);
+    notifyListeners();
+  }, []);
+
+  const disconnectGoogle = useCallback(async () => {
     try {
       await fetch("/api/integrations/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "disconnect_google",
-        }),
+        body: JSON.stringify({ action: "disconnect_google" }),
       });
     } catch {}
 
     const remaining = memoryState.items.filter(
-      (item) => item.source !== "google_calendar" && item.source !== "google_tasks" && !item.id.startsWith("gcal-") && !item.id.startsWith("gtask-")
+      (item) => item.source !== "google_calendar" && item.source !== "google_tasks" && item.source !== "google_classroom" &&
+        !item.id.startsWith("gcal-") && !item.id.startsWith("gtask-") && !item.id.startsWith("gclassroom-")
     );
     memoryState.items = remaining;
+    memoryState.connectedAccounts = [];
     memoryState.lastSyncedText = "Never";
     memoryState.needsReauth = false;
     memoryState.syncError = undefined;
@@ -542,29 +774,17 @@ export function useNexusStore() {
     );
     if (typeof window !== "undefined") {
       localStorage.setItem(STORAGE_KEY_ITEMS, JSON.stringify(remaining));
+      localStorage.removeItem(STORAGE_KEY_CONNECTED_ACCOUNTS);
     }
     notifyListeners();
   }, []);
 
   const disconnectNotion = useCallback(async () => {
-    if (typeof window !== "undefined") {
-      const curCredsStr = localStorage.getItem("nexus_credentials_v1");
-      if (curCredsStr) {
-        try {
-          const curCreds = JSON.parse(curCredsStr);
-          delete curCreds.notionApiKey;
-          delete curCreds.notionDatabaseId;
-          localStorage.setItem("nexus_credentials_v1", JSON.stringify(curCreds));
-        } catch {}
-      }
-    }
     try {
       await fetch("/api/integrations/save", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          action: "disconnect_notion",
-        }),
+        body: JSON.stringify({ action: "disconnect_notion" }),
       });
     } catch {}
 
@@ -590,6 +810,7 @@ export function useNexusStore() {
       (item) =>
         !item.id.startsWith("evt-") &&
         !item.id.startsWith("mock-") &&
+        !item.id.startsWith("demo-") &&
         !/^item-[0-9]{1,3}$/.test(item.id || "") &&
         !item.externalId?.startsWith("gcal-os-class") &&
         !item.externalId?.startsWith("gc-")
@@ -612,6 +833,8 @@ export function useNexusStore() {
     memoryState.projects = [];
     memoryState.notifications = [];
     memoryState.focusSessions = [];
+    memoryState.connectedAccounts = [];
+    memoryState.selectedAccountFilter = "all";
     memoryState.mode = "default";
     memoryState.isLiveSynced = false;
     memoryState.lastSyncedText = "Never";
@@ -624,6 +847,8 @@ export function useNexusStore() {
       localStorage.removeItem(STORAGE_KEY_FOCUS);
       localStorage.removeItem(STORAGE_KEY_NOTIFS);
       localStorage.removeItem(STORAGE_KEY_IS_LIVE);
+      localStorage.removeItem(STORAGE_KEY_CONNECTED_ACCOUNTS);
+      localStorage.removeItem(STORAGE_KEY_ACCOUNT_FILTER);
     }
     notifyListeners();
   }, []);
@@ -633,6 +858,10 @@ export function useNexusStore() {
       const res = await fetch("/api/integrations/status");
       if (res.ok) {
         const status = await res.json();
+        if (status.connectedAccounts) {
+          memoryState.connectedAccounts = status.connectedAccounts;
+          localStorage.setItem(STORAGE_KEY_CONNECTED_ACCOUNTS, JSON.stringify(status.connectedAccounts));
+        }
         memoryState.integrations = memoryState.integrations.map((integ) => {
           if (integ.provider === "google_calendar" || integ.provider === "google_tasks") {
             return {
@@ -656,13 +885,49 @@ export function useNexusStore() {
     }
   }, []);
 
+  // Filter items dynamically based on active selectedAccountFilter
+  const filteredItems = useMemo(() => {
+    const filter = memoryState.selectedAccountFilter;
+    if (!filter || filter === "all") return memoryState.items;
+
+    if (filter === "personal") {
+      return memoryState.items.filter(
+        (i) => i.accountType === "personal" || (!i.accountType && i.category === "personal")
+      );
+    }
+
+    if (filter === "university") {
+      return memoryState.items.filter(
+        (i) =>
+          i.accountType === "university" ||
+          i.category === "academic" ||
+          i.tags?.includes("University") ||
+          i.tags?.includes("Google Classroom")
+      );
+    }
+
+    if (filter === "work") {
+      return memoryState.items.filter((i) => i.accountType === "work" || i.category === "project");
+    }
+
+    if (filter === "other") {
+      return memoryState.items.filter((i) => i.accountType === "other");
+    }
+
+    // Filter by specific connected account ID
+    return memoryState.items.filter((i) => i.connectedAccountId === filter);
+  }, [memoryState.items, memoryState.selectedAccountFilter]);
+
   return {
     items: memoryState.items,
+    filteredItems,
     projects: memoryState.projects,
     mode: memoryState.mode,
     notifications: memoryState.notifications,
     focusSessions: memoryState.focusSessions,
     integrations: memoryState.integrations,
+    connectedAccounts: memoryState.connectedAccounts,
+    selectedAccountFilter: memoryState.selectedAccountFilter,
     githubStats: MOCK_GITHUB_STATS,
     isSyncing: memoryState.isSyncing,
     lastSyncedText: memoryState.lastSyncedText,
@@ -670,6 +935,7 @@ export function useNexusStore() {
     syncError: memoryState.syncError,
     needsReauth: memoryState.needsReauth,
     setMode,
+    setAccountFilter,
     toggleItemCompletion,
     addItem,
     updateItem,
@@ -677,6 +943,9 @@ export function useNexusStore() {
     addFocusSession,
     saveProjects,
     syncAll,
+    disconnectAccount,
+    updateAccount,
+    loadDemoAccounts,
     purgeDemoData,
     resetToDemo,
     disconnectGoogle,

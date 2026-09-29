@@ -2,6 +2,7 @@
 
 import { Search, PenLine } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AccountSwitcher } from "./AccountSwitcher";
 
 interface HeaderProps {
   onOpenCommand: () => void;
@@ -36,8 +37,9 @@ export function Header({ onOpenCommand, onOpenBrainDump }: HeaderProps) {
         </Button>
       </div>
 
-      {/* Right controls: Monogram / Session */}
+      {/* Right controls: Account Switcher & Workspace Monogram */}
       <div className="flex items-center gap-3">
+        <AccountSwitcher />
         <div 
           title="NEXUS Workspace" 
           className="w-7 h-7 rounded-sm bg-surface border border-hairline text-ink font-serif text-xs font-bold flex items-center justify-center shadow-subtle select-none"

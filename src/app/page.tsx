@@ -13,10 +13,15 @@ import { ItemDetailDrawer } from "@/components/dashboard/ItemDetailDrawer";
 import { UnifiedItem } from "@/lib/types";
 import { format, isSameDay, parseISO, isBefore, startOfDay } from "date-fns";
 import { isActionableTaskOrAssignment, isExamItem } from "@/lib/nlp/itemClassifier";
+import { User, GraduationCap, Briefcase, X } from "lucide-react";
 
 export default function CommandCenterDashboard() {
   const {
     items,
+    filteredItems,
+    selectedAccountFilter,
+    setAccountFilter,
+    connectedAccounts,
     projects,
     toggleItemCompletion,
     deleteItem,
@@ -38,15 +43,15 @@ export default function CommandCenterDashboard() {
     return format(new Date(), "EEEE · MMMM d, yyyy");
   }, []);
 
-  // Compute next recommended task
+  // Compute next recommended task within active workspace filter
   const nextMove = useMemo(() => {
-    return recommendNextTask(items, "default", new Date());
-  }, [items, recommendTick]);
+    return recommendNextTask(filteredItems, "default", new Date());
+  }, [filteredItems, recommendTick]);
 
-  // All actionable tasks and assignments
+  // Actionable tasks within active workspace filter
   const actionableTasks = useMemo(() => {
-    return items.filter(isActionableTaskOrAssignment);
-  }, [items]);
+    return filteredItems.filter(isActionableTaskOrAssignment);
+  }, [filteredItems]);
 
   // Today items: tasks actually scheduled or due today
   const todayItems = useMemo(() => {
@@ -95,6 +100,16 @@ export default function CommandCenterDashboard() {
     return false;
   }).length;
 
+  // Resolve filter name for display pill
+  const activeFilterName = useMemo(() => {
+    if (selectedAccountFilter === "all") return null;
+    if (selectedAccountFilter === "personal") return "Personal Account";
+    if (selectedAccountFilter === "university") return "University / Academic";
+    if (selectedAccountFilter === "work") return "Work Account";
+    const matched = connectedAccounts.find((a) => a.id === selectedAccountFilter);
+    return matched ? (matched.displayName || matched.email) : selectedAccountFilter;
+  }, [selectedAccountFilter, connectedAccounts]);
+
   return (
     <div className="max-w-5xl mx-auto px-6 py-10 space-y-10 animate-fade-in font-sans">
       {/* 1. Quiet Editorial Header */}
@@ -109,6 +124,29 @@ export default function CommandCenterDashboard() {
           <p className="text-xs text-ink-secondary mt-1">
             {pendingCount} active task{pendingCount !== 1 ? "s" : ""} · {deadlineCount} requiring attention today
           </p>
+
+          {/* Active Account Filter Pill */}
+          {activeFilterName && (
+            <div className="flex items-center gap-2 mt-2">
+              <span className="text-[11px] font-mono px-2 py-0.5 rounded border uppercase font-medium bg-canvas-secondary text-ink-secondary border-hairline flex items-center gap-1.5 shadow-xs">
+                {selectedAccountFilter === "university" ? (
+                  <GraduationCap className="w-3 h-3 text-purple-600" />
+                ) : selectedAccountFilter === "work" ? (
+                  <Briefcase className="w-3 h-3 text-blue-600" />
+                ) : (
+                  <User className="w-3 h-3 text-emerald-600" />
+                )}
+                <span>Filtered: <strong className="text-ink font-semibold">{activeFilterName}</strong></span>
+                <button
+                  onClick={() => setAccountFilter("all")}
+                  className="text-ink-muted hover:text-ink text-xs font-bold leading-none ml-1 p-0.5"
+                  title="Clear filter & view All Accounts"
+                >
+                  <X className="w-3 h-3" />
+                </button>
+              </span>
+            </div>
+          )}
         </div>
 
         <div className="text-left sm:text-right">
@@ -137,7 +175,7 @@ export default function CommandCenterDashboard() {
           />
 
           <UpcomingExamsAndAssignments
-            items={items}
+            items={filteredItems}
             onToggleStatus={toggleItemCompletion}
             onSelectItem={handleOpenItem}
           />
@@ -149,12 +187,12 @@ export default function CommandCenterDashboard() {
 
           <AiBriefingCard
             todayItems={todayItems}
-            allItems={items}
+            allItems={filteredItems}
             onSelectItem={handleOpenItem}
           />
 
           <SmartLifeTriageCard
-            items={items}
+            items={filteredItems}
             onToggleStatus={toggleItemCompletion}
             onSelectItem={handleOpenItem}
           />
