@@ -1,0 +1,23 @@
+{
+  "manifest_version": 3,
+  "name": "NEXUS Academic Capture",
+  "version": "1.0.0",
+  "description": "Capture visible Google Classroom coursework, lecture slides, and deliverables into your NEXUS Command Center.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "https://classroom.google.com/*",
+    "http://localhost:3000/*",
+    "http://127.0.0.1:3000/*"
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Send to NEXUS"
+  },
+  "background": {
+    "service_worker": "background.js"
+  }
+}

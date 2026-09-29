@@ -21,7 +21,8 @@ import {
   Plus,
   ChevronDown,
   Clock,
-  BookOpen
+  BookOpen,
+  Laptop
 } from "lucide-react";
 import { useNexusStore } from "@/lib/data/store";
 import { Button } from "@/components/ui/button";
@@ -59,7 +60,6 @@ export default function SettingsPage() {
     isSyncing,
     disconnectAccount,
     updateAccount,
-    loadDemoAccounts,
     purgeDemoData,
     resetToDemo,
     disconnectNotion,
@@ -78,7 +78,9 @@ export default function SettingsPage() {
   const [notionDatabaseId, setNotionDatabaseId] = useState("");
 
   const [integrationStatus, setIntegrationStatus] = useState<IntegrationStatus | null>(null);
-  const [activeConfigTab, setActiveConfigTab] = useState<"accounts" | "google" | "notion">("accounts");
+  const [activeConfigTab, setActiveConfigTab] = useState<"accounts" | "google" | "notion" | "extension">("accounts");
+  const [pairingCode, setPairingCode] = useState<string | null>(null);
+  const [isGeneratingPairing, setIsGeneratingPairing] = useState(false);
   const [statusMsg, setStatusMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [isSaving, setIsSaving] = useState(false);
@@ -374,6 +376,18 @@ export default function SettingsPage() {
               <Layers className="w-3.5 h-3.5" />
               <span>Notion</span>
             </button>
+
+            <button
+              onClick={() => setActiveConfigTab("extension")}
+              className={`px-3 py-1.5 rounded-md font-medium transition-all flex items-center gap-1.5 ${
+                activeConfigTab === "extension" 
+                  ? "bg-surface text-ink font-semibold shadow-xs" 
+                  : "text-ink-muted hover:text-ink"
+              }`}
+            >
+              <Laptop className="w-3.5 h-3.5" />
+              <span>Classroom Extension</span>
+            </button>
           </div>
 
           <div className="flex items-center gap-2">
@@ -409,19 +423,6 @@ export default function SettingsPage() {
                 >
                   <Plus className="w-3.5 h-3.5" />
                   <span>Add Google Account</span>
-                </Button>
-
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={async () => {
-                    await loadDemoAccounts();
-                    setStatusMsg("Loaded demo Personal & University accounts with simulated coursework and events.");
-                  }}
-                  className="text-xs h-8 border-hairline text-ink-secondary hover:text-ink flex items-center gap-1.5"
-                >
-                  <Sparkles className="w-3.5 h-3.5 text-olive" />
-                  <span>Load Demo Accounts</span>
                 </Button>
               </div>
             </div>
@@ -638,17 +639,6 @@ export default function SettingsPage() {
                     <Plus className="w-3.5 h-3.5 mr-1.5" />
                     Connect First Google Account
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={async () => {
-                      await loadDemoAccounts();
-                      setStatusMsg("Loaded demo Personal and University accounts!");
-                    }}
-                    className="text-xs h-8 border-hairline"
-                  >
-                    <Sparkles className="w-3.5 h-3.5 mr-1.5 text-olive" />
-                    Try with Demo Accounts
-                  </Button>
                 </div>
               </div>
             )}
@@ -765,6 +755,89 @@ export default function SettingsPage() {
               </Button>
             </div>
           </form>
+        )}
+
+        {/* TAB 4: CONFIGURE BROWSER EXTENSION */}
+        {activeConfigTab === "extension" && (
+          <div className="space-y-6 text-xs">
+            <div className="p-4 rounded-lg bg-canvas border border-hairline text-ink-secondary space-y-1.5">
+              <div className="flex items-center gap-2">
+                <Laptop className="w-4 h-4 text-olive" />
+                <span className="font-semibold text-ink">NEXUS Academic Capture Extension (Chrome Manifest V3)</span>
+              </div>
+              <p className="text-[11px] text-ink-muted leading-relaxed">
+                Capture visible assignments, lecture notes, syllabus documents, and exam notifications directly from Google Classroom using temporary scoped device pairing.
+              </p>
+            </div>
+
+            <div className="p-5 rounded-xl border border-hairline bg-surface space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-hairline pb-4">
+                <div>
+                  <h4 className="font-semibold text-ink text-sm">Device Authentication</h4>
+                  <p className="text-xs text-ink-muted mt-0.5">
+                    Generate a secure 6-digit code to pair your browser extension without storing Google credentials.
+                  </p>
+                </div>
+
+                <Button
+                  size="sm"
+                  disabled={isGeneratingPairing}
+                  onClick={async () => {
+                    setIsGeneratingPairing(true);
+                    try {
+                      const res = await fetch("/api/extension/pair");
+                      if (res.ok) {
+                        const data = await res.json();
+                        setPairingCode(data.pairingCode);
+                        setStatusMsg("Temporary 6-digit pairing code generated.");
+                        setTimeout(() => setStatusMsg(""), 5000);
+                      }
+                    } catch (e) {
+                      setErrorMsg("Failed to generate pairing code.");
+                    } finally {
+                      setIsGeneratingPairing(false);
+                    }
+                  }}
+                  className="bg-olive hover:bg-olive-hover text-white text-xs h-8 shrink-0 flex items-center gap-1.5"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Generate 6-Digit Pairing Code</span>
+                </Button>
+              </div>
+
+              {pairingCode && (
+                <div className="p-5 rounded-lg bg-canvas border border-hairline text-center space-y-1 animate-fade-in">
+                  <span className="text-[11px] font-mono text-ink-muted uppercase tracking-wider">
+                    Extension Authentication Code
+                  </span>
+                  <div className="text-3xl font-mono font-bold text-olive tracking-widest py-1">
+                    {pairingCode}
+                  </div>
+                  <span className="text-[10px] font-mono text-ink-muted block">
+                    Valid for 15 minutes · Enter into your Chrome Extension popup
+                  </span>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-2">
+                <div className="p-3 rounded-lg border border-hairline bg-canvas/40 space-y-1">
+                  <span className="font-mono text-[10px] text-olive font-semibold uppercase">Step 1</span>
+                  <p className="font-medium text-ink text-xs">Install Extension</p>
+                  <p className="text-[11px] text-ink-muted">Load the unpackaged extension located in the <code>/extension</code> folder via Chrome Extension Developer Mode.</p>
+                </div>
+                <div className="p-3 rounded-lg border border-hairline bg-canvas/40 space-y-1">
+                  <span className="font-mono text-[10px] text-olive font-semibold uppercase">Step 2</span>
+                  <p className="font-medium text-ink text-xs">Pair Device</p>
+                  <p className="text-[11px] text-ink-muted">Enter the 6-digit code into the extension popup while keeping NEXUS open on <code>localhost:3000</code>.</p>
+                </div>
+                <div className="p-3 rounded-lg border border-hairline bg-canvas/40 space-y-1">
+                  <span className="font-mono text-[10px] text-olive font-semibold uppercase">Step 3</span>
+                  <p className="font-medium text-ink text-xs">Capture & Classify</p>
+                  <p className="text-[11px] text-ink-muted">Navigate to any Google Classroom course, assignment, or announcement, and click "Send to NEXUS".</p>
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
 

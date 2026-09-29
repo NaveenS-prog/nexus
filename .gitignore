@@ -22,6 +22,7 @@ Thumbs.db
 # Secrets & Credentials
 nexus_credentials.json
 *.credentials.json
+academic_store.json
 
 # TypeScript
 *.tsbuildinfo

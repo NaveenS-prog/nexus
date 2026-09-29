@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NEXUS Academic Capture</title>
+  <style>
+    :root {
+      --bg: #faf9f6;
+      --surface: #ffffff;
+      --ink: #1a1a1a;
+      --ink-secondary: #666666;
+      --ink-muted: #8c8c8c;
+      --hairline: #e6e4df;
+      --olive: #4d6b53;
+      --olive-hover: #3d5542;
+      --danger: #b91c1c;
+      --radius: 6px;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      width: 360px;
+      min-height: 440px;
+      font-size: 13px;
+      line-height: 1.4;
+      padding: 16px;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 1px solid var(--hairline);
+      padding-bottom: 12px;
+      margin-bottom: 14px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .brand h1 {
+      font-size: 14px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #ccc;
+    }
+
+    .status-dot.connected {
+      background: var(--olive);
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--hairline);
+      border-radius: var(--radius);
+      padding: 12px;
+      margin-bottom: 12px;
+    }
+
+    .card-title {
+      font-size: 11px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--ink-muted);
+      margin-bottom: 6px;
+    }
+
+    label {
+      display: block;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--ink-secondary);
+      margin-bottom: 4px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 7px 9px;
+      background: #fff;
+      border: 1px solid var(--hairline);
+      border-radius: 4px;
+      font-size: 12px;
+      color: var(--ink);
+      margin-bottom: 10px;
+      outline: none;
+      transition: border 0.15s;
+    }
+
+    input:focus, textarea:focus {
+      border-color: var(--olive);
+    }
+
+    button {
+      width: 100%;
+      padding: 8px 12px;
+      background: var(--olive);
+      color: #fff;
+      border: none;
+      border-radius: 4px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    button:hover {
+      background: var(--olive-hover);
+    }
+
+    button.secondary {
+      background: transparent;
+      color: var(--ink-secondary);
+      border: 1px solid var(--hairline);
+      margin-top: 6px;
+    }
+
+    button.secondary:hover {
+      background: #f0eee9;
+      color: var(--ink);
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .preview-field {
+      margin-bottom: 8px;
+    }
+
+    .preview-value {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--ink);
+      word-break: break-word;
+    }
+
+    .preview-meta {
+      font-size: 11px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      color: var(--olive);
+    }
+
+    .alert {
+      padding: 8px 10px;
+      border-radius: 4px;
+      font-size: 11px;
+      margin-bottom: 10px;
+      line-height: 1.35;
+    }
+
+    .alert-info {
+      background: #eef3ef;
+      color: #2e4d35;
+      border: 1px solid #d3e4d7;
+    }
+
+    .alert-error {
+      background: #fdf2f2;
+      color: var(--danger);
+      border: 1px solid #f8d7da;
+    }
+
+    .alert-success {
+      background: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #a7f3d0;
+    }
+
+    .footer {
+      text-align: center;
+      margin-top: 12px;
+      font-size: 10px;
+      color: var(--ink-muted);
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="brand">
+      <div id="statusDot" class="status-dot"></div>
+      <h1>NEXUS ACADEMIC</h1>
+    </div>
+    <span id="statusLabel" style="font-size: 10px; color: var(--ink-muted); font-family: monospace;">Connecting...</span>
+  </header>
+
+  <!-- STATE 1: UNPAIRED VIEW -->
+  <div id="unpairedView" class="hidden">
+    <div class="card">
+      <div class="card-title">Device Authentication</div>
+      <p style="font-size: 12px; color: var(--ink-secondary); margin-bottom: 10px;">
+        Connect your browser extension to your active NEXUS session.
+      </p>
+
+      <label for="pairingCode">Pairing Code (e.g. NX-123456)</label>
+      <input type="text" id="pairingCode" placeholder="NX-XXXXXX" style="font-family: monospace; letter-spacing: 0.1em; text-transform: uppercase;">
+
+      <label for="nexusHost">NEXUS Host URL</label>
+      <input type="text" id="nexusHost" value="http://localhost:3000">
+
+      <button id="btnPair">Pair with NEXUS</button>
+      <div id="pairError" class="alert alert-error hidden" style="margin-top: 8px;"></div>
+    </div>
+  </div>
+
+  <!-- STATE 2: PAIRED VIEW -->
+  <div id="pairedView" class="hidden">
+    <!-- Non-Classroom Tab Warning -->
+    <div id="notClassroomAlert" class="alert alert-info hidden">
+      You are not currently on Google Classroom. Open your course page, or use Manual Capture below.
+    </div>
+
+    <!-- Active Capture Preview Card -->
+    <div id="captureCard" class="card">
+      <div class="card-title">Classroom Content Preview</div>
+
+      <div class="preview-field">
+        <label>Course</label>
+        <div id="previewCourse" class="preview-value">Scanning active tab...</div>
+      </div>
+
+      <div class="preview-field">
+        <label>Title</label>
+        <div id="previewTitle" class="preview-value">—</div>
+      </div>
+
+      <div class="preview-field">
+        <label>Due Date</label>
+        <div id="previewDue" class="preview-meta">—</div>
+      </div>
+
+      <div class="preview-field">
+        <label>Attachments</label>
+        <div id="previewAttachments" class="preview-meta">0 attached</div>
+      </div>
+
+      <button id="btnSendToNexus" style="margin-top: 6px;">Send to NEXUS</button>
+      <button id="btnRescan" class="secondary">Re-scan Page</button>
+    </div>
+
+    <!-- Ingestion Result Message -->
+    <div id="ingestFeedback" class="alert hidden"></div>
+
+    <!-- Quick Manual Capture Toggle -->
+    <button id="btnToggleManual" class="secondary" style="font-size: 11px;">
+      Manual Entry Fallback
+    </button>
+
+    <!-- Manual Capture Form -->
+    <div id="manualForm" class="card hidden" style="margin-top: 10px;">
+      <div class="card-title">Manual Capture</div>
+
+      <label for="manualCourse">Course Name</label>
+      <input type="text" id="manualCourse" placeholder="e.g. Operating Systems (CS301)">
+
+      <label for="manualTitle">Assignment / Material Title</label>
+      <input type="text" id="manualTitle" placeholder="e.g. Lab 4 Virtual Memory Simulator">
+
+      <label for="manualDue">Due Date (Optional)</label>
+      <input type="text" id="manualDue" placeholder="e.g. Friday at 11:59 PM">
+
+      <label for="manualInstructions">Instructions / Notes</label>
+      <textarea id="manualInstructions" rows="3" placeholder="Paste assignment guidelines or lecture notes here..."></textarea>
+
+      <button id="btnSubmitManual">Send Manual Item to NEXUS</button>
+    </div>
+  </div>
+
+  <div class="footer">NEXUS PERSONAL OS · ACADEMIC INTELLIGENCE</div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

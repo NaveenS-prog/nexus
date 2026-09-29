@@ -117,69 +117,10 @@ export async function DELETE(req: Request) {
   }
 }
 
-// POST endpoint for initializing demo multi-account environment
+// POST endpoint for account management actions
 export async function POST(req: Request) {
   try {
     const body = await req.json();
-
-    if (body.action === "load_demo_accounts") {
-      // Create Demo Personal Account
-      saveGoogleAccount({
-        id: "google-demo-personal",
-        providerAccountId: "demo-personal-001",
-        email: "personal.demo@example.local",
-        displayName: "Personal Account",
-        accountType: "personal",
-        status: "active",
-        isDefault: true,
-        services: ["calendar", "tasks", "drive"],
-        refreshToken: "mock-personal-refresh-token",
-        accessToken: "mock-personal-access-token",
-        tokenExpiry: Date.now() + 86400000 * 30,
-        connectedAt: new Date().toISOString(),
-        lastUsedAt: new Date().toISOString(),
-      });
-
-      // Create Demo University Account
-      const updatedCreds = saveGoogleAccount({
-        id: "google-demo-university",
-        providerAccountId: "demo-university-002",
-        email: "student.demo@university.example",
-        displayName: "University Account",
-        accountType: "university",
-        status: "active",
-        isDefault: false,
-        services: ["classroom", "calendar", "drive", "tasks"],
-        refreshToken: "mock-university-refresh-token",
-        accessToken: "mock-university-access-token",
-        tokenExpiry: Date.now() + 86400000 * 30,
-        connectedAt: new Date().toISOString(),
-        lastUsedAt: new Date().toISOString(),
-      });
-
-      const accounts = getConnectedGoogleAccounts(updatedCreds).map((acc) => ({
-        id: acc.id,
-        provider: acc.provider,
-        providerAccountId: acc.providerAccountId,
-        email: acc.email,
-        displayName: acc.displayName,
-        avatarUrl: acc.avatarUrl,
-        accountType: acc.accountType,
-        status: acc.status,
-        isDefault: Boolean(acc.isDefault),
-        services: acc.services || ["calendar", "tasks"],
-        connectedAt: acc.connectedAt,
-        lastUsedAt: acc.lastUsedAt,
-        lastErrorMessage: acc.lastErrorMessage,
-      }));
-
-      const res = NextResponse.json({ 
-        success: true, 
-        message: "Personal and University demo accounts initialized successfully",
-        accounts 
-      });
-      return attachCredentialsCookie(res, updatedCreds);
-    }
 
     return NextResponse.json({ success: false, error: "Invalid action" }, { status: 400 });
   } catch (err: any) {
