@@ -27,6 +27,12 @@ export interface NormalizedAcademicPayload {
     mimeType: string;
     sourceUrl?: string;
     driveFileId?: string;
+    storagePath?: string;
+    contentHash?: string;
+    size?: number;
+    downloadStatus?: import("@/lib/types/academic").AttachmentDownloadStatus;
+    processingStatus?: import("@/lib/types/academic").AttachmentProcessingStatus;
+    extractedText?: string;
   }>;
 }
 
@@ -189,6 +195,12 @@ export function normalizeRawPayload(raw: {
       mimeType,
       sourceUrl: att.url,
       driveFileId,
+      storagePath: att.storagePath,
+      contentHash: att.contentHash,
+      size: att.size,
+      downloadStatus: att.downloadStatus,
+      processingStatus: att.processingStatus,
+      extractedText: att.extractedText,
     };
   });
 

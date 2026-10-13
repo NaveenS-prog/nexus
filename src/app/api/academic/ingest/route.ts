@@ -115,22 +115,27 @@ export async function POST(req: Request) {
       isCreated = true;
       const newItemId = uuidv4();
 
-      // Create linked Task in unified_items table if Supabase is enabled
+      const initialStatus = rawBody.status || "NEW";
+      const isActionable = (classification.type === "ASSIGNMENT" || classification.type === "PROJECT" || classification.type === "LAB" || classification.type === "EXAM");
+
+      // Create linked Task in unified_items table if Supabase is enabled and item is actionable and confirmed
       const taskGeneratedId = `task-academic-${uuidv4().substring(0, 8)}`;
-      taskId = taskGeneratedId;
+      if (isActionable && initialStatus !== "NEEDS_CONFIRMATION") {
+        taskId = taskGeneratedId;
+      }
 
       const supabase = createClient();
-      if (supabase && (classification.type === "ASSIGNMENT" || classification.type === "PROJECT" || classification.type === "LAB" || classification.type === "EXAM")) {
+      if (supabase && taskId && isActionable) {
         try {
           await supabase.from("unified_items").insert({
-            id: taskGeneratedId,
+            id: taskId,
             user_id: userId,
             title: normalized.title,
             description: `[${course.name}] ${normalized.instructions.substring(0, 300)}...`,
             category: "academic",
             priority: classification.priority,
             status: "pending",
-            source: "google_classroom",
+            source: rawBody.source === "FILE_IMPORT" ? "file_import" : "google_classroom",
             due_at: normalized.dueAt,
             metadata: {
               courseName: course.name,
@@ -158,7 +163,7 @@ export async function POST(req: Request) {
         instructions: normalized.instructions,
         publishedAt: normalized.publishedAt || new Date().toISOString(),
         dueAt: normalized.dueAt || undefined,
-        status: "NEW",
+        status: initialStatus,
         priority: classification.priority,
         taskId,
         metadata: {
@@ -166,6 +171,7 @@ export async function POST(req: Request) {
           confidence: classification.confidence,
           suggestedAction: classification.suggestedAction,
           accountEmail: rawBody.accountEmail,
+          ...(rawBody.metadata || {}),
         },
         rawSourceData: rawBody as any,
       });
@@ -188,8 +194,12 @@ export async function POST(req: Request) {
         mimeType: att.mimeType,
         sourceUrl: att.sourceUrl,
         driveFileId: att.driveFileId,
-        downloadStatus: att.driveFileId ? "NOT_REQUESTED" : "UNAVAILABLE",
-        processingStatus: "NOT_PROCESSED",
+        storagePath: att.storagePath,
+        contentHash: att.contentHash,
+        size: att.size || 0,
+        downloadStatus: att.downloadStatus || (att.storagePath ? "DOWNLOADED" : (att.driveFileId ? "NOT_REQUESTED" : "UNAVAILABLE")),
+        processingStatus: att.processingStatus || (att.extractedText ? "PROCESSED" : "NOT_PROCESSED"),
+        extractedText: att.extractedText,
       });
       savedAttachments.push(savedAtt);
     }

@@ -32,7 +32,8 @@ export type AcademicItemStatus =
   | 'USER_APPROVED'
   | 'FINALIZED'
   | 'COMPLETED'
-  | 'ARCHIVED';
+  | 'ARCHIVED'
+  | 'NEEDS_CONFIRMATION';
 
 export type AcademicPriority = 'low' | 'medium' | 'high' | 'critical';
 
@@ -225,15 +226,23 @@ export interface ExtensionPairing {
 
 export interface RawClassroomAttachment {
   name: string;
-  url: string;
+  url?: string;
   mimeType?: string;
   type?: 'drive' | 'youtube' | 'link' | 'file';
   driveFileId?: string;
   thumbnailUrl?: string;
+  storagePath?: string;
+  contentHash?: string;
+  size?: number;
+  downloadStatus?: AttachmentDownloadStatus;
+  processingStatus?: AttachmentProcessingStatus;
+  extractedText?: string;
 }
 
+export type RawAcademicAttachment = RawClassroomAttachment;
+
 export interface ExtensionCapturePayload {
-  source: 'CLASSROOM_BROWSER' | 'MANUAL';
+  source?: AcademicSource;
   sourceExternalId?: string;
   sourceUrl: string;
   courseName: string;
@@ -247,7 +256,10 @@ export interface ExtensionCapturePayload {
   attachments?: RawClassroomAttachment[];
   accountEmail?: string;
   metadata?: Record<string, any>;
+  status?: AcademicItemStatus;
 }
+
+export type AcademicIngestPayload = ExtensionCapturePayload;
 
 export interface IngestionResult {
   success: boolean;

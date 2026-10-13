@@ -2,6 +2,7 @@
 // NEXUS Academic Intelligence Layer - Google Drive Organizer Engine
 // ==============================================================================
 
+import fs from "fs";
 import { getValidGoogleAccessToken } from "@/lib/integrations/googleApi";
 import { getStoredCredentials, getConnectedGoogleAccounts } from "@/lib/integrations/config";
 import { getAcademicItemById, updateCourseDriveFolder, updateAttachment, updateAcademicItemStatus } from "./storage";
@@ -237,7 +238,25 @@ export async function organizeAcademicItemToDrive(
   if (item.attachments && item.attachments.length > 0) {
     for (const att of item.attachments) {
       try {
-        if (att.sourceUrl && !att.driveFileId) {
+        if (att.storagePath && fs.existsSync(att.storagePath) && !att.driveFileId) {
+          // Read local file from disk and upload to Google Drive
+          const buffer = fs.readFileSync(att.storagePath);
+          const upload = await uploadFileToDrive({
+            fileName: att.name,
+            mimeType: att.mimeType,
+            folderId: targetFolderId,
+            content: buffer,
+            accountId: targetAccount.id,
+          });
+
+          await updateAttachment(att.id, {
+            driveFileId: upload.fileId,
+            driveFolderId: targetFolderId,
+            downloadStatus: "DOWNLOADED",
+            processingStatus: "PROCESSED",
+          });
+          organizedFilesCount++;
+        } else if (att.sourceUrl && !att.driveFileId) {
           // Download and re-upload if accessible public/signed URL
           const fileRes = await fetch(att.sourceUrl);
           if (fileRes.ok) {

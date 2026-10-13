@@ -20,7 +20,7 @@ export async function GET(req: Request) {
 
   const redirectUri = `${url.origin}/api/auth/google/callback`;
 
-  // Comprehensive scopes for Calendar, Tasks, and Classroom
+  // Comprehensive scopes for Calendar, Tasks, Classroom, and Drive
   const scopes = [
     "https://www.googleapis.com/auth/tasks",
     "https://www.googleapis.com/auth/calendar.readonly",
@@ -28,6 +28,7 @@ export async function GET(req: Request) {
     "https://www.googleapis.com/auth/classroom.courses.readonly",
     "https://www.googleapis.com/auth/classroom.coursework.me.readonly",
     "https://www.googleapis.com/auth/classroom.announcements.readonly",
+    "https://www.googleapis.com/auth/drive.file",
     "openid",
     "email",
     "profile",

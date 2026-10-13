@@ -97,6 +97,14 @@ export default function AcademicsPage() {
   const [manualInstructions, setManualInstructions] = useState("");
   const [isSubmittingManual, setIsSubmittingManual] = useState(false);
 
+  // Confirm Metadata modal state
+  const [confirmingItem, setConfirmingItem] = useState<AcademicItem | null>(null);
+  const [confirmCourseName, setConfirmCourseName] = useState("");
+  const [confirmTitle, setConfirmTitle] = useState("");
+  const [confirmDue, setConfirmDue] = useState("");
+  const [confirmType, setConfirmType] = useState<AcademicItemType>("ASSIGNMENT");
+  const [isSubmittingConfirm, setIsSubmittingConfirm] = useState(false);
+
   // Active AI Workspace modal
   const [activeWorkspaceItem, setActiveWorkspaceItem] = useState<AcademicItem | null>(null);
   const [workspaceAgentLoading, setWorkspaceAgentLoading] = useState(false);
@@ -179,6 +187,42 @@ export default function AcademicsPage() {
       console.error("Manual ingestion error:", err);
     } finally {
       setIsSubmittingManual(false);
+    }
+  };
+
+  // Confirm and update academic item metadata
+  const handleConfirmMetadata = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!confirmingItem || !confirmCourseName.trim()) return;
+
+    setIsSubmittingConfirm(true);
+    try {
+      const res = await fetch("/api/academic/confirm", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          itemId: confirmingItem.id,
+          courseName: confirmCourseName.trim(),
+          title: confirmTitle.trim() || confirmingItem.title,
+          dueAt: confirmDue ? new Date(confirmDue).toISOString() : null,
+          type: confirmType,
+        }),
+      });
+
+      if (res.ok) {
+        setConfirmingItem(null);
+        await loadAcademicData();
+        setStatusMessage("Coursework confirmed and activated.");
+        setTimeout(() => setStatusMessage(null), 4000);
+      } else {
+        const err = await res.json();
+        setStatusMessage(err.error || "Failed to confirm metadata.");
+      }
+    } catch (err: any) {
+      console.error("Confirmation error:", err);
+      setStatusMessage(err.message || "Failed to confirm metadata.");
+    } finally {
+      setIsSubmittingConfirm(false);
     }
   };
 
@@ -537,6 +581,17 @@ export default function AcademicsPage() {
                             DRIVE ORGANIZED
                           </span>
                         )}
+                        {item.status === "NEEDS_CONFIRMATION" && (
+                          <span className="px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 font-semibold flex items-center gap-1">
+                            <AlertCircle className="w-3 h-3 text-amber-600" />
+                            NEEDS CONFIRMATION
+                          </span>
+                        )}
+                        {item.source === "FILE_IMPORT" && (
+                          <span className="px-1.5 py-0.5 rounded bg-canvas border border-hairline text-ink-muted">
+                            FILE IMPORT
+                          </span>
+                        )}
                       </div>
 
                       <h4 className="font-editorial text-base text-ink font-medium truncate">
@@ -565,7 +620,24 @@ export default function AcademicsPage() {
                     </div>
 
                     <div className="flex items-center gap-2 self-end sm:self-center">
-                      {isAssignment && (
+                      {item.status === "NEEDS_CONFIRMATION" && (
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setConfirmingItem(item);
+                            setConfirmCourseName(item.courseName === "Pending Course Assignment" ? "" : item.courseName);
+                            setConfirmTitle(item.title);
+                            setConfirmDue(item.dueAt ? item.dueAt.substring(0, 16) : "");
+                            setConfirmType(item.type);
+                          }}
+                          className="bg-amber-600 hover:bg-amber-700 text-white text-xs h-7 flex items-center gap-1.5 shadow-xs"
+                        >
+                          <Check className="w-3.5 h-3.5" />
+                          <span>Confirm Course</span>
+                        </Button>
+                      )}
+
+                      {isAssignment && item.status !== "NEEDS_CONFIRMATION" && (
                         <Button
                           size="sm"
                           variant="outline"
@@ -577,7 +649,7 @@ export default function AcademicsPage() {
                         </Button>
                       )}
 
-                      {!isAssignment && item.status !== "ORGANIZED" && (
+                      {!isAssignment && item.status !== "ORGANIZED" && item.status !== "NEEDS_CONFIRMATION" && (
                         <Button
                           size="sm"
                           variant="outline"
@@ -944,6 +1016,131 @@ export default function AcademicsPage() {
               </Button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* MODAL: CONFIRM ACADEMIC ITEM METADATA */}
+      {confirmingItem && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-surface border border-hairline rounded-lg max-w-lg w-full p-6 space-y-5 shadow-lg">
+            <div className="flex items-center justify-between border-b border-hairline pb-3">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 text-amber-600" />
+                <h3 className="font-editorial text-lg font-medium text-ink">
+                  Confirm Course Details
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setConfirmingItem(null)}
+                className="text-ink-muted hover:text-ink text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-ink-secondary leading-relaxed">
+              This coursework was imported from your local inbox folder, but requires confirmation to match with an enrolled course.
+            </p>
+
+            <form onSubmit={handleConfirmMetadata} className="space-y-4 text-xs">
+              <div>
+                <label className="block text-ink-secondary font-medium mb-1">
+                  Assign to Course *
+                </label>
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    required
+                    placeholder="e.g. Operating Systems (CS301)"
+                    value={confirmCourseName}
+                    onChange={(e) => setConfirmCourseName(e.target.value)}
+                    className="w-full bg-canvas border border-hairline rounded-md p-2 text-xs text-ink outline-none focus:border-olive"
+                  />
+                  {courses.length > 0 && (
+                    <div className="flex flex-wrap gap-1.5 items-center">
+                      <span className="text-[10px] text-ink-muted">Existing courses:</span>
+                      {courses.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => setConfirmCourseName(c.name)}
+                          className="px-2 py-0.5 rounded bg-canvas border border-hairline text-[11px] text-ink-secondary hover:text-ink hover:border-olive font-mono"
+                        >
+                          {c.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-ink-secondary font-medium mb-1">
+                  Title
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={confirmTitle}
+                  onChange={(e) => setConfirmTitle(e.target.value)}
+                  className="w-full bg-canvas border border-hairline rounded-md p-2 text-xs text-ink outline-none focus:border-olive"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-ink-secondary font-medium mb-1">
+                    Classification
+                  </label>
+                  <select
+                    value={confirmType}
+                    onChange={(e) => setConfirmType(e.target.value as AcademicItemType)}
+                    className="w-full bg-canvas border border-hairline rounded-md p-2 text-xs text-ink outline-none focus:border-olive"
+                  >
+                    <option value="ASSIGNMENT">Assignment</option>
+                    <option value="PROJECT">Term Project</option>
+                    <option value="LAB">Lab Session</option>
+                    <option value="LECTURE_MATERIAL">Lecture Material</option>
+                    <option value="REFERENCE_MATERIAL">Reference Material</option>
+                    <option value="EXAM">Examination</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-ink-secondary font-medium mb-1">
+                    Due Date (Optional)
+                  </label>
+                  <input
+                    type="datetime-local"
+                    value={confirmDue}
+                    onChange={(e) => setConfirmDue(e.target.value)}
+                    className="w-full bg-canvas border border-hairline rounded-md p-2 text-xs text-ink outline-none focus:border-olive"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-3 border-t border-hairline flex items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setConfirmingItem(null)}
+                  className="text-xs border-hairline"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={isSubmittingConfirm || !confirmCourseName.trim()}
+                  className="bg-olive hover:bg-olive-hover text-white text-xs"
+                >
+                  {isSubmittingConfirm ? "Saving..." : "Confirm & Activate"}
+                </Button>
+              </div>
+            </form>
+          </div>
         </div>
       )}
 
