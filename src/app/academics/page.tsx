@@ -29,7 +29,9 @@ import {
   Send,
   X,
   FileUp,
-  Laptop
+  Laptop,
+  Copy,
+  FolderOpen
 } from "lucide-react";
 import { format, parseISO, differenceInCalendarDays, startOfDay, isToday, isTomorrow } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -74,6 +76,19 @@ function formatSafeDate(dateStr?: string | null): string {
   }
 }
 
+function getItemStoragePath(item: AcademicItem): string | null {
+  if (item.metadata?.sourcePath && typeof item.metadata.sourcePath === "string") {
+    return item.metadata.sourcePath;
+  }
+  if (item.attachments && item.attachments.length > 0 && item.attachments[0].storagePath) {
+    return item.attachments[0].storagePath;
+  }
+  if (item.sourceUrl && item.sourceUrl.startsWith("file://")) {
+    return item.sourceUrl.replace(/^file:\/\//, "");
+  }
+  return null;
+}
+
 export default function AcademicsPage() {
   const [activeTab, setActiveTab] = useState<"inbox" | "assignments" | "materials" | "courses">("inbox");
   const [items, setItems] = useState<AcademicItem[]>([]);
@@ -81,6 +96,17 @@ export default function AcademicsPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTypeFilter, setSelectedTypeFilter] = useState<string>("all");
+  const [copiedPath, setCopiedPath] = useState<string | null>(null);
+
+  const handleCopyPath = (pathStr: string) => {
+    try {
+      navigator.clipboard.writeText(pathStr);
+      setCopiedPath(pathStr);
+      setTimeout(() => setCopiedPath(null), 2500);
+    } catch (err) {
+      console.error("Failed to copy path:", err);
+    }
+  };
   const [selectedCourseFilter, setSelectedCourseFilter] = useState<string>("all");
 
   // Modals & Drawers state
@@ -305,6 +331,27 @@ export default function AcademicsPage() {
     }
   };
 
+  // Open / Reveal File in OS File Explorer
+  const handleOpenFile = async (filePath: string) => {
+    try {
+      const res = await fetch("/api/academic/open", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ filePath }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setStatusMessage(data.message || "File revealed in File Explorer.");
+      } else {
+        setStatusMessage(data.error || "Could not open file.");
+      }
+    } catch (err: any) {
+      setStatusMessage(err.message || "Could not reveal file.");
+    } finally {
+      setTimeout(() => setStatusMessage(null), 4000);
+    }
+  };
+
   // Organize Item to Google Drive
   const handleOrganizeToDrive = async (itemId: string) => {
     setOrganizingDriveId(itemId);
@@ -506,30 +553,49 @@ export default function AcademicsPage() {
 
       {/* Live Watched Sources Strip */}
       {watchSources.length > 0 && (
-        <div className="p-3 bg-surface border border-hairline rounded-md text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
+        <div className="p-3 bg-surface border border-hairline rounded-md text-xs flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-mono text-[10px] text-ink-muted uppercase">Watched Folders:</span>
+            <span className="font-mono text-[10px] text-ink-muted uppercase tracking-wider">Watched Folders:</span>
             {watchSources.map((s) => (
-              <span
+              <div
                 key={s.id}
-                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-canvas border border-hairline text-ink text-[11px] font-mono"
+                className="inline-flex items-center gap-2 px-2.5 py-1 rounded bg-canvas border border-hairline text-ink text-[11px] font-mono"
               >
-                <Folder className="w-3 h-3 text-olive" />
-                <span className="font-semibold">{s.label}</span>
-                <span className="text-[9px] text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200">
+                <Folder className="w-3.5 h-3.5 text-olive shrink-0" />
+                <span className="font-semibold text-ink">{s.label}</span>
+                <span className="text-[10px] text-ink-muted max-w-[200px] truncate" title={s.path}>
+                  {s.path}
+                </span>
+                <span className="text-[9px] font-sans font-medium text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200">
                   {s.enabled ? "LIVE" : "PAUSED"}
                 </span>
                 {s.itemCount !== undefined && s.itemCount > 0 && (
-                  <span className="text-[10px] text-ink-muted">({s.itemCount} files)</span>
+                  <span className="text-[10px] text-ink-muted">({s.itemCount})</span>
                 )}
-              </span>
+                <div className="flex items-center gap-1 pl-1 border-l border-hairline">
+                  <button
+                    onClick={() => handleCopyPath(s.path)}
+                    className="p-1 hover:text-ink text-ink-muted transition-colors"
+                    title="Copy folder path"
+                  >
+                    <Copy className="w-3 h-3" />
+                  </button>
+                  <button
+                    onClick={() => handleOpenFile(s.path)}
+                    className="p-1 hover:text-olive text-ink-muted transition-colors"
+                    title="Open in File Explorer"
+                  >
+                    <FolderOpen className="w-3 h-3" />
+                  </button>
+                </div>
+              </div>
             ))}
           </div>
 
           <button
             onClick={handleScanSources}
             disabled={isScanningSources}
-            className="text-[11px] font-mono text-olive hover:underline flex items-center gap-1 self-start sm:self-auto shrink-0"
+            className="text-[11px] font-mono text-olive hover:underline flex items-center gap-1.5 self-start md:self-auto shrink-0"
           >
             <RefreshCw className={`w-3 h-3 ${isScanningSources ? "animate-spin" : ""}`} />
             <span>Sync now</span>
@@ -750,6 +816,43 @@ export default function AcademicsPage() {
                           <span>{item.attachments.length} attachment{item.attachments.length !== 1 ? "s" : ""}</span>
                         )}
                       </div>
+
+                      {(() => {
+                        const pathStr = getItemStoragePath(item);
+                        if (!pathStr) return null;
+                        return (
+                          <div className="flex items-center gap-1.5 text-[11px] font-mono text-ink-muted bg-canvas/70 px-2 py-1 rounded border border-hairline/70 mt-1 max-w-xl">
+                            <Folder className="w-3 h-3 text-olive shrink-0" />
+                            <span className="truncate flex-1 select-all text-[10.5px]" title={pathStr}>
+                              {pathStr}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleCopyPath(pathStr);
+                              }}
+                              className="px-1.5 py-0.5 rounded hover:bg-surface text-ink-secondary hover:text-ink text-[10px] flex items-center gap-1 shrink-0 transition-colors"
+                              title="Copy exact file path"
+                            >
+                              <Copy className="w-2.5 h-2.5" />
+                              <span>{copiedPath === pathStr ? "Copied" : "Copy"}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleOpenFile(pathStr);
+                              }}
+                              className="px-1.5 py-0.5 rounded hover:bg-surface text-olive hover:text-olive-hover text-[10px] flex items-center gap-1 shrink-0 font-medium transition-colors"
+                              title="Open file location in File Explorer"
+                            >
+                              <FolderOpen className="w-2.5 h-2.5" />
+                              <span>Reveal</span>
+                            </button>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     <div className="flex items-center gap-2 self-end sm:self-center">
@@ -840,6 +943,43 @@ export default function AcademicsPage() {
                         {item.instructions}
                       </p>
                     )}
+
+                    {(() => {
+                      const pathStr = getItemStoragePath(item);
+                      if (!pathStr) return null;
+                      return (
+                        <div className="flex items-center gap-1.5 text-[11px] font-mono text-ink-muted bg-canvas/70 px-2 py-1 rounded border border-hairline/70">
+                          <Folder className="w-3 h-3 text-olive shrink-0" />
+                          <span className="truncate flex-1 select-all text-[10.5px]" title={pathStr}>
+                            {pathStr}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCopyPath(pathStr);
+                            }}
+                            className="px-1.5 py-0.5 rounded hover:bg-surface text-ink-secondary hover:text-ink text-[10px] flex items-center gap-1 shrink-0 transition-colors"
+                            title="Copy path"
+                          >
+                            <Copy className="w-2.5 h-2.5" />
+                            <span>{copiedPath === pathStr ? "Copied" : "Copy"}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenFile(pathStr);
+                            }}
+                            className="px-1.5 py-0.5 rounded hover:bg-surface text-olive hover:text-olive-hover text-[10px] flex items-center gap-1 shrink-0 font-medium transition-colors"
+                            title="Reveal in File Explorer"
+                          >
+                            <FolderOpen className="w-2.5 h-2.5" />
+                            <span>Reveal</span>
+                          </button>
+                        </div>
+                      );
+                    })()}
                   </div>
 
                   <div className="pt-2 border-t border-hairline flex items-center justify-between text-xs font-mono">
@@ -890,15 +1030,79 @@ export default function AcademicsPage() {
                     <h4 className="font-editorial text-base text-ink font-medium">
                       {item.title}
                     </h4>
+
+                    {(() => {
+                      const pathStr = getItemStoragePath(item);
+                      if (!pathStr) return null;
+                      return (
+                        <div className="flex items-center gap-1.5 text-[11px] font-mono text-ink-muted bg-canvas/70 px-2 py-1 rounded border border-hairline/70 max-w-xl">
+                          <Folder className="w-3 h-3 text-olive shrink-0" />
+                          <span className="truncate flex-1 select-all text-[10.5px]" title={pathStr}>
+                            {pathStr}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCopyPath(pathStr);
+                            }}
+                            className="px-1.5 py-0.5 rounded hover:bg-surface text-ink-secondary hover:text-ink text-[10px] flex items-center gap-1 shrink-0 transition-colors"
+                            title="Copy path"
+                          >
+                            <Copy className="w-2.5 h-2.5" />
+                            <span>{copiedPath === pathStr ? "Copied" : "Copy"}</span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleOpenFile(pathStr);
+                            }}
+                            className="px-1.5 py-0.5 rounded hover:bg-surface text-olive hover:text-olive-hover text-[10px] flex items-center gap-1 shrink-0 font-medium transition-colors"
+                            title="Reveal in File Explorer"
+                          >
+                            <FolderOpen className="w-2.5 h-2.5" />
+                            <span>Reveal</span>
+                          </button>
+                        </div>
+                      );
+                    })()}
+
                     {item.attachments && item.attachments.length > 0 && (
                       <div className="flex flex-wrap gap-2 pt-1">
                         {item.attachments.map((att) => (
                           <span
                             key={att.id}
-                            className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded bg-canvas border border-hairline text-ink-secondary"
+                            className="inline-flex items-center gap-1.5 text-[11px] font-mono px-2 py-0.5 rounded bg-canvas border border-hairline text-ink-secondary"
                           >
-                            <FileText className="w-3 h-3 text-olive" />
-                            {att.name}
+                            <FileText className="w-3 h-3 text-olive shrink-0" />
+                            <span className="truncate max-w-[200px]" title={att.name}>{att.name}</span>
+                            {att.storagePath && (
+                              <span className="flex items-center gap-1 pl-1 border-l border-hairline">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleCopyPath(att.storagePath!);
+                                  }}
+                                  className="hover:text-ink text-ink-muted p-0.5 transition-colors"
+                                  title={`Copy path: ${att.storagePath}`}
+                                >
+                                  <Copy className="w-2.5 h-2.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleOpenFile(att.storagePath!);
+                                  }}
+                                  className="hover:text-olive text-ink-muted p-0.5 transition-colors"
+                                  title="Reveal attachment in File Explorer"
+                                >
+                                  <FolderOpen className="w-2.5 h-2.5" />
+                                </button>
+                              </span>
+                            )}
                           </span>
                         ))}
                       </div>
@@ -936,7 +1140,13 @@ export default function AcademicsPage() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {courses.map((course) => {
-                const courseItemCount = items.filter((i) => i.courseId === course.id || i.courseName === course.name).length;
+                const courseItems = items.filter((i) => i.courseId === course.id || i.courseName === course.name);
+                const courseItemCount = courseItems.length;
+                const sampleItem = courseItems.find((i) => getItemStoragePath(i));
+                const samplePath = sampleItem ? getItemStoragePath(sampleItem) : null;
+                const courseFolder = samplePath
+                  ? samplePath.substring(0, Math.max(samplePath.lastIndexOf("\\"), samplePath.lastIndexOf("/")))
+                  : null;
 
                 return (
                   <div
@@ -961,6 +1171,33 @@ export default function AcademicsPage() {
                     <h4 className="font-editorial text-lg text-ink font-medium">
                       {course.name}
                     </h4>
+
+                    {courseFolder && (
+                      <div className="flex items-center gap-1.5 text-[11px] font-mono text-ink-muted bg-canvas/70 px-2 py-1 rounded border border-hairline/70">
+                        <Folder className="w-3 h-3 text-olive shrink-0" />
+                        <span className="truncate flex-1 select-all text-[10.5px]" title={courseFolder}>
+                          {courseFolder}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => handleCopyPath(courseFolder)}
+                          className="px-1.5 py-0.5 rounded hover:bg-surface text-ink-secondary hover:text-ink text-[10px] flex items-center gap-1 shrink-0 transition-colors"
+                          title="Copy course folder path"
+                        >
+                          <Copy className="w-2.5 h-2.5" />
+                          <span>{copiedPath === courseFolder ? "Copied" : "Copy"}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleOpenFile(courseFolder)}
+                          className="px-1.5 py-0.5 rounded hover:bg-surface text-olive hover:text-olive-hover text-[10px] flex items-center gap-1 shrink-0 font-medium transition-colors"
+                          title="Open course folder in File Explorer"
+                        >
+                          <FolderOpen className="w-2.5 h-2.5" />
+                          <span>Reveal</span>
+                        </button>
+                      </div>
+                    )}
 
                     <div className="pt-2 border-t border-hairline flex items-center justify-between text-xs font-mono text-ink-secondary">
                       <span>{courseItemCount} item{courseItemCount !== 1 ? "s" : ""} recorded</span>
@@ -1368,6 +1605,37 @@ export default function AcademicsPage() {
                 <h2 className="font-editorial text-2xl font-normal text-ink">
                   {activeWorkspaceItem.title}
                 </h2>
+
+                {(() => {
+                  const pathStr = getItemStoragePath(activeWorkspaceItem);
+                  if (!pathStr) return null;
+                  return (
+                    <div className="flex items-center gap-1.5 text-[11px] font-mono text-ink-muted bg-canvas/70 px-2 py-1 rounded border border-hairline/70 mt-2 max-w-lg">
+                      <Folder className="w-3 h-3 text-olive shrink-0" />
+                      <span className="truncate flex-1 select-all text-[10.5px]" title={pathStr}>
+                        {pathStr}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleCopyPath(pathStr)}
+                        className="px-1.5 py-0.5 rounded hover:bg-surface text-ink-secondary hover:text-ink text-[10px] flex items-center gap-1 shrink-0 transition-colors"
+                        title="Copy file path"
+                      >
+                        <Copy className="w-2.5 h-2.5" />
+                        <span>{copiedPath === pathStr ? "Copied" : "Copy"}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleOpenFile(pathStr)}
+                        className="px-1.5 py-0.5 rounded hover:bg-surface text-olive hover:text-olive-hover text-[10px] flex items-center gap-1 shrink-0 font-medium transition-colors"
+                        title="Reveal in File Explorer"
+                      >
+                        <FolderOpen className="w-2.5 h-2.5" />
+                        <span>Reveal</span>
+                      </button>
+                    </div>
+                  );
+                })()}
               </div>
               <button
                 onClick={() => setActiveWorkspaceItem(null)}
