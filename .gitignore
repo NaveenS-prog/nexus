@@ -23,6 +23,8 @@ Thumbs.db
 nexus_credentials.json
 *.credentials.json
 academic_store.json
+academic_sources.json
+.agents/
 
 # TypeScript
 *.tsbuildinfo

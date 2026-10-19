@@ -21,9 +21,10 @@ export function classifyAcademicItem(params: {
   attachments?: Array<{ name: string; url?: string; mimeType?: string }>;
   rawCategory?: string;
 }): ClassificationResult {
+  const rawCat = (params.rawCategory || "").toLowerCase();
   const title = (params.title || "").trim().toLowerCase();
-  const desc = ((params.description || "") + " " + (params.instructions || "")).toLowerCase();
-  const fullText = `${title} ${desc}`;
+  const desc = ((params.description || "") + " " + (params.instructions || "") + " " + rawCat).toLowerCase();
+  const fullText = `${title} ${desc} ${rawCat}`;
   const hasDueDate = Boolean(params.dueAt && params.dueAt.trim().length > 0);
   const attachments = params.attachments || [];
 
@@ -76,9 +77,10 @@ export function classifyAcademicItem(params: {
 
   // 2. EXAMINATIONS / TESTS / QUIZZES
   if (
-    /\b(midterm|final exam|quiz|examination|test #?[0-9]|pop quiz|assessment exam|viva)\b/i.test(
+    /\b(midterm|final exam|quiz|examination|test #?[0-9]|pop quiz|assessment exam|viva|question papers?|ia-?[0-9]|internal assessment)\b/i.test(
       title
     ) ||
+    /\b(question papers?|ia-?[0-9]|internal assessment)\b/i.test(rawCat) ||
     (/\b(exam|midterm|final exam)\b/i.test(desc) && hasDueDate)
   ) {
     return {
@@ -93,9 +95,10 @@ export function classifyAcademicItem(params: {
 
   // 3. LAB SESSIONS & PRACTICAL EXPERIMENTS
   if (
-    /\b(lab|laboratory|experiment|practicum|hands-on|wireshark|packet capture|circuit simulator)\b/i.test(
+    /\b(lab|laboratory|experiment|experiments|practicum|hands-on|wireshark|packet capture|circuit simulator)\b/i.test(
       title
     ) ||
+    /\b(lab|labs|experiments|lab experiments)\b/i.test(rawCat) ||
     (/\blab [0-9]+\b/i.test(fullText) && (hasDueDate || hasSubmissionVerbs))
   ) {
     return {
@@ -110,10 +113,10 @@ export function classifyAcademicItem(params: {
 
   // 4. MULTI-PHASE PROJECTS & CAPSTONES
   if (
-    /\b(term project|capstone|milestone|project phase|course project|semester project|group project)\b/i.test(
+    /\b(term project|capstone|milestone|project phase|course project|semester project|group project|mini project)\b/i.test(
       fullText
     ) &&
-    (hasDueDate || hasSubmissionVerbs)
+    (hasDueDate || hasSubmissionVerbs || rawCat.includes("project"))
   ) {
     return {
       type: "PROJECT",
@@ -142,8 +145,49 @@ export function classifyAcademicItem(params: {
     };
   }
 
-  // 6. GENERAL ASSIGNMENT (has due date or explicit submission requirement)
-  if (hasDueDate || hasSubmissionVerbs || /\b(homework|hw#?[0-9]|assignment|problem set|worksheet|write a|essay)\b/i.test(title)) {
+  // 6. LECTURE MATERIAL (slides, class recordings, lecture notes)
+  if (
+    hasSlideAttachments ||
+    /\b(letcures? notes?|lecture notes?|lecture slides?|week [0-9] slides?|session slides?|class deck|unit [0-9]|unit-[0-9]|unit_[0-9]|presentation slides?)\b/i.test(
+      rawCat
+    ) ||
+    /\b(lecture [0-9]|lecture slides|lecture notes|letcures notes|week [0-9] slides|session slides|class deck|video recording|presentation slides)\b/i.test(
+      title
+    ) ||
+    /\b(slides attached|recording available|notes for today's lecture)\b/i.test(desc)
+  ) {
+    return {
+      type: "LECTURE_MATERIAL",
+      confidence: 0.93,
+      reason: "Identified lecture slide presentation or class notes to organize in Drive",
+      suggestedAction: "ORGANIZE_TO_DRIVE",
+      priority: "low",
+    };
+  }
+
+  // 7. REFERENCE MATERIAL (syllabus, reference books, formulas, cheat sheet)
+  if (
+    /\b(reference book|reference books|reference material|textbooks?|syllabus)\b/i.test(rawCat) ||
+    /\b(syllabus|formula sheet|cheat sheet|handbook|reference manual|course guidelines|office hours schedule|faq|reference book)\b/i.test(
+      fullText
+    )
+  ) {
+    return {
+      type: "REFERENCE_MATERIAL",
+      confidence: 0.91,
+      reason: "Course reference documentation or reference manual",
+      suggestedAction: "ORGANIZE_TO_DRIVE",
+      priority: "low",
+    };
+  }
+
+  // 8. GENERAL ASSIGNMENT (has due date or explicit submission requirement)
+  if (
+    /\b(assignments?|homework|tasks?)\b/i.test(rawCat) ||
+    hasDueDate ||
+    hasSubmissionVerbs ||
+    /\b(homework|hw#?[0-9]|assignment|problem set|worksheet|write a|essay)\b/i.test(title)
+  ) {
     // Check if urgent
     let priority: AcademicPriority = "medium";
     if (params.dueAt) {
@@ -159,38 +203,6 @@ export function classifyAcademicItem(params: {
       suggestedAction: "START_WORKSPACE",
       priority,
       suggestedEstimatedMinutes: 60,
-    };
-  }
-
-  // 7. LECTURE MATERIAL (slides, class recordings, lecture notes)
-  if (
-    hasSlideAttachments ||
-    /\b(lecture [0-9]|lecture slides|lecture notes|week [0-9] slides|session slides|class deck|video recording|presentation slides)\b/i.test(
-      title
-    ) ||
-    /\b(slides attached|recording available|notes for today's lecture)\b/i.test(desc)
-  ) {
-    return {
-      type: "LECTURE_MATERIAL",
-      confidence: 0.93,
-      reason: "Identified lecture slide presentation or class notes to organize in Drive",
-      suggestedAction: "ORGANIZE_TO_DRIVE",
-      priority: "low",
-    };
-  }
-
-  // 8. REFERENCE MATERIAL (syllabus, formulas, cheat sheet, reference guide)
-  if (
-    /\b(syllabus|formula sheet|cheat sheet|handbook|reference manual|course guidelines|office hours schedule|faq)\b/i.test(
-      fullText
-    )
-  ) {
-    return {
-      type: "REFERENCE_MATERIAL",
-      confidence: 0.89,
-      reason: "Course reference documentation or reference manual",
-      suggestedAction: "ORGANIZE_TO_DRIVE",
-      priority: "low",
     };
   }
 

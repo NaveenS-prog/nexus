@@ -89,27 +89,30 @@ export function inferMetadataFromFile(
   let workingTitle = rawBaseName.replace(/[_\-]+/g, " ").trim();
   const missingFields: string[] = [];
 
+  let folderCategoryHint = "";
+
   // 1. Infer from directory hierarchy if file is within a subfolder
   if (inboxRootDir) {
     const rel = path.relative(inboxRootDir, resolvedPath);
     const parts = rel.split(path.sep);
 
     if (parts.length > 1) {
-      // Iterate through directory segments from top down
+      // Top directory under root is typically the Course (e.g. "Operating Systems", "Python Programming", "Design Thinking")
       for (let i = 0; i < parts.length - 1; i++) {
         const segment = parts[i].trim();
         const lowerSegment = segment.toLowerCase();
 
         if (COMMON_GENERIC_FOLDERS.has(lowerSegment)) {
+          folderCategoryHint += " " + segment;
           continue;
         }
 
         // Check if directory segment contains course code
         const { code, cleanedText } = extractCourseCode(segment);
-        if (code) {
+        if (code && !inferredCourseName) {
           inferredCourseCode = code;
           inferredCourseName = cleanedText || segment;
-          break;
+          continue;
         }
 
         if (!inferredCourseName && segment.length >= 3) {
@@ -117,7 +120,9 @@ export function inferMetadataFromFile(
           inferredCourseName = courseInfo.name;
           if (courseInfo.courseCode) inferredCourseCode = courseInfo.courseCode;
           if (courseInfo.section) inferredSection = courseInfo.section;
-          break;
+        } else {
+          // Additional subdirectories act as category hints (e.g. "assignment", "Letcures notes", "Question papers")
+          folderCategoryHint += " " + segment;
         }
       }
     }
@@ -197,6 +202,7 @@ export function inferMetadataFromFile(
     description: extractedText ? extractedText.substring(0, 600) : fileName,
     instructions: extractedText ? extractedText.substring(0, 600) : "",
     dueAt: inferredDueDate,
+    rawCategory: folderCategoryHint.trim(),
     attachments: [{ name: fileName, mimeType }],
   });
 

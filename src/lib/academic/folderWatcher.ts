@@ -6,9 +6,11 @@ import fs from "fs";
 import path from "path";
 import os from "os";
 import { ingestLocalFile, FileIngestResult } from "./fileIngestion";
+import { getWatchSources } from "./sourceManager";
 
 export interface FolderWatcherConfig {
   inboxDir?: string;
+  watchDirs?: string[];
   autoOrganizeDrive?: boolean;
   stabilityCheckIntervalMs?: number;
   maxStabilityWaitMs?: number;
@@ -20,6 +22,7 @@ export interface FolderWatcherConfig {
 export interface FolderWatcherStatus {
   isWatching: boolean;
   inboxDir: string;
+  watchDirs: string[];
   processedCount: number;
   lastProcessedAt?: string;
   activeProcessingFiles: string[];
@@ -47,6 +50,7 @@ class AcademicFolderWatcher {
   private lastProcessedAt?: string;
   private activeProcessing = new Set<string>();
   private knownFiles = new Set<string>();
+  private watchDirs: string[];
   private fsWatchers: fs.FSWatcher[] = [];
   private debounceTimers = new Map<string, NodeJS.Timeout>();
   private config: FolderWatcherConfig;
@@ -54,16 +58,38 @@ class AcademicFolderWatcher {
   constructor(config?: FolderWatcherConfig) {
     this.config = config || {};
     this.inboxDir = this.config.inboxDir || getDefaultAcademicInboxDir();
+
+    if (this.config.watchDirs && this.config.watchDirs.length > 0) {
+      this.watchDirs = this.config.watchDirs.map((d) => path.resolve(d));
+    } else {
+      const sources = getWatchSources().filter((s) => s.enabled);
+      this.watchDirs = sources.map((s) => path.resolve(s.path));
+      const resolvedInbox = path.resolve(this.inboxDir);
+      if (!this.watchDirs.includes(resolvedInbox)) {
+        this.watchDirs.push(resolvedInbox);
+      }
+    }
   }
 
   public getStatus(): FolderWatcherStatus {
     return {
       isWatching: this.isWatching,
       inboxDir: this.inboxDir,
+      watchDirs: this.watchDirs,
       processedCount: this.processedCount,
       lastProcessedAt: this.lastProcessedAt,
       activeProcessingFiles: Array.from(this.activeProcessing),
     };
+  }
+
+  private getRootDirForFile(filePath: string): string {
+    const resolved = path.resolve(filePath).toLowerCase();
+    for (const d of this.watchDirs) {
+      if (resolved.startsWith(d.toLowerCase())) {
+        return d;
+      }
+    }
+    return this.inboxDir;
   }
 
   /**
@@ -203,7 +229,8 @@ class AcademicFolderWatcher {
 
     try {
       this.activeProcessing.add(filePath);
-      this.log(`Analyzing file: ${path.relative(this.inboxDir, filePath)}`);
+      const rootDir = this.getRootDirForFile(filePath);
+      this.log(`Analyzing file: ${path.relative(rootDir, filePath)}`);
 
       // 1. Wait until file write has completed
       const isStable = await this.waitForFileStability(filePath);
@@ -214,7 +241,7 @@ class AcademicFolderWatcher {
 
       // 2. Ingest file into NEXUS pipeline
       const result = await ingestLocalFile(filePath, {
-        inboxRootDir: this.inboxDir,
+        inboxRootDir: rootDir,
         autoOrganizeDrive: this.config.autoOrganizeDrive,
       });
 
@@ -241,44 +268,49 @@ class AcademicFolderWatcher {
   }
 
   /**
-   * Starts watching the configured folder
+   * Starts watching the configured folders
    */
   public async start(): Promise<void> {
     if (this.isWatching) {
-      this.log(`Watcher is already active on: ${this.inboxDir}`);
+      this.log(`Watcher is already active.`);
       return;
     }
 
-    this.ensureDirectory();
     this.isWatching = true;
-    this.log(`Starting watcher on: ${this.inboxDir}`);
+    this.log(`Starting watcher across ${this.watchDirs.length} directories`);
 
-    // Initial scan of any real files already present
-    await this.scanExistingFiles(this.inboxDir);
+    for (const dir of this.watchDirs) {
+      if (!fs.existsSync(dir)) {
+        try {
+          fs.mkdirSync(dir, { recursive: true });
+        } catch {}
+      }
+      this.log(`Monitoring directory: ${dir}`);
+      await this.scanExistingFiles(dir);
 
-    try {
-      // Primary watcher with recursive flag (Supported on Linux / Windows / macOS)
-      const watcher = fs.watch(
-        this.inboxDir,
-        { recursive: true },
-        (eventType, filename) => {
-          if (!filename) return;
-          const fullPath = path.join(this.inboxDir, filename);
-          this.queueFileProcessing(fullPath);
-        }
-      );
+      try {
+        const watcher = fs.watch(
+          dir,
+          { recursive: true },
+          (eventType, filename) => {
+            if (!filename) return;
+            const fullPath = path.join(dir, filename);
+            this.queueFileProcessing(fullPath);
+          }
+        );
 
-      watcher.on("error", (err) => {
-        this.log(`Watcher error: ${err.message}`);
-      });
+        watcher.on("error", (err) => {
+          this.log(`Watcher error on ${dir}: ${err.message}`);
+        });
 
-      this.fsWatchers.push(watcher);
-    } catch (err: any) {
-      this.log(`Native recursive watch fallback to directory traversal: ${err.message}`);
-      this.setupFallbackDirectoryWatchers(this.inboxDir);
+        this.fsWatchers.push(watcher);
+      } catch (err: any) {
+        this.log(`Recursive watch fallback for ${dir}: ${err.message}`);
+        this.setupFallbackDirectoryWatchers(dir);
+      }
     }
 
-    this.log(`Watcher ready. Place real course files or folders into: ${this.inboxDir}`);
+    this.log(`Watchers active across ${this.watchDirs.length} directories.`);
   }
 
   private setupFallbackDirectoryWatchers(dir: string) {

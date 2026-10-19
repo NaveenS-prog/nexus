@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // ==============================================================================
-// NEXUS Academic Inbox Watcher - Standalone Linux / Desktop Service
+// NEXUS Academic Inbox Watcher - Multi-Folder Live Ingestion Service
 // ==============================================================================
 
 import fs from "fs";
@@ -10,13 +10,13 @@ import crypto from "crypto";
 
 // Parse CLI arguments
 const args = process.argv.slice(2);
-let customDir = null;
+let customDirs = [];
 let serverUrl = "http://localhost:3000";
 let scanOnce = false;
 
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--dir" || args[i] === "-d" || args[i] === "--inbox") {
-    customDir = args[i + 1];
+    customDirs.push(args[i + 1]);
     i++;
   } else if (args[i] === "--server" || args[i] === "-s") {
     serverUrl = args[i + 1];
@@ -26,11 +26,50 @@ for (let i = 0; i < args.length; i++) {
   }
 }
 
-const inboxDir = customDir
-  ? path.resolve(customDir)
-  : process.env.NEXUS_ACADEMIC_INBOX_DIR
+// Gather all watch directories
+const watchDirsSet = new Set();
+
+// 1. From CLI
+for (const d of customDirs) {
+  if (d) watchDirsSet.add(path.resolve(d));
+}
+
+// 2. From academic_sources.json
+const sourcesConfigPath = path.join(process.cwd(), "academic_sources.json");
+if (fs.existsSync(sourcesConfigPath)) {
+  try {
+    const json = JSON.parse(fs.readFileSync(sourcesConfigPath, "utf-8"));
+    if (Array.isArray(json.sources)) {
+      for (const s of json.sources) {
+        if (s.enabled !== false && s.path) {
+          watchDirsSet.add(path.resolve(s.path));
+        }
+      }
+    }
+  } catch {}
+}
+
+// 3. From environment variable
+if (process.env.NEXUS_ACADEMIC_WATCH_DIRS) {
+  const envDirs = process.env.NEXUS_ACADEMIC_WATCH_DIRS.split(/[;,]/).map((d) => d.trim());
+  for (const ed of envDirs) {
+    if (ed) watchDirsSet.add(path.resolve(ed));
+  }
+}
+
+// 4. Default SEM 3 on D: drive if present
+const sem3Path = process.platform === "win32" ? "D:\\SEM 3" : path.join(os.homedir(), "SEM 3");
+if (fs.existsSync(sem3Path)) {
+  watchDirsSet.add(path.resolve(sem3Path));
+}
+
+// 5. Default ~/NEXUS Academic Inbox
+const defaultInbox = process.env.NEXUS_ACADEMIC_INBOX_DIR
   ? path.resolve(process.env.NEXUS_ACADEMIC_INBOX_DIR)
   : path.join(os.homedir(), "NEXUS Academic Inbox");
+watchDirsSet.add(path.resolve(defaultInbox));
+
+const watchDirs = Array.from(watchDirsSet);
 
 const IGNORED_EXTENSIONS = new Set([
   ".crdownload",
@@ -40,9 +79,22 @@ const IGNORED_EXTENSIONS = new Set([
   ".lock",
 ]);
 
+const IGNORED_DIR_NAMES = new Set([
+  ".git",
+  ".vscode",
+  ".idea",
+  "node_modules",
+  "__pycache__",
+  ".next",
+  "dist",
+  "build",
+  "env",
+  "venv",
+]);
+
 const activeProcessing = new Set();
 const processedHashes = new Set();
-let watcher = null;
+const watchers = [];
 
 // ANSI Terminal Colors
 const C = {
@@ -80,7 +132,7 @@ function inferMimeType(filename) {
   if (lower.endsWith(".java")) return "text/x-java-source";
   if (lower.endsWith(".c") || lower.endsWith(".cpp")) return "text/x-c";
   if (lower.endsWith(".zip")) return "application/zip";
-  if (lower.endsWith(".txt")) return "text/plain";
+  if (lower.endsWith(".txt") || lower.endsWith(".md")) return "text/plain";
   if (lower.endsWith(".png")) return "image/png";
   if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
   return "application/octet-stream";
@@ -103,9 +155,9 @@ function extractTextSnippet(buffer) {
 /**
  * Infers metadata from file and path hierarchy
  */
-function inferFileDetails(filePath) {
+function inferFileDetails(filePath, rootDir) {
   const resolved = path.resolve(filePath);
-  const rel = path.relative(inboxDir, resolved);
+  const rel = rootDir ? path.relative(rootDir, resolved) : path.basename(resolved);
   const parts = rel.split(path.sep);
   const baseName = path.basename(resolved);
   const ext = path.extname(resolved);
@@ -113,21 +165,29 @@ function inferFileDetails(filePath) {
 
   let courseName = "";
   let courseCode = null;
+  let categoryHint = "";
   let missingFields = [];
 
-  // Check directory path
+  // 1. Directory hierarchy inspection
   if (parts.length > 1) {
-    const parentDir = parts[parts.length - 2].trim();
-    const codeMatch = parentDir.match(/\b([A-Z]{2,5}\s?[-_ ]?\s?[0-9]{2,4}[A-Z]?)\b/i);
-    if (codeMatch) {
-      courseCode = codeMatch[1].replace(/[-_ ]/g, "").toUpperCase();
-      courseName = parentDir;
-    } else if (parentDir.length >= 3 && !["inbox", "files", "materials", "assignments"].includes(parentDir.toLowerCase())) {
-      courseName = parentDir;
+    // Top directory under root is Course Name
+    const topDir = parts[0].trim();
+    if (topDir.length >= 2 && !["inbox", "files", "materials", "assignments", "desktop", "downloads"].includes(topDir.toLowerCase())) {
+      courseName = topDir;
+    }
+
+    // Check all segments for course codes
+    for (const segment of parts.slice(0, -1)) {
+      const codeMatch = segment.match(/\b([A-Z]{2,5}\s?[-_ ]?\s?[0-9]{2,4}[A-Z]?)\b/i);
+      if (codeMatch && !courseCode) {
+        courseCode = codeMatch[1].replace(/[-_ ]/g, "").toUpperCase();
+        if (!courseName) courseName = courseCode;
+      }
+      categoryHint += " " + segment.toLowerCase();
     }
   }
 
-  // Check filename for course code if still empty
+  // 2. Check filename for course code if still missing
   if (!courseName) {
     const codeMatch = titleRaw.match(/\b([A-Z]{2,5}\s?[-_ ]?\s?[0-9]{2,4}[A-Z]?)\b/i);
     if (codeMatch) {
@@ -153,6 +213,23 @@ function inferFileDetails(filePath) {
 
   title = title.replace(/^[:\-–\s]+|[:\-–\s]+$/g, "").trim() || titleRaw;
 
+  // Infer item type from path hints and filename
+  let itemType = "ASSIGNMENT";
+  const pathAndTitle = `${categoryHint} ${title.toLowerCase()}`;
+  if (/\b(question papers?|ia-?[0-9]|internal assessment|midterm|final exam|quiz|examination)\b/i.test(pathAndTitle)) {
+    itemType = "EXAM";
+  } else if (/\b(lab|labs|experiments?|lab experiments?)\b/i.test(pathAndTitle)) {
+    itemType = "LAB";
+  } else if (/\b(term project|capstone|mini project|projects?)\b/i.test(pathAndTitle)) {
+    itemType = "PROJECT";
+  } else if (/\b(letcures? notes?|lecture notes?|lecture slides?|slides?|class deck|unit [0-9]|unit-[0-9]|unit_[0-9])\b/i.test(pathAndTitle)) {
+    itemType = "LECTURE_MATERIAL";
+  } else if (/\b(reference book|reference books|reference material|textbooks?|syllabus)\b/i.test(pathAndTitle)) {
+    itemType = "REFERENCE_MATERIAL";
+  } else if (/\b(assignments?|homework|tasks?)\b/i.test(pathAndTitle)) {
+    itemType = "ASSIGNMENT";
+  }
+
   let needsConfirmation = false;
   if (!courseName) {
     courseName = "Pending Course Assignment";
@@ -165,6 +242,7 @@ function inferFileDetails(filePath) {
     courseCode,
     title,
     dueAt,
+    itemType,
     needsConfirmation,
     missingFields,
   };
@@ -208,18 +286,23 @@ async function waitForStability(filePath) {
 /**
  * Ingests file via NEXUS API or local storage fallback
  */
-async function processFile(filePath) {
+async function processFile(filePath, rootDir) {
   if (activeProcessing.has(filePath)) return;
 
   try {
     activeProcessing.add(filePath);
     const fileName = path.basename(filePath);
 
-    if (fileName.startsWith(".") || fileName.startsWith("~$") || IGNORED_EXTENSIONS.has(path.extname(filePath).toLowerCase())) {
+    if (
+      fileName.startsWith(".") ||
+      fileName.startsWith("~$") ||
+      IGNORED_EXTENSIONS.has(path.extname(filePath).toLowerCase())
+    ) {
       return;
     }
 
-    log(`File detected: ${path.relative(inboxDir, filePath)}`, C.cyan);
+    const relPath = rootDir ? path.relative(rootDir, filePath) : fileName;
+    log(`File detected: ${relPath}`, C.cyan);
 
     const isStable = await waitForStability(filePath);
     if (!isStable) {
@@ -235,7 +318,7 @@ async function processFile(filePath) {
       return;
     }
 
-    const details = inferFileDetails(filePath);
+    const details = inferFileDetails(filePath, rootDir);
     const mimeType = inferMimeType(fileName);
     const textSnippet = extractTextSnippet(buffer);
 
@@ -267,7 +350,8 @@ async function processFile(filePath) {
         contentHash: hash,
         needsConfirmation: details.needsConfirmation,
         missingFields: details.missingFields,
-        ingestedVia: "linux_folder_watcher",
+        inferredType: details.itemType,
+        ingestedVia: "folder_watcher",
         ingestedAt: new Date().toISOString(),
       },
     };
@@ -287,13 +371,13 @@ async function processFile(filePath) {
         processedHashes.add(hash);
 
         if (details.needsConfirmation) {
-          log(`[CONFIRMATION REQUIRED] Ingested "${details.title}" with missing course metadata. Please review in NEXUS.`, C.yellow);
+          log(`[CONFIRMATION REQUIRED] Ingested "${details.title}" with missing course metadata. Review in NEXUS.`, C.yellow);
         } else {
-          log(`[SUCCESS] Ingested "${details.title}" into course "${details.courseName}" (Type: ${json.item?.type || "ACADEMIC"}).`, C.green);
+          log(`[SUCCESS] Ingested "${details.title}" into course "${details.courseName}" (Type: ${json.item?.type || details.itemType}).`, C.green);
         }
       }
     } catch {
-      // Server not running, use local storage fallback
+      // Server offline, fall back to direct file ingestion
     }
 
     if (!ingestedSuccessfully) {
@@ -306,7 +390,6 @@ async function processFile(filePath) {
         } catch {}
       }
 
-      // Check if hash already exists in local store
       const exists = (store.items || []).some((i) => i.sourceExternalId === `hash:${hash}`);
       if (exists) {
         processedHashes.add(hash);
@@ -317,7 +400,6 @@ async function processFile(filePath) {
       const itemId = crypto.randomUUID();
       const courseId = crypto.randomUUID();
 
-      // Find or create course
       let targetCourse = (store.courses || []).find((c) => c.name.toLowerCase() === details.courseName.toLowerCase());
       if (!targetCourse) {
         targetCourse = {
@@ -337,7 +419,7 @@ async function processFile(filePath) {
         source: "FILE_IMPORT",
         sourceExternalId: `hash:${hash}`,
         sourceUrl: `file://${path.resolve(filePath)}`,
-        type: "ASSIGNMENT",
+        type: details.itemType,
         courseId: targetCourse.id,
         courseName: targetCourse.name,
         courseCode: targetCourse.courseCode,
@@ -376,7 +458,7 @@ async function processFile(filePath) {
       if (details.needsConfirmation) {
         log(`[OFFLINE SAVED - CONFIRMATION REQUIRED] "${details.title}" saved. Open NEXUS to confirm course.`, C.yellow);
       } else {
-        log(`[OFFLINE SAVED] "${details.title}" saved to local store in "${targetCourse.name}".`, C.green);
+        log(`[OFFLINE SAVED] "${details.title}" saved to "${targetCourse.name}" (${details.itemType}).`, C.green);
       }
     }
   } catch (err) {
@@ -389,65 +471,87 @@ async function processFile(filePath) {
 /**
  * Scans folder recursively
  */
-async function scanDirectory(dir) {
+async function scanDirectory(dir, rootDir) {
   if (!fs.existsSync(dir)) return;
-  const entries = fs.readdirSync(dir, { withFileTypes: true });
+  let entries = [];
+  try {
+    entries = fs.readdirSync(dir, { withFileTypes: true });
+  } catch {
+    return;
+  }
+
   for (const entry of entries) {
     const full = path.join(dir, entry.name);
-    if (entry.isDirectory() && !entry.name.startsWith(".")) {
-      await scanDirectory(full);
+    if (entry.isDirectory()) {
+      if (entry.name.startsWith(".") || IGNORED_DIR_NAMES.has(entry.name.toLowerCase())) {
+        continue;
+      }
+      await scanDirectory(full, rootDir);
     } else if (entry.isFile()) {
-      await processFile(full);
+      await processFile(full, rootDir);
     }
   }
 }
 
-// Ensure Inbox Folder Exists
-if (!fs.existsSync(inboxDir)) {
-  fs.mkdirSync(inboxDir, { recursive: true });
-  log(`Created academic inbox directory: ${inboxDir}`, C.green);
-}
-
 console.log(`${C.bold}${C.green}======================================================${C.reset}`);
-console.log(`${C.bold} NEXUS Academic Inbox Watcher (Linux Desktop Edition)${C.reset}`);
+console.log(`${C.bold} NEXUS Academic Multi-Folder Watcher                 ${C.reset}`);
 console.log(`${C.bold}${C.green}======================================================${C.reset}`);
-console.log(`Watched Directory : ${C.cyan}${inboxDir}${C.reset}`);
 console.log(`Ingestion Target  : ${C.cyan}${serverUrl}/api/academic/ingest${C.reset}`);
 console.log(`Deduplication     : ${C.cyan}SHA-256 Content Hash Verification${C.reset}`);
-console.log(`Status            : ${C.green}Active & Waiting for Real Academic Files${C.reset}\n`);
+console.log(`Watch Folders (${watchDirs.length}):`);
+for (const dir of watchDirs) {
+  console.log(`  - ${C.cyan}${dir}${C.reset} ${fs.existsSync(dir) ? C.green + "[ACTIVE]" + C.reset : C.yellow + "[CREATING]" + C.reset}`);
+}
+console.log(`Status            : ${C.green}Monitoring Real Coursework Folders${C.reset}\n`);
 
-// Initial scan
-log("Running initial scan for existing files...", C.dim);
-await scanDirectory(inboxDir);
+// Ensure directories exist and scan
+for (const dir of watchDirs) {
+  if (!fs.existsSync(dir)) {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      log(`Created directory: ${dir}`, C.green);
+    } catch {}
+  }
+  log(`Scanning: ${dir}...`, C.dim);
+  await scanDirectory(dir, dir);
+}
 
 if (scanOnce) {
   log("Single scan (--once) finished. Exiting.", C.green);
   process.exit(0);
 }
 
-log("Folder watcher is actively monitoring. (Press Ctrl+C to stop)\n", C.cyan);
+log("Watchers are actively monitoring. Drop any file to ingest automatically.\n", C.green);
 
-// Start native recursive watcher
-try {
-  watcher = fs.watch(inboxDir, { recursive: true }, (eventType, filename) => {
-    if (!filename) return;
-    const fullPath = path.join(inboxDir, filename);
-    if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
-      processFile(fullPath);
-    }
-  });
-} catch (e) {
-  log(`Fallback to polling watcher: ${e.message}`, C.yellow);
+// Start native recursive watchers for each directory
+for (const dir of watchDirs) {
+  if (!fs.existsSync(dir)) continue;
+  try {
+    const w = fs.watch(dir, { recursive: true }, (eventType, filename) => {
+      if (!filename) return;
+      const fullPath = path.join(dir, filename);
+      if (fs.existsSync(fullPath) && fs.statSync(fullPath).isFile()) {
+        processFile(fullPath, dir);
+      }
+    });
+    watchers.push(w);
+  } catch (e) {
+    log(`Recursive watch error on ${dir}: ${e.message}`, C.yellow);
+  }
 }
 
 // Graceful shutdown
 process.on("SIGINT", () => {
-  console.log(`\n${C.yellow}Shutting down NEXUS Academic Watcher...${C.reset}`);
-  if (watcher) watcher.close();
+  console.log(`\n${C.yellow}Shutting down NEXUS Watcher...${C.reset}`);
+  for (const w of watchers) {
+    try { w.close(); } catch {}
+  }
   process.exit(0);
 });
 
 process.on("SIGTERM", () => {
-  if (watcher) watcher.close();
+  for (const w of watchers) {
+    try { w.close(); } catch {}
+  }
   process.exit(0);
 });

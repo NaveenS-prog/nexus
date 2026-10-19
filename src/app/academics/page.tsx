@@ -105,6 +105,14 @@ export default function AcademicsPage() {
   const [confirmType, setConfirmType] = useState<AcademicItemType>("ASSIGNMENT");
   const [isSubmittingConfirm, setIsSubmittingConfirm] = useState(false);
 
+  // Watched Folders state
+  const [watchSources, setWatchSources] = useState<Array<{ id: string; path: string; label: string; enabled: boolean; lastScannedAt?: string; itemCount?: number }>>([]);
+  const [isScanningSources, setIsScanningSources] = useState(false);
+  const [showAddFolderModal, setShowAddFolderModal] = useState(false);
+  const [newFolderPath, setNewFolderPath] = useState("");
+  const [newFolderLabel, setNewFolderLabel] = useState("");
+  const [isAddingSource, setIsAddingSource] = useState(false);
+
   // Active AI Workspace modal
   const [activeWorkspaceItem, setActiveWorkspaceItem] = useState<AcademicItem | null>(null);
   const [workspaceAgentLoading, setWorkspaceAgentLoading] = useState(false);
@@ -223,6 +231,77 @@ export default function AcademicsPage() {
       setStatusMessage(err.message || "Failed to confirm metadata.");
     } finally {
       setIsSubmittingConfirm(false);
+    }
+  };
+
+  // Load Watched Sources
+  const loadWatchSources = useCallback(async () => {
+    try {
+      const res = await fetch("/api/academic/sources");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.sources) setWatchSources(data.sources);
+      }
+    } catch (err) {
+      console.error("Failed to load watch sources:", err);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadWatchSources();
+  }, [loadWatchSources]);
+
+  // Trigger Immediate Scan across all Watched Folders
+  const handleScanSources = async () => {
+    setIsScanningSources(true);
+    try {
+      const res = await fetch("/api/academic/scan", { method: "POST" });
+      const data = await res.json();
+      if (data.success) {
+        setStatusMessage(data.message);
+        await loadAcademicData();
+        await loadWatchSources();
+      } else {
+        setStatusMessage(data.error || "Failed to scan sources.");
+      }
+    } catch (err: any) {
+      setStatusMessage(err.message || "Scan failed.");
+    } finally {
+      setIsScanningSources(false);
+      setTimeout(() => setStatusMessage(null), 6000);
+    }
+  };
+
+  // Add New Watched Folder
+  const handleAddFolder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newFolderPath.trim()) return;
+    setIsAddingSource(true);
+    try {
+      const res = await fetch("/api/academic/sources", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          action: "add",
+          path: newFolderPath.trim(),
+          label: newFolderLabel.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setNewFolderPath("");
+        setNewFolderLabel("");
+        setShowAddFolderModal(false);
+        await loadWatchSources();
+        setStatusMessage(`Added folder: ${data.source.label}. Running scan...`);
+        await handleScanSources();
+      } else {
+        setStatusMessage(data.error || "Failed to add folder.");
+      }
+    } catch (err: any) {
+      setStatusMessage(err.message || "Failed to add folder.");
+    } finally {
+      setIsAddingSource(false);
     }
   };
 
@@ -385,6 +464,27 @@ export default function AcademicsPage() {
           <Button
             size="sm"
             variant="outline"
+            disabled={isScanningSources}
+            onClick={handleScanSources}
+            className="text-xs h-8 border-hairline hover:border-olive/50 text-ink-secondary hover:text-ink flex items-center gap-1.5"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 text-olive ${isScanningSources ? "animate-spin" : ""}`} />
+            <span>{isScanningSources ? "Scanning Folders..." : "Scan Folders"}</span>
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => setShowAddFolderModal(true)}
+            className="text-xs h-8 border-hairline hover:border-olive/50 text-ink-secondary hover:text-ink flex items-center gap-1.5"
+          >
+            <Folder className="w-3.5 h-3.5 text-olive" />
+            <span>Watch Folder</span>
+          </Button>
+
+          <Button
+            size="sm"
+            variant="outline"
             onClick={handleGeneratePairingCode}
             disabled={isGeneratingPairing}
             className="text-xs h-8 border-hairline hover:border-olive/50 text-ink-secondary hover:text-ink flex items-center gap-1.5"
@@ -403,6 +503,39 @@ export default function AcademicsPage() {
           </Button>
         </div>
       </div>
+
+      {/* Live Watched Sources Strip */}
+      {watchSources.length > 0 && (
+        <div className="p-3 bg-surface border border-hairline rounded-md text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-2 shadow-xs">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-mono text-[10px] text-ink-muted uppercase">Watched Folders:</span>
+            {watchSources.map((s) => (
+              <span
+                key={s.id}
+                className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded bg-canvas border border-hairline text-ink text-[11px] font-mono"
+              >
+                <Folder className="w-3 h-3 text-olive" />
+                <span className="font-semibold">{s.label}</span>
+                <span className="text-[9px] text-emerald-700 bg-emerald-50 px-1 py-0.5 rounded border border-emerald-200">
+                  {s.enabled ? "LIVE" : "PAUSED"}
+                </span>
+                {s.itemCount !== undefined && s.itemCount > 0 && (
+                  <span className="text-[10px] text-ink-muted">({s.itemCount} files)</span>
+                )}
+              </span>
+            ))}
+          </div>
+
+          <button
+            onClick={handleScanSources}
+            disabled={isScanningSources}
+            className="text-[11px] font-mono text-olive hover:underline flex items-center gap-1 self-start sm:self-auto shrink-0"
+          >
+            <RefreshCw className={`w-3 h-3 ${isScanningSources ? "animate-spin" : ""}`} />
+            <span>Sync now</span>
+          </button>
+        </div>
+      )}
 
       {/* Top Level Summary Metrics */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
@@ -894,6 +1027,82 @@ export default function AcademicsPage() {
             >
               Done
             </Button>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL: ADD WATCH FOLDER */}
+      {showAddFolderModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-surface border border-hairline rounded-lg max-w-md w-full p-6 space-y-4 shadow-lg">
+            <div className="flex items-center justify-between border-b border-hairline pb-3">
+              <div className="flex items-center gap-2">
+                <Folder className="w-4 h-4 text-olive" />
+                <h3 className="font-editorial text-lg font-medium text-ink">
+                  Add Watched Folder
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAddFolderModal(false)}
+                className="text-ink-muted hover:text-ink text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-ink-secondary leading-relaxed">
+              Enter any folder on your machine (e.g. <code className="bg-canvas px-1 py-0.5 rounded border border-hairline text-ink font-mono text-[10px]">D:\SEM 3</code>). NEXUS will automatically monitor it and organize all course materials into the Academic Operations dashboard.
+            </p>
+
+            <form onSubmit={handleAddFolder} className="space-y-3 text-xs">
+              <div>
+                <label className="block text-ink-secondary font-medium mb-1">
+                  Folder Path *
+                </label>
+                <input
+                  type="text"
+                  required
+                  placeholder="e.g. D:\SEM 3 or ~/University"
+                  value={newFolderPath}
+                  onChange={(e) => setNewFolderPath(e.target.value)}
+                  className="w-full bg-canvas border border-hairline rounded-md p-2 text-xs text-ink outline-none focus:border-olive font-mono"
+                />
+              </div>
+
+              <div>
+                <label className="block text-ink-secondary font-medium mb-1">
+                  Label (Optional)
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. Semester 3 Coursework"
+                  value={newFolderLabel}
+                  onChange={(e) => setNewFolderLabel(e.target.value)}
+                  className="w-full bg-canvas border border-hairline rounded-md p-2 text-xs text-ink outline-none focus:border-olive"
+                />
+              </div>
+
+              <div className="pt-3 border-t border-hairline flex items-center justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowAddFolderModal(false)}
+                  className="text-xs border-hairline"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  size="sm"
+                  disabled={isAddingSource || !newFolderPath.trim()}
+                  className="bg-olive hover:bg-olive-hover text-white text-xs"
+                >
+                  {isAddingSource ? "Adding..." : "Add & Scan"}
+                </Button>
+              </div>
+            </form>
           </div>
         </div>
       )}
