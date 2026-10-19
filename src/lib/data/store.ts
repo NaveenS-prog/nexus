@@ -514,6 +514,20 @@ export function useNexusStore() {
         if (data.accounts) {
           memoryState.connectedAccounts = data.accounts;
           localStorage.setItem(STORAGE_KEY_CONNECTED_ACCOUNTS, JSON.stringify(data.accounts));
+
+          if (data.accounts.length === 0) {
+            memoryState.needsReauth = false;
+            memoryState.syncError = undefined;
+            memoryState.lastSyncedText = "Never";
+            memoryState.integrations = memoryState.integrations.map((integ) =>
+              integ.provider === "google_calendar" || integ.provider === "google_tasks"
+                ? { ...integ, isConnected: false, itemCount: 0, lastSyncedAt: "Never" }
+                : integ
+            );
+          } else if (!data.accounts.some((a: any) => a.status === "reauth_required")) {
+            memoryState.needsReauth = false;
+            memoryState.syncError = undefined;
+          }
         }
       }
     } catch (err) {

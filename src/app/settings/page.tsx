@@ -59,6 +59,7 @@ export default function SettingsPage() {
     syncAll,
     isSyncing,
     disconnectAccount,
+    disconnectGoogle,
     updateAccount,
     purgeDemoData,
     resetToDemo,
@@ -240,9 +241,10 @@ export default function SettingsPage() {
     }
   };
 
-  const handleStartOAuth = (type: AccountType) => {
+  const handleStartOAuth = (type: AccountType, emailHint?: string) => {
     setShowAddAccountModal(false);
-    window.location.href = `/api/auth/google?account_type=${encodeURIComponent(type)}`;
+    const emailParam = emailHint ? `&login_hint=${encodeURIComponent(emailHint)}` : "";
+    window.location.href = `/api/auth/google?account_type=${encodeURIComponent(type)}${emailParam}`;
   };
 
   const handleToggleService = async (account: ConnectedAccount, service: GoogleServiceType) => {
@@ -416,6 +418,25 @@ export default function SettingsPage() {
               </div>
 
               <div className="flex items-center gap-2 flex-wrap">
+                {connectedAccounts.length > 0 && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={async () => {
+                      if (confirm("Disconnect and clear all connected Google accounts from NEXUS?")) {
+                        await disconnectGoogle();
+                        await fetchStatus();
+                        setStatusMsg("All Google accounts disconnected.");
+                        setTimeout(() => setStatusMsg(""), 3000);
+                      }
+                    }}
+                    className="border-hairline text-terracotta hover:bg-terracotta/10 hover:text-terracotta text-xs h-8"
+                  >
+                    <Trash2 className="w-3.5 h-3.5 mr-1" />
+                    <span>Disconnect All</span>
+                  </Button>
+                )}
+
                 <Button
                   size="sm"
                   onClick={() => setShowAddAccountModal(true)}
@@ -506,7 +527,7 @@ export default function SettingsPage() {
                           {isReauth ? (
                             <button
                               type="button"
-                              onClick={() => handleStartOAuth(account.accountType)}
+                              onClick={() => handleStartOAuth(account.accountType, account.email)}
                               className="px-2.5 py-1.5 rounded-md bg-amber-500 hover:bg-amber-600 text-white font-medium text-xs flex items-center gap-1 shadow-xs"
                             >
                               <RefreshCw className="w-3 h-3" />
@@ -531,6 +552,7 @@ export default function SettingsPage() {
                             onClick={async () => {
                               if (confirm(`Disconnect account ${account.email}? Synced calendar and task items from this account will be removed.`)) {
                                 await disconnectAccount(account.id);
+                                await fetchStatus();
                                 setStatusMsg(`Account ${account.email} disconnected.`);
                                 setTimeout(() => setStatusMsg(""), 3000);
                               }

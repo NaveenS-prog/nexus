@@ -131,10 +131,13 @@ export function getStoredCredentials(overrideCreds?: Partial<IntegrationCredenti
   // 3. Read from HttpOnly cookie session (persists across serverless cold starts & restarts)
   const cookieCreds = getCookieCreds();
 
-  // Merge googleAccounts dictionaries across sources
+  // Disk file credentials represent the authoritative state; fallback to cookie only if disk has no account config
+  const baseAccounts = fileCreds.googleAccounts !== undefined
+    ? fileCreds.googleAccounts
+    : (cookieCreds.googleAccounts !== undefined ? cookieCreds.googleAccounts : undefined);
+
   const mergedAccounts: Record<string, GoogleAccountCredentials> = {
-    ...(fileCreds.googleAccounts || {}),
-    ...(cookieCreds.googleAccounts || {}),
+    ...(baseAccounts || {}),
     ...(overrideCreds?.googleAccounts || {}),
   };
 
@@ -159,10 +162,9 @@ export function getStoredCredentials(overrideCreds?: Partial<IntegrationCredenti
   };
 
   // 4. Backward Compatibility & Automatic Migration:
-  // If no multi-accounts exist yet, but legacy single-account googleRefreshToken is present,
-  // automatically create a default Personal Google Account record!
   const accountKeys = Object.keys(mergedAccounts);
-  if (accountKeys.length === 0 && merged.googleRefreshToken) {
+  // Only if multi-accounts were never configured at all (baseAccounts undefined), but legacy token exists
+  if (baseAccounts === undefined && merged.googleRefreshToken) {
     const defaultId = "acct-google-primary";
     const migratedAccount: GoogleAccountCredentials = {
       id: defaultId,
@@ -257,7 +259,7 @@ export function saveStoredCredentials(creds: Partial<IntegrationCredentials>): I
     if (v === null || v === "") {
       delete (merged as any)[k];
     } else if (k === "googleAccounts" && typeof v === "object") {
-      merged.googleAccounts = { ...(merged.googleAccounts || {}), ...(v as any) };
+      merged.googleAccounts = { ...(v as any) };
     } else if (v !== undefined) {
       (merged as any)[k] = v;
     }
@@ -345,11 +347,21 @@ export function removeGoogleAccount(accountId: string): IntegrationCredentials {
     googleAccounts: accounts,
     googleRefreshToken: remaining.length > 0 ? remaining[0].refreshToken : "",
     googleAccessToken: remaining.length > 0 ? remaining[0].accessToken : "",
-    googleTokenExpiry: remaining.length > 0 ? remaining[0].tokenExpiry : 0,
     googleAccountEmail: remaining.length > 0 ? remaining[0].email : "",
   };
 
-  return saveStoredCredentials(toSave);
+  const updated = saveStoredCredentials(toSave);
+  if (remaining.length === 0) {
+    delete (updated as any).googleRefreshToken;
+    delete (updated as any).googleAccessToken;
+    delete (updated as any).googleTokenExpiry;
+    delete (updated as any).googleAccountEmail;
+    persistToDisk(updated);
+  } else {
+    updated.googleTokenExpiry = remaining[0].tokenExpiry;
+    persistToDisk(updated);
+  }
+  return updated;
 }
 
 /**
@@ -373,7 +385,7 @@ export function clearGoogleCredentials(): IntegrationCredentials {
   delete existing.googleTokenExpiry;
   delete existing.googleClientId;
   delete existing.googleClientSecret;
-  delete existing.googleAccounts;
+  existing.googleAccounts = {};
   delete existing.googleAccountEmail;
 
   persistToDisk(existing);

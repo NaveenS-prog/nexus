@@ -20,7 +20,7 @@ import { isExamItem, isActionableTaskOrAssignment } from "@/lib/nlp/itemClassifi
 
 export function Sidebar() {
   const pathname = usePathname();
-  const { isSyncing, lastSyncedText, syncAll, items, syncError, needsReauth } = useNexusStore();
+  const { isSyncing, lastSyncedText, syncAll, items, syncError, needsReauth, connectedAccounts } = useNexusStore();
 
   const examsCount = useMemo(() => {
     return items.filter((i) => isExamItem(i) && i.status !== "completed").length;
@@ -139,7 +139,7 @@ export function Sidebar() {
       {/* Bottom Sync Health (Quiet & Clean) */}
       <div className="p-3 border-t border-hairline">
         <div className="px-2.5 py-2 rounded-sm bg-surface border border-hairline flex items-center justify-between text-xs">
-          {needsReauth ? (
+          {needsReauth && connectedAccounts && connectedAccounts.length > 0 ? (
             <Link
               href="/settings"
               className="flex items-center gap-2 text-terracotta hover:underline transition-colors w-full"
