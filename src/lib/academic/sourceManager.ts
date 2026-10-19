@@ -62,6 +62,22 @@ const IGNORED_DIR_NAMES = new Set([
   "venv",
 ]);
 
+export function sanitizeFolderPath(rawPath: string): string {
+  let clean = (rawPath || "").trim();
+  // Strip outer quotes if copied as path on Windows (e.g. "D:\SEM 3")
+  clean = clean.replace(/^["']+|["']+$/g, "").trim();
+
+  // Expand ~ or ~/ or ~\ to user's home directory
+  if (clean === "~") {
+    clean = os.homedir();
+  } else if (clean.startsWith("~/") || clean.startsWith("~\\")) {
+    clean = path.join(os.homedir(), clean.slice(2));
+  }
+
+  // Normalize slashes for OS
+  return path.normalize(path.resolve(clean));
+}
+
 function getSourcesConfigPath(): string {
   return path.join(process.cwd(), "academic_sources.json");
 }
@@ -104,7 +120,7 @@ function getDefaultSources(): WatchSource[] {
       .filter((d) => d.length > 0);
 
     for (const d of extraDirs) {
-      const resolved = path.resolve(d);
+      const resolved = sanitizeFolderPath(d);
       if (!sources.some((s) => s.path.toLowerCase() === resolved.toLowerCase())) {
         sources.push({
           id: `source-${crypto.randomBytes(4).toString("hex")}`,
@@ -128,7 +144,17 @@ export function getWatchSources(): WatchSource[] {
       const content = fs.readFileSync(configPath, "utf-8");
       const parsed = JSON.parse(content);
       if (Array.isArray(parsed.sources)) {
-        return parsed.sources;
+        // Filter out sandbox paths on Windows if they do not exist
+        const cleaned = parsed.sources.filter((s: WatchSource) => {
+          if (process.platform === "win32" && s.path && s.path.startsWith("/home/")) {
+            return false;
+          }
+          return true;
+        });
+        if (cleaned.length !== parsed.sources.length) {
+          saveWatchSources(cleaned);
+        }
+        return cleaned;
       }
     }
   } catch (err) {
@@ -150,7 +176,7 @@ export function saveWatchSources(sources: WatchSource[]): void {
 }
 
 export function addWatchSource(folderPath: string, label?: string): WatchSource {
-  const resolved = path.resolve(folderPath.trim());
+  const resolved = sanitizeFolderPath(folderPath);
   const sources = getWatchSources();
 
   const existing = sources.find((s) => s.path.toLowerCase() === resolved.toLowerCase());
@@ -163,7 +189,11 @@ export function addWatchSource(folderPath: string, label?: string): WatchSource 
 
   // Ensure folder exists on disk
   if (!fs.existsSync(resolved)) {
-    fs.mkdirSync(resolved, { recursive: true });
+    try {
+      fs.mkdirSync(resolved, { recursive: true });
+    } catch (err: any) {
+      throw new Error(`Folder path does not exist and could not be created: ${err.message}`);
+    }
   }
 
   const newSource: WatchSource = {

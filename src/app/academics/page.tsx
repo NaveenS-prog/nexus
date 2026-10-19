@@ -331,6 +331,31 @@ export default function AcademicsPage() {
     }
   };
 
+  // Remove a watched folder source
+  const handleRemoveFolder = async (sourceId: string, folderName: string) => {
+    if (typeof window !== "undefined" && !window.confirm(`Stop watching folder "${folderName}"?`)) {
+      return;
+    }
+    try {
+      const res = await fetch("/api/academic/sources", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "remove", id: sourceId }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setStatusMessage(`Removed watched folder "${folderName}".`);
+        await loadWatchSources();
+      } else {
+        setStatusMessage(data.error || "Failed to remove folder.");
+      }
+    } catch (err: any) {
+      setStatusMessage(err.message || "Failed to remove folder.");
+    } finally {
+      setTimeout(() => setStatusMessage(null), 4000);
+    }
+  };
+
   // Open / Reveal File in OS File Explorer
   const handleOpenFile = async (filePath: string) => {
     try {
@@ -552,14 +577,14 @@ export default function AcademicsPage() {
       </div>
 
       {/* Live Watched Sources Strip */}
-      {watchSources.length > 0 && (
+      {watchSources.length > 0 ? (
         <div className="p-3 bg-surface border border-hairline rounded-md text-xs flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-xs">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="font-mono text-[10px] text-ink-muted uppercase tracking-wider">Watched Folders:</span>
             {watchSources.map((s) => (
               <div
                 key={s.id}
-                className="inline-flex items-center gap-2 px-2.5 py-1 rounded bg-canvas border border-hairline text-ink text-[11px] font-mono"
+                className="inline-flex items-center gap-2 px-2.5 py-1 rounded bg-canvas border border-hairline text-ink text-[11px] font-mono group"
               >
                 <Folder className="w-3.5 h-3.5 text-olive shrink-0" />
                 <span className="font-semibold text-ink">{s.label}</span>
@@ -587,18 +612,51 @@ export default function AcademicsPage() {
                   >
                     <FolderOpen className="w-3 h-3" />
                   </button>
+                  <button
+                    onClick={() => handleRemoveFolder(s.id, s.label)}
+                    className="p-1 hover:text-red-500 text-ink-muted transition-colors"
+                    title="Stop watching this folder"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
                 </div>
               </div>
             ))}
           </div>
 
+          <div className="flex items-center gap-3 self-start md:self-auto shrink-0">
+            <button
+              onClick={() => setShowAddFolderModal(true)}
+              className="text-[11px] font-mono text-olive hover:underline flex items-center gap-1"
+            >
+              <Plus className="w-3 h-3" />
+              <span>Add folder</span>
+            </button>
+            <span className="text-hairline">|</span>
+            <button
+              onClick={handleScanSources}
+              disabled={isScanningSources}
+              className="text-[11px] font-mono text-olive hover:underline flex items-center gap-1.5"
+            >
+              <RefreshCw className={`w-3 h-3 ${isScanningSources ? "animate-spin" : ""}`} />
+              <span>Sync now</span>
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="p-3 bg-surface border border-hairline rounded-md text-xs flex items-center justify-between gap-3 shadow-xs">
+          <div className="flex items-center gap-2">
+            <Folder className="w-3.5 h-3.5 text-olive shrink-0" />
+            <span className="text-ink-secondary text-[11px]">
+              No folders watched yet. Connect a folder on your drive to automatically monitor and organize coursework.
+            </span>
+          </div>
           <button
-            onClick={handleScanSources}
-            disabled={isScanningSources}
-            className="text-[11px] font-mono text-olive hover:underline flex items-center gap-1.5 self-start md:self-auto shrink-0"
+            onClick={() => setShowAddFolderModal(true)}
+            className="text-[11px] font-mono text-olive hover:underline flex items-center gap-1 shrink-0"
           >
-            <RefreshCw className={`w-3 h-3 ${isScanningSources ? "animate-spin" : ""}`} />
-            <span>Sync now</span>
+            <Plus className="w-3 h-3" />
+            <span>Add folder</span>
           </button>
         </div>
       )}
